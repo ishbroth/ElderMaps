@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { distanceMeters, getFix, watchFix, type LatLng } from './lib/geo';
 import { findPlace, loadGoogle } from './lib/google';
 import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
-import { crestSvg, glyph, glyphForCategory } from './lib/glyphs';
+import { glyph, glyphForCategory } from './lib/glyphs';
+import { crestSvg, loadCrests } from './lib/crests';
 import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, type LookId } from './lib/styles';
@@ -25,6 +26,8 @@ interface Spot {
   note: string;
   /** Which pictogram, when the kind has more than one (farm, mill or mine for a village). */
   pic?: string;
+  /** The country, for the crest of a city. */
+  iso2?: string;
 }
 
 const MAX_ZOOM = 11; // the map stops at about city level: the crest over downtown and the key places round it
@@ -47,7 +50,7 @@ function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, o
   el.setAttribute('aria-label', spot.name);
   const icon = document.createElement('span');
   icon.className = 'em-ico';
-  icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real) : glyph(spot.pic ?? (spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind));
+  icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real, spot.iso2) : glyph(spot.pic ?? (spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind));
   el.appendChild(icon);
   if (labelled) {
     const label = document.createElement('span');
@@ -112,7 +115,7 @@ export default function App() {
   // ---- start: Google and the world's data ----
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadGoogle(), loadWorld()]).then(([, w]) => {
+    Promise.all([loadGoogle(), loadWorld(), loadCrests()]).then(([, w]) => {
       if (cancelled || !mapBox.current) return;
       setWorld(w);
       const map = new google.maps.Map(mapBox.current, {
@@ -187,7 +190,7 @@ export default function App() {
         if (!inView(lat, lng)) continue;
         const province = world.provinceOfCountry(iso2);
         const pic = kind === 'village' ? (['farm', 'mill', 'mine'] as const)[hashName(name) % 3] : undefined;
-        add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic,
+        add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,
           note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 8);
         shown++;
       }
@@ -471,7 +474,7 @@ export default function App() {
         {selected && province && !trip && (
           <aside className="em-card" style={{ ['--prov' as string]: province.ink }}>
             <button type="button" className="em-card-x" onClick={() => setSelected(null)} aria-label="Close">×</button>
-            <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: selected.kind === 'crest' ? crestSvg(selected.real) : glyph(selected.pic ?? (selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind)) }} />
+            <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: selected.kind === 'crest' ? crestSvg(selected.real, selected.iso2) : glyph(selected.pic ?? (selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind)) }} />
             <h2>{selected.name}</h2>
             <p className="em-card-kind">{KIND_TITLE[selected.kind] ?? selected.kind} · {province.name}</p>
             {selected.real !== selected.name && <p className="em-card-real">in the old tongue: {selected.real}</p>}

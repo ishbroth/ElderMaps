@@ -1,0 +1,10 @@
+const fs = require('fs');
+let a = fs.readFileSync('src/App.tsx', 'utf8');
+const rep = (x, y, l) => { if (!a.includes(x)) throw new Error('missing ' + l); a = a.replace(x, () => y); };
+rep("import { crestSvg, glyph, glyphForCategory } from './lib/glyphs';", "import { glyph, glyphForCategory } from './lib/glyphs';\nimport { crestSvg, loadCrests } from './lib/crests';", 'imp');
+rep("  pic?: string;", "  pic?: string;\n  /** The country, for the crest of a city. */\n  iso2?: string;", 'spot');
+rep("icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real) :", "icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real, spot.iso2) :", 'pin');
+rep("add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic,", "add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,", 'add');
+rep("__html: selected.kind === 'crest' ? crestSvg(selected.real) :", "__html: selected.kind === 'crest' ? crestSvg(selected.real, selected.iso2) :", 'card');
+rep("Promise.all([loadGoogle(), loadWorld()]).then(([, w]) => {", "Promise.all([loadGoogle(), loadWorld(), loadCrests()]).then(([, w]) => {", 'load');
+fs.writeFileSync('src/App.tsx', a);

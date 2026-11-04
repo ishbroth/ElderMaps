@@ -123,5 +123,5 @@ button { font: inherit; }
 .em-oblivion { --crest-bg: #4a3520; }
 .em-k-village .em-ico { width: 20px; height: 20px; }
 .em-k-town .em-ico { width: 27px; height: 27px; }
-.em-k-crest .em-ico { width: 38px; height: 38px; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)); opacity: 0.95; }
+.em-k-crest .em-ico { width: 44px; height: 44px; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)); opacity: 0.95; }
 .em-k-crest.em-seen .em-ico { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--pin) 60%, transparent)); }
