@@ -23,3 +23,7 @@ Research notes: `../ElderMaps-research.md`.
 - **Village** (a farm, a mill or a mine): any other city of 60,000 or more (Parma, Lorain, Canton).
 
 `npm run cities` rebuilds `public/data/cities.json` from the metro index and GeoNames (see the header of `_tools/build-cities.mjs`).
+
+## Icon
+
+`npm run icon` draws the store/web icon (an old map half unfurled, with the navigation arrow on it) into `resources/` and `public/`.
