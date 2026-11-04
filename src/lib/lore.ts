@@ -1,0 +1,126 @@
+// The Earth, re-drawn as Tamriel and its neighbours. Every country belongs to one of the provinces (or islands or lost continents), and each province has its
+// own mood: a tint for the land, an ink for its labels, and a way of naming towns. Real names are bent to fit: "Seattle" becomes "Seattlestead" in Skyrim,
+// "Seattle-mont" in High Rock. The bending is by a hash of the name, so a place is always called the same thing.
+
+export type ProvinceId =
+  | 'skyrim' | 'highrock' | 'hammerfell' | 'orsinium' | 'elsweyr' | 'valenwood' | 'morrowind' | 'summerset' | 'shivering' | 'cyrodiil' | 'blackmarsh' | 'solstheim' | 'atmora';
+
+export interface Province {
+  id: ProvinceId;
+  name: string;
+  /** What the real land is, in small print. */
+  real: string;
+  /** The tint laid over the land, and the ink of its labels and crests. */
+  tint: string;
+  ink: string;
+  /** Where its name is written on the world map. */
+  label: { lat: number; lng: number };
+  /** How names are made: {b} is the real name, cut to a stem. */
+  patterns: string[];
+  /** One line of what the land is like. */
+  blurb: string;
+}
+
+export const PROVINCES: Record<ProvinceId, Province> = {
+  skyrim: { id: 'skyrim', name: 'Skyrim', real: 'Scandinavia', tint: '#8fa3b5', ink: '#f2f2ee', label: { lat: 63, lng: 15 }, blurb: 'Snow, pine and old stone. The home of the Nords.',
+    patterns: ['{b}stead', '{b}helm', '{b}hold', 'Fort {b}', '{b}winter', '{b}fall', '{b}wood', '{b} Watch'] },
+  highrock: { id: 'highrock', name: 'High Rock', real: 'Europe and the British Isles', tint: '#7c5a8a', ink: '#e6dff0', label: { lat: 49, lng: 9 }, blurb: 'Castles, fog and fjords. The Bretons are knights and mages.',
+    patterns: ['{b}mont', '{b}ford', '{b}vale', 'Castle {b}', '{b}wood', '{b}hall', '{b}ton', 'Fort {b}'] },
+  hammerfell: { id: 'hammerfell', name: 'Hammerfell', real: 'North Africa and Arabia', tint: '#c79a4e', ink: '#2b1a08', label: { lat: 27, lng: 22 }, blurb: 'Sandstone domes under a hard sun. The Redguards are the finest swordsmen.',
+    patterns: ['{b}ak', '{b}kar', 'Port {b}', '{b} Oasis', '{b}bek', '{b}nal', '{b}ra'] },
+  orsinium: { id: 'orsinium', name: 'Orsinium', real: 'Sub-Saharan Africa', tint: '#6f7f56', ink: '#e5ecd6', label: { lat: -8, lng: 23 }, blurb: 'Stronghold country: basalt, iron and the Orcs\' stubborn pride.',
+    patterns: ['{b}gash', 'Dun {b}', '{b}-bur', 'Fort {b}', '{b}gul', 'Mor {b}', '{b}ukh'] },
+  elsweyr: { id: 'elsweyr', name: 'Elsweyr', real: 'The Indian subcontinent', tint: '#d8a24a', ink: '#3a2410', label: { lat: 22, lng: 79 }, blurb: 'Moon-sugar fields, savanna and sun-baked clay. Khajiit trade caravans cross it.',
+    patterns: ['{b}jit', '{b}dar', '{b} Sands', '{b}ra', 'Ri{b}', '{b}khan'] },
+  valenwood: { id: 'valenwood', name: 'Valenwood', real: 'China, Southeast Asia and southwest Asia', tint: '#4d7a3a', ink: '#e5f1d3', label: { lat: 33, lng: 105 }, blurb: 'Canopy cities in living trees. The Bosmer eat no plant they have not asked.',
+    patterns: ['{b}wynn', '{b}wood', '{b}ael', '{b} Grove', 'Green {b}', '{b}rim'] },
+  morrowind: { id: 'morrowind', name: 'Morrowind', real: 'Russia, Siberia and the steppe', tint: '#8c4a3a', ink: '#f1d9c8', label: { lat: 60, lng: 85 }, blurb: 'Ash, basalt and mushroom towers beneath the red volcano. The Dunmer endure.',
+    patterns: ['{b} Mora', 'Ald {b}', '{b}vvec', 'Tel {b}', 'Sadri {b}', '{b}ven', 'Vos {b}'] },
+  summerset: { id: 'summerset', name: 'Summerset Isle', real: 'Japan', tint: '#d6c27a', ink: '#2a2610', label: { lat: 37, lng: 138 }, blurb: 'Crystal spires and gardens in the sun. The Altmer count their years in thousands.',
+    patterns: ['{b}dil', '{b}iel', '{b}mar', '{b}wyn', 'Alin {b}', '{b}sethil'] },
+  shivering: { id: 'shivering', name: 'The Shivering Isles', real: 'Australia and Indonesia', tint: '#c15a9c', ink: '#fbe6f5', label: { lat: -24, lng: 134 }, blurb: 'Sheogorath\'s realm of Mania and Dementia. Nothing is quite as it seems.',
+    patterns: ['{b} Bliss', 'New {b}', '{b}-Split', '{b}nettle', 'Crooked {b}', '{b} Crucible'] },
+  cyrodiil: { id: 'cyrodiil', name: 'Cyrodiil', real: 'North America', tint: '#a9863f', ink: '#2c2412', label: { lat: 42, lng: -100 }, blurb: 'The Imperial heartland: marble, rivers and roads that all lead to one city.',
+    patterns: ['{b}ia', '{b}um', '{b}us', '{b}icus', 'Fort {b}', '{b}anium'] },
+  blackmarsh: { id: 'blackmarsh', name: 'Black Marsh', real: 'South America', tint: '#3f6a5a', ink: '#d9efe3', label: { lat: -12, lng: -60 }, blurb: 'Mangrove and hist-tree swamp, home of the Argonians.',
+    patterns: ['{b} Hist', 'Shadow {b}', '{b}hill', '{b}moor', '{b}-Tava', 'Hist {b}'] },
+  solstheim: { id: 'solstheim', name: 'Solstheim', real: 'Greenland', tint: '#a8b8c4', ink: '#f2f2ee', label: { lat: 73, lng: -41 }, blurb: 'Snow in the north, ash in the south. Raven Rock and the Skaal.',
+    patterns: ['Fort {b}', '{b} Rock', 'Raven {b}', '{b}stead', 'Tel {b}'] },
+  atmora: { id: 'atmora', name: 'Atmora', real: 'Antarctica', tint: '#d4e3ee', ink: '#1d2a36', label: { lat: -78, lng: 20 }, blurb: 'The frozen homeland the Nords left behind.',
+    patterns: ['{b}thar', '{b}mor', '{b}ur', 'Old {b}'] },
+};
+
+const SCANDI = new Set(['NOR', 'SWE', 'FIN', 'DNK', 'ISL']);
+const NORTH_AFRICA_ARABIA = new Set(['SAU', 'YEM', 'OMN', 'ARE', 'QAT', 'KWT', 'BHR', 'JOR', 'IRQ', 'SYR', 'LBN', 'ISR', 'PSX', 'PSE', 'CYP']);
+const SUBCONTINENT = new Set(['IND', 'PAK', 'BGD', 'LKA', 'NPL', 'BTN', 'MDV']);
+const STEPPE = new Set(['RUS', 'KAZ', 'MNG']);
+const SOUTHWEST_ASIA = new Set(['IRN', 'TUR', 'AFG', 'GEO', 'ARM', 'AZE', 'UZB', 'TKM', 'TJK', 'KGZ']);
+const CHINA_SEA = new Set(['CHN', 'TWN', 'PRK', 'KOR', 'THA', 'VNM', 'LAO', 'KHM', 'MMR', 'MYS', 'PHL', 'BRN', 'SGP', 'TLS']);
+const SHIVERING = new Set(['AUS', 'NZL', 'IDN', 'PNG', 'FJI', 'SLB', 'VUT', 'NCL']);
+
+/** The province of a country, by its ISO three-letter code and continent (as Natural Earth writes them). */
+export function provinceOf(iso3: string, continent: string, subregion: string): ProvinceId {
+  if (iso3 === 'GRL') return 'solstheim';
+  if (iso3 === 'ATA' || continent === 'Antarctica') return 'atmora';
+  if (SCANDI.has(iso3)) return 'skyrim';
+  if (iso3 === 'JPN') return 'summerset';
+  if (STEPPE.has(iso3)) return 'morrowind';
+  if (SUBCONTINENT.has(iso3)) return 'elsweyr';
+  if (SHIVERING.has(iso3) || continent === 'Oceania') return 'shivering';
+  if (NORTH_AFRICA_ARABIA.has(iso3)) return 'hammerfell';
+  if (CHINA_SEA.has(iso3) || SOUTHWEST_ASIA.has(iso3)) return 'valenwood';
+  if (continent === 'Africa') return /Northern/i.test(subregion) ? 'hammerfell' : 'orsinium';
+  if (continent === 'Europe') return 'highrock';
+  if (continent === 'North America') return 'cyrodiil';
+  if (continent === 'South America') return 'blackmarsh';
+  if (continent === 'Asia') return 'valenwood';
+  return 'cyrodiil';
+}
+
+/** Each real point on Earth, to a province, for places that are only coordinates (a metro, a waterfall): the nearest country's province by its bounding box. */
+export interface CountryBox { province: ProvinceId; iso3: string; minLat: number; maxLat: number; minLng: number; maxLng: number; area: number }
+
+// ---- names ----
+const hash = (s: string): number => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+
+/** The stem of a real name: first word(s), letters only, accents folded, with a closing vowel dropped so a suffix joins neatly. */
+function stem(name: string): string {
+  const folded = name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)/g, '').split(/[,/]/)[0].replace(/[^A-Za-z' -]/g, '').trim();
+  const words = folded.split(/\s+/).filter(Boolean);
+  const first = words[0] ?? folded;
+  return (words.length > 1 && first.length <= 4 ? `${first} ${words[1]}` : first).slice(0, 14);
+}
+
+/** The lore name of a real place in a province. Famous names stay recognisable; it only adds the flavour of the land. */
+export function loreName(real: string, province: ProvinceId): string {
+  const p = PROVINCES[province];
+  const base = stem(real);
+  if (!base) return real;
+  const pattern = p.patterns[hash(real) % p.patterns.length];
+  // a pattern that glues a suffix on reads better without the name's own closing vowel
+  const glued = /\{b\}[a-z-]/.test(pattern) || /[a-z]\{b\}/.test(pattern);
+  const b = glued && /[aeiou]$/i.test(base) && base.length > 4 ? base.slice(0, -1) : base;
+  const out = pattern.replace('{b}', b);
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
+/** What a kind of place is called in the games. */
+export const KIND_TITLE: Record<string, string> = {
+  crest: 'Hold capital', keep: 'Jarl\'s Keep', landmark: 'Landmark', town: 'Town', village: 'Settlement',
+  waterfall: 'Waterfall', cave: 'Cave', ruin: 'Ancient Ruin', fort: 'Fort', camp: 'Camp', lighthouse: 'Beacon', volcano: 'Fire Mountain',
+  spring: 'Hot Spring', pass: 'Mountain Pass', glacier: 'Glacier', grove: 'Wild Grove', shrine: 'Shrine', peak: 'Peak', stones: 'Standing Stones',
+};
+
+/** The seas and oceans, written across the water. */
+export const SEAS: { name: string; at: { lat: number; lng: number }; big: boolean }[] = [
+  { name: 'Padomaic Ocean', at: { lat: 8, lng: -150 }, big: true },
+  { name: 'Eltheric Ocean', at: { lat: 22, lng: -42 }, big: true },
+  { name: 'Southern Sea', at: { lat: -22, lng: 82 }, big: true },
+  { name: 'Sea of Ghosts', at: { lat: 74, lng: 12 }, big: false },
+  { name: 'Inner Sea', at: { lat: 34.5, lng: 18 }, big: false },
+  { name: 'Topal Sea', at: { lat: 15.5, lng: -74 }, big: false },
+  { name: 'Abecean Sea', at: { lat: 38, lng: 132.5 }, big: false },
+  { name: 'Iliac Bay', at: { lat: 43, lng: -6 }, big: false },
+  { name: 'Eastern Sea', at: { lat: 30, lng: 125 }, big: false },
+  { name: 'Shivering Sea', at: { lat: -33, lng: 158 }, big: false },
+];
