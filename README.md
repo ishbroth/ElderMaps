@@ -15,3 +15,11 @@ npm run dev
 
 Data: `public/data/countries.json` (Natural Earth), `metros-index.json` and `keys.json` (from WastelandMaps' metro files, `npm run keys`), `wild.json` (Wikidata, `npm run wild`).
 Research notes: `../ElderMaps-research.md`.
+
+## Marks for cities
+
+- **Crest** (a shield with a device): the anchor city of a metro of 1,000,000 or more (Cleveland, whose city is under a million but whose metro is over). Each name always gets the same shield and device.
+- **Town** (two houses): the anchor of a smaller metro (200,000 to 1,000,000) that stands on its own (Akron, Youngstown).
+- **Village** (a farm, a mill or a mine): any other city of 60,000 or more (Parma, Lorain, Canton).
+
+`npm run cities` rebuilds `public/data/cities.json` from the metro index and GeoNames (see the header of `_tools/build-cities.mjs`).

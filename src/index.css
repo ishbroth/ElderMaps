@@ -115,3 +115,13 @@ button { font: inherit; }
   .em-compass { top: 130px; width: 42px; height: 42px; }
   .em-province b { font-size: 15px; }
 }
+
+/* ---- the soft tint of each province, blurred so one land fades into the next ---- */
+.em-tint { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; mix-blend-mode: soft-light; }
+.em-tint-oblivion { mix-blend-mode: multiply; }
+.em-app { --crest-bg: #11161b; }
+.em-oblivion { --crest-bg: #4a3520; }
+.em-k-village .em-ico { width: 20px; height: 20px; }
+.em-k-town .em-ico { width: 27px; height: 27px; }
+.em-k-crest .em-ico { width: 38px; height: 38px; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)); opacity: 0.95; }
+.em-k-crest.em-seen .em-ico { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--pin) 60%, transparent)); }

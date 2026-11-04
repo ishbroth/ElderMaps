@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { distanceMeters, getFix, watchFix, type LatLng } from './lib/geo';
 import { findPlace, loadGoogle } from './lib/google';
 import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
-import { glyph, glyphForCategory } from './lib/glyphs';
+import { crestSvg, glyph, glyphForCategory } from './lib/glyphs';
 import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, type LookId } from './lib/styles';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
+import TintLayer from './TintLayer';
 
 /** One thing on the map that can be picked. */
 interface Spot {
@@ -22,12 +23,16 @@ interface Spot {
   fame: number;
   /** A line about it (a hold capital's metro size, a wild place's kind). */
   note: string;
+  /** Which pictogram, when the kind has more than one (farm, mill or mine for a village). */
+  pic?: string;
 }
 
 const MAX_ZOOM = 11; // the map stops at about city level: the crest over downtown and the key places round it
 const SEEN_KEY = 'eldermaps:seen';
 
-const crestCount = (zoom: number): number => (zoom <= 3 ? 18 : zoom === 4 ? 45 : zoom === 5 ? 110 : zoom === 6 ? 260 : zoom === 7 ? 600 : zoom === 8 ? 1200 : zoom === 9 ? 2500 : 5000);
+const townCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 400 : 1e9);
+const villageCount = (zoom: number): number => (zoom < 7 ? 0 : zoom === 7 ? 250 : 1e9);
+const crestCount = (zoom: number): number => (zoom <= 3 ? 18 : zoom === 4 ? 45 : zoom === 5 ? 110 : zoom === 6 ? 260 : 1e9);
 const wildFame = (zoom: number): number => (zoom <= 4 ? 1e9 : zoom === 5 ? 90 : zoom === 6 ? 55 : zoom === 7 ? 32 : 0);
 
 function loadSeen(): Set<string> {
@@ -42,7 +47,7 @@ function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, o
   el.setAttribute('aria-label', spot.name);
   const icon = document.createElement('span');
   icon.className = 'em-ico';
-  icon.innerHTML = glyph(spot.kind === 'crest' ? 'crest' : spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind === 'keep' ? 'keep' : spot.kind === 'town' ? 'town' : spot.kind);
+  icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real) : glyph(spot.pic ?? (spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind));
   el.appendChild(icon);
   if (labelled) {
     const label = document.createElement('span');
@@ -130,9 +135,10 @@ export default function App() {
     if (!tripRef.current) map.setOptions({ styles: WORLD_STYLES[look], backgroundColor: PALETTE[look].backdrop });
     map.data.setStyle((feature) => {
       const p = PROVINCES[feature.getProperty('province') as ProvinceId];
-      return { fillColor: p.tint, fillOpacity: look === 'skyrim' ? 0.27 : 0.2, strokeWeight: 0, clickable: false, visible: !tripRef.current && zoomShown <= 6 };
+      void p;
+      return { visible: false, clickable: false };
     });
-  }, [look, ready, trip === null, zoomShown <= 6]);
+  }, [look, ready]);
 
   // ---- what is on the map at this view ----
   const refresh = useCallback(() => {
@@ -158,7 +164,8 @@ export default function App() {
       if (proj) {
         const pt = proj.fromLatLngToPoint(new google.maps.LatLng(spot.lat, spot.lng));
         if (pt) { x = pt.x * scale; y = pt.y * scale; }
-        if (taken.some((q) => Math.abs(q.x - x) < 19 && Math.abs(q.y - y) < 19)) return;
+        const room = spot.kind === 'crest' ? 40 : 19;
+        if (taken.some((q) => Math.abs(q.x - x) < room && Math.abs(q.y - y) < room)) return;
         taken.push({ x, y });
         const w = Math.min(190, spot.name.length * 9);
         if (labelled && written.some((q) => Math.abs(q.x - x) < (q.w + w) / 2 + 8 && Math.abs(q.y - y) < 25)) labelled = false;
@@ -167,37 +174,42 @@ export default function App() {
       wanted.set(spot.id, { spot, labelled });
     };
 
-    // the hold capitals: the cities, biggest first, more of them as you come in
-    const allowed = crestCount(zoom);
-    let crests = 0;
-    // two crests never sit on top of each other: a smaller city yields to a bigger one within about 80 pixels
-    const gap = (80 / (256 * 2 ** zoom)) * 360;
-    const placed: { lat: number; lng: number }[] = [];
-    for (let i = 0; i < world.metros.length && i < allowed && crests < 140; i++) {
-      const m = world.metros[i];
-      if (!inView(m.lat, m.lng)) continue;
-      if (placed.some((q) => Math.abs(q.lat - m.lat) < gap * 0.75 && Math.abs(q.lng - m.lng) < gap)) continue;
-      placed.push(m);
-      const province = world.provinceOfCountry(m.country);
-      add({ id: `m:${m.id}`, kind: 'crest', real: m.name, name: loreName(m.name, province), province, lat: m.lat, lng: m.lng, fame: m.pop, note: `${Math.round(m.pop / 1000).toLocaleString('en-US')} thousand souls` }, true);
-      crests++;
+    // the cities, biggest first and more of them as you come in: crests (the anchors of metros over a million), towns (smaller metros that stand alone),
+    // and villages (every other city over 60,000, drawn as a farm, a mill or a mine)
+    const hashName = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h; };
+    const tiers: [typeof world.cities.crest, number, 'crest' | 'town' | 'village', number][] = [
+      [world.cities.crest, crestCount(zoom), 'crest', 140], [world.cities.town, townCount(zoom), 'town', 110], [world.cities.village, villageCount(zoom), 'village', 110],
+    ];
+    for (const [list, allowed, kind, cap] of tiers) {
+      let shown = 0;
+      for (let i = 0; i < list.length && i < allowed && shown < cap; i++) {
+        const [name, lat, lng, pop, , iso2] = list[i];
+        if (!inView(lat, lng)) continue;
+        const province = world.provinceOfCountry(iso2);
+        const pic = kind === 'village' ? (['farm', 'mill', 'mine'] as const)[hashName(name) % 3] : undefined;
+        add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic,
+          note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 8);
+        shown++;
+      }
     }
     // the key places round a city: the keep, the best-known landmarks, the towns and villages about it
+    // the key places only gather round the cities marked as crests or towns
+    const anchors = new Set([...world.cities.crest, ...world.cities.town].map((c) => `${c[0]}|${c[5]}`));
     if (zoom >= 9) {
       let count = 0;
       // how many of each kind round a city, by how close in the view is: a few at first, all of them at the closest
       const room = zoom === 9 ? 2 : zoom === 10 ? 4 : 7;
       for (const m of world.metros) {
         if (count > 160) break;
-        if (!inView(m.lat, m.lng)) continue;
+        if (!anchors.has(`${m.name}|${m.country}`) || !inView(m.lat, m.lng)) continue;
         const province = world.provinceOfCountry(m.country);
         const used = { landmark: 0, town: 0, keep: 0 };
         for (const [name, lat, lng, kind, category, fame] of world.keys[m.id] ?? []) {
-          if (used[kind] >= room) continue;
+          if (kind === 'town' || used[kind] >= room) continue;
           // the keep stands where the crest does unless the seat of government is out in the city
           if (kind === 'keep' && distanceMeters({ lat, lng }, { lat: m.lat, lng: m.lng }) < 2500) continue;
           used[kind]++;
-          add({ id: `k:${m.id}:${name}`, kind, real: name, name: kind === 'keep' ? `${loreName(m.name, province)} Keep` : kind === 'town' ? loreName(name, province) : name, province, lat, lng, fame, note: kind === 'landmark' ? category : `Round ${loreName(m.name, province)}` }, kind !== 'landmark' || zoom >= 10);
+          add({ id: `k:${m.id}:${name}`, kind, real: name, name: kind === 'keep' ? `${loreName(m.name, province)} Keep` : name, province, lat, lng, fame, note: kind === 'landmark' ? category : `Round ${loreName(m.name, province)}` }, kind !== 'landmark' || zoom >= 10);
           count++;
         }
       }
@@ -430,6 +442,7 @@ export default function App() {
     <div className={`em-app em-${look}${trip ? ' em-road' : ''}`} style={{ background: pal.backdrop }}>
       <div className="em-stage">
         <div ref={mapBox} className="em-map" />
+        {ready && world && !trip && <TintLayer map={mapRef.current} world={world} look={look} />}
         <div className="em-vignette" aria-hidden="true" />
         {look === 'oblivion' && !trip && <TornFrame />}
 
@@ -458,7 +471,7 @@ export default function App() {
         {selected && province && !trip && (
           <aside className="em-card" style={{ ['--prov' as string]: province.ink }}>
             <button type="button" className="em-card-x" onClick={() => setSelected(null)} aria-label="Close">×</button>
-            <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: glyph(selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind) }} />
+            <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: selected.kind === 'crest' ? crestSvg(selected.real) : glyph(selected.pic ?? (selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind)) }} />
             <h2>{selected.name}</h2>
             <p className="em-card-kind">{KIND_TITLE[selected.kind] ?? selected.kind} · {province.name}</p>
             {selected.real !== selected.name && <p className="em-card-real">in the old tongue: {selected.real}</p>}

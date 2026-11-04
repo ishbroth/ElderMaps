@@ -5,6 +5,8 @@ import { provinceOf, type ProvinceId } from './lore';
 export interface Metro { id: string; name: string; country: string; lat: number; lng: number; pop: number; radiusKm: number }
 /** [name, lat, lng, kind (keep, landmark, town), category, fame] */
 export type KeyPlace = [string, number, number, 'keep' | 'landmark' | 'town', string, number];
+/** [name, lat, lng, population, tier (crest, town, village), country] */
+export type City = [string, number, number, number, 'crest' | 'town' | 'village', string];
 /** [id, name, lat, lng, type, fame] */
 export type WildPlace = [string, string, number, number, string, number];
 
@@ -15,6 +17,10 @@ export interface World {
   countries: Country[];
   geojson: GeoJSON.FeatureCollection;
   metros: Metro[];
+  /** The cities by mark: crests (anchors of metros over a million), towns (smaller metros on their own), villages (every other city over 60,000), biggest first. */
+  cities: { crest: City[]; town: City[]; village: City[] };
+  /** The outlines of the countries, with the province each belongs to, for tinting the land. */
+  provinceRings: { province: ProvinceId; pts: number[][] }[];
   keys: Record<string, KeyPlace[]>;
   wild: WildPlace[];
   provinceAt: (lat: number, lng: number) => ProvinceId;
@@ -46,11 +52,12 @@ let world: Promise<World> | null = null;
 
 export function loadWorld(): Promise<World> {
   world ??= (async () => {
-    const [countriesJson, metros, keys, wild] = await Promise.all([
+    const [countriesJson, metros, keys, wild, cityList] = await Promise.all([
       fetch(`${BASE}data/countries.json`).then((r) => r.json() as Promise<GeoJSON.FeatureCollection>),
       fetch(`${BASE}data/metros-index.json`).then((r) => r.json() as Promise<Metro[]>),
       fetch(`${BASE}data/keys.json`).then((r) => r.json() as Promise<Record<string, KeyPlace[]>>),
       fetch(`${BASE}data/wild.json`).then((r) => r.json() as Promise<WildPlace[]>),
+      fetch(`${BASE}data/cities.json`).then((r) => r.json() as Promise<City[]>),
     ]);
     const countries: Country[] = countriesJson.features.map((f) => {
       const p = f.properties as Record<string, string>;
@@ -69,7 +76,10 @@ export function loadWorld(): Promise<World> {
       for (const c of countries) { const d = (c.centre[0] - lat) ** 2 + ((c.centre[1] - lng) * Math.cos((lat * Math.PI) / 180)) ** 2; if (d < bestD) { bestD = d; best = c; } }
       return best.province;
     };
+    const cities = { crest: [] as City[], town: [] as City[], village: [] as City[] };
+    for (const c of cityList.sort((a, b) => b[3] - a[3])) cities[c[4]].push(c);
     return {
+      cities, provinceRings: countries.flatMap((c) => c.rings.map((r) => ({ province: c.province, pts: r.pts }))),
       countries, geojson: { type: 'FeatureCollection', features: countries.map((c) => c.feature) }, metros: metros.sort((a, b) => b.pop - a.pop), keys, wild,
       provinceAt, provinceOfCountry: (iso2) => byIso2.get(iso2)?.province ?? 'cyrodiil',
     };

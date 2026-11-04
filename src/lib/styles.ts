@@ -7,7 +7,7 @@ const off = [{ visibility: 'off' }];
 
 const skyrim: google.maps.MapTypeStyle[] = [
   { elementType: 'labels', stylers: off },
-  { elementType: 'geometry', stylers: [{ saturation: -78 }, { lightness: -26 }, { gamma: 0.9 }] },
+  { elementType: 'geometry', stylers: [{ saturation: -88 }, { lightness: -26 }, { gamma: 0.9 }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#1b262e' }, { saturation: -10 }] },
   { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ visibility: 'on' }, { color: '#c9c2b0' }, { weight: 0.5 }] },
   { featureType: 'administrative.province', stylers: off },
