@@ -6,7 +6,8 @@ import { glyph, glyphForCategory } from './lib/glyphs';
 import { crestSvg, loadCrests } from './lib/crests';
 import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
-import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, type LookId } from './lib/styles';
+import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
+import { StreetLayer } from './lib/streets';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -337,7 +338,10 @@ export default function App() {
   };
 
   // ---- fast travel: the road to a place, on the flat sketched map ----
+  const streets = useRef<StreetLayer | null>(null);
   const clearRoad = useCallback(() => {
+    streets.current?.detach();
+    streets.current = null;
     const r = roadLayers.current;
     r.line?.setMap(null); r.halo?.setMap(null); r.end?.setMap(null); r.me?.setMap(null);
     roadLayers.current = {};
@@ -390,6 +394,9 @@ export default function App() {
     const kit = roadKitFor(region);
     map.setOptions({ styles: world ? localStyleFor(region) : LOCAL_STYLE, maxZoom: 19, backgroundColor: kit.ground });
     map.setMapTypeId('roadmap');
+    // the real streets and buildings of the view, redrawn in the region's style on top (cobbles, ruts, ash, sand, mud)
+    streets.current?.detach();
+    streets.current = new StreetLayer(map, kit, roadKitName(region));
     const bounds = new google.maps.LatLngBounds();
     route.path.forEach((p) => bounds.extend(p));
     map.fitBounds(bounds, 90);

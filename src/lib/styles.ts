@@ -86,6 +86,8 @@ const KIT_OF: Record<string, keyof typeof KITS> = {
 
 /** The colours of the street map for a region (by its working id). */
 export const roadKitFor = (province: string): RoadKit => KITS[KIT_OF[province] ?? 'imperial'];
+/** The name of a region's kit (north, imperial, ash, sand, swamp, jungle, gilded, basalt, fever). */
+export const roadKitName = (province: string): string => KIT_OF[province] ?? 'imperial';
 
 /** The flat sketched street map in a region's kit. */
 export function localStyleFor(province: string): google.maps.MapTypeStyle[] {
