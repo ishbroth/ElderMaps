@@ -6,7 +6,7 @@ import { glyph, glyphForCategory } from './lib/glyphs';
 import { crestSvg, loadCrests } from './lib/crests';
 import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
-import { LOCAL_STYLE, PALETTE, WORLD_STYLES, type LookId } from './lib/styles';
+import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, type LookId } from './lib/styles';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -385,7 +385,10 @@ export default function App() {
     labels.current = [];
     setSelected(null);
     // the flat map
-    map.setOptions({ styles: LOCAL_STYLE, maxZoom: 19, backgroundColor: '#d9c9a3' });
+    // the streets are drawn in the style of the region the journey starts in (cold stone tracks in the north, cobbles in the heartland, ash roads, sand, mud...)
+    const region = world ? world.provinceAt(from.lat, from.lng) : 'cyrodiil';
+    const kit = roadKitFor(region);
+    map.setOptions({ styles: world ? localStyleFor(region) : LOCAL_STYLE, maxZoom: 19, backgroundColor: kit.ground });
     map.setMapTypeId('roadmap');
     const bounds = new google.maps.LatLngBounds();
     route.path.forEach((p) => bounds.extend(p));
@@ -451,13 +454,13 @@ export default function App() {
 
         {!trip && (
           <header className="em-head">
-            <div className="em-title"><h1>ELDERMAPS</h1><small>the world as Tamriel</small></div>
+            <div className="em-title"><h1>ELDERMAPS</h1><small>the world as an age-old realm</small></div>
             <form className="em-search" onSubmit={(e) => void search(e)}>
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Seek a city, a keep, a waterfall…" aria-label="Search for a place" />
               <button type="submit" aria-label="Search">⌕</button>
             </form>
             <div className="em-tools">
-              <button type="button" onClick={() => setLook(look === 'skyrim' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'SKYRIM' : 'OBLIVION'}</button>
+              <button type="button" onClick={() => setLook(look === 'skyrim' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : 'PARCHMENT'}</button>
               <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
               {voiceAvailable() && <button type="button" onClick={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }} title="The road's voice">{voiceOn ? '♪ VOICE' : '♪ OFF'}</button>}
             </div>

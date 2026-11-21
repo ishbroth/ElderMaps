@@ -42,7 +42,7 @@ export function nordify(text: string): string {
   return text
     .replace(/^Head out/i, 'Take to the road')
     .replace(/^Arrive at your destination/i, 'You have arrived. Your journey ends here, traveller')
-    .replace(/\bTurn left\b/i, 'Turn left, Dragonborn')
+    .replace(/\bTurn left\b/i, 'Turn left, wanderer')
     .replace(/\bTurn right\b/i, 'Turn right, traveller')
     .replace(/Make a U-turn/i, 'Turn about, you have lost the path')
     .replace(/\bMerge\b/i, 'Join the high road')

@@ -1,4 +1,4 @@
-// The Earth, re-drawn as Tamriel and its neighbours. Every country belongs to one of the provinces (or islands or lost continents), and each province has its
+// The Earth, re-drawn as an old fantasy realm. (The province ids are working names; what people read are the names below, which are our own.) Every country belongs to one of the provinces (or islands or lost continents), and each province has its
 // own mood: a tint for the land, an ink for its labels, and a way of naming towns. Real names are bent to fit: "Seattle" becomes "Seattlestead" in Skyrim,
 // "Seattle-mont" in High Rock. The bending is by a hash of the name, so a place is always called the same thing.
 
@@ -22,31 +22,31 @@ export interface Province {
 }
 
 export const PROVINCES: Record<ProvinceId, Province> = {
-  skyrim: { id: 'skyrim', name: 'Skyrim', real: 'Scandinavia', tint: '#8fa3b5', ink: '#f2f2ee', label: { lat: 63, lng: 15 }, blurb: 'Snow, pine and old stone. The home of the Nords.',
+  skyrim: { id: 'skyrim', name: 'Hoarfell', real: 'Scandinavia', tint: '#8fa3b5', ink: '#f2f2ee', label: { lat: 63, lng: 15 }, blurb: 'Snow, pine and old stone. Home of the northern clans.',
     patterns: ['{b}stead', '{b}helm', '{b}hold', 'Fort {b}', '{b}winter', '{b}fall', '{b}wood', '{b} Watch'] },
-  highrock: { id: 'highrock', name: 'High Rock', real: 'Europe and the British Isles', tint: '#7c5a8a', ink: '#e6dff0', label: { lat: 49, lng: 9 }, blurb: 'Castles, fog and fjords. The Bretons are knights and mages.',
+  highrock: { id: 'highrock', name: 'Highmere', real: 'Europe and the British Isles', tint: '#7c5a8a', ink: '#e6dff0', label: { lat: 49, lng: 9 }, blurb: 'Castles, fog and fjords. Knights and mages of the misty keeps.',
     patterns: ['{b}mont', '{b}ford', '{b}vale', 'Castle {b}', '{b}wood', '{b}hall', '{b}ton', 'Fort {b}'] },
-  hammerfell: { id: 'hammerfell', name: 'Hammerfell', real: 'North Africa and Arabia', tint: '#c79a4e', ink: '#2b1a08', label: { lat: 27, lng: 22 }, blurb: 'Sandstone domes under a hard sun. The Redguards are the finest swordsmen.',
+  hammerfell: { id: 'hammerfell', name: 'Sunreach', real: 'North Africa and Arabia', tint: '#c79a4e', ink: '#2b1a08', label: { lat: 27, lng: 22 }, blurb: 'Sandstone domes under a hard sun. The finest sword-masters in the world.',
     patterns: ['{b}ak', '{b}kar', 'Port {b}', '{b} Oasis', '{b}bek', '{b}nal', '{b}ra'] },
-  orsinium: { id: 'orsinium', name: 'Orsinium', real: 'Sub-Saharan Africa', tint: '#6f7f56', ink: '#e5ecd6', label: { lat: -8, lng: 23 }, blurb: 'Stronghold country: basalt, iron and the Orcs\' stubborn pride.',
+  orsinium: { id: 'orsinium', name: 'The Tuskholds', real: 'Sub-Saharan Africa', tint: '#6f7f56', ink: '#e5ecd6', label: { lat: -8, lng: 23 }, blurb: 'Stronghold country: basalt, iron and the stubborn pride of the orc clans.',
     patterns: ['{b}gash', 'Dun {b}', '{b}-bur', 'Fort {b}', '{b}gul', 'Mor {b}', '{b}ukh'] },
-  elsweyr: { id: 'elsweyr', name: 'Elsweyr', real: 'The Indian subcontinent', tint: '#d8a24a', ink: '#3a2410', label: { lat: 22, lng: 79 }, blurb: 'Moon-sugar fields, savanna and sun-baked clay. Khajiit trade caravans cross it.',
-    patterns: ['{b}jit', '{b}dar', '{b} Sands', '{b}ra', 'Ri{b}', '{b}khan'] },
-  valenwood: { id: 'valenwood', name: 'Valenwood', real: 'China, Southeast Asia and southwest Asia', tint: '#4d7a3a', ink: '#e5f1d3', label: { lat: 33, lng: 105 }, blurb: 'Canopy cities in living trees. The Bosmer eat no plant they have not asked.',
+  elsweyr: { id: 'elsweyr', name: 'Sunmane Reach', real: 'The Indian subcontinent', tint: '#d8a24a', ink: '#3a2410', label: { lat: 22, lng: 79 }, blurb: 'Moon-sugar fields, savanna and sun-baked clay. Cat-folk caravans cross it.',
+    patterns: ['{b}rai', '{b}dar', '{b} Sands', '{b}ra', 'Ri{b}', '{b}khan'] },
+  valenwood: { id: 'valenwood', name: 'The Verdance', real: 'China, Southeast Asia and southwest Asia', tint: '#4d7a3a', ink: '#e5f1d3', label: { lat: 33, lng: 105 }, blurb: 'Canopy cities in living trees. The wood-elves eat no plant they have not asked.',
     patterns: ['{b}wynn', '{b}wood', '{b}ael', '{b} Grove', 'Green {b}', '{b}rim'] },
-  morrowind: { id: 'morrowind', name: 'Morrowind', real: 'Russia, Siberia and the steppe', tint: '#8c4a3a', ink: '#f1d9c8', label: { lat: 60, lng: 85 }, blurb: 'Ash, basalt and mushroom towers beneath the red volcano. The Dunmer endure.',
-    patterns: ['{b} Mora', 'Ald {b}', '{b}vvec', 'Tel {b}', 'Sadri {b}', '{b}ven', 'Vos {b}'] },
-  summerset: { id: 'summerset', name: 'Summerset Isle', real: 'Japan', tint: '#d6c27a', ink: '#2a2610', label: { lat: 37, lng: 138 }, blurb: 'Crystal spires and gardens in the sun. The Altmer count their years in thousands.',
+  morrowind: { id: 'morrowind', name: 'The Cinderlands', real: 'Russia, Siberia and the steppe', tint: '#8c4a3a', ink: '#f1d9c8', label: { lat: 60, lng: 85 }, blurb: 'Ash, basalt and mushroom towers beneath the red volcano. Proud houses and old grudges.',
+    patterns: ['{b} Thar', 'Dur {b}', '{b}vek', 'Vel {b}', '{b}ras', '{b}ven', 'Kor {b}'] },
+  summerset: { id: 'summerset', name: 'The Gilded Isle', real: 'Japan', tint: '#d6c27a', ink: '#2a2610', label: { lat: 37, lng: 138 }, blurb: 'Crystal spires and gardens in the sun. The high elves count their years in thousands.',
     patterns: ['{b}dil', '{b}iel', '{b}mar', '{b}wyn', 'Alin {b}', '{b}sethil'] },
-  shivering: { id: 'shivering', name: 'The Shivering Isles', real: 'Australia and Indonesia', tint: '#c15a9c', ink: '#fbe6f5', label: { lat: -24, lng: 134 }, blurb: 'Sheogorath\'s realm of Mania and Dementia. Nothing is quite as it seems.',
+  shivering: { id: 'shivering', name: 'The Fever Isles', real: 'Australia and Indonesia', tint: '#c15a9c', ink: '#fbe6f5', label: { lat: -24, lng: 134 }, blurb: 'A mad god\'s realm where nothing is quite as it was.',
     patterns: ['{b} Bliss', 'New {b}', '{b}-Split', '{b}nettle', 'Crooked {b}', '{b} Crucible'] },
-  cyrodiil: { id: 'cyrodiil', name: 'Cyrodiil', real: 'North America', tint: '#a9863f', ink: '#2c2412', label: { lat: 42, lng: -100 }, blurb: 'The Imperial heartland: marble, rivers and roads that all lead to one city.',
+  cyrodiil: { id: 'cyrodiil', name: 'Aurelia', real: 'North America', tint: '#a9863f', ink: '#2c2412', label: { lat: 42, lng: -100 }, blurb: 'The imperial heartland: marble, rivers and roads that all lead to one city.',
     patterns: ['{b}ia', '{b}um', '{b}us', '{b}icus', 'Fort {b}', '{b}anium'] },
-  blackmarsh: { id: 'blackmarsh', name: 'Black Marsh', real: 'South America', tint: '#3f6a5a', ink: '#d9efe3', label: { lat: -12, lng: -60 }, blurb: 'Mangrove and hist-tree swamp, home of the Argonians.',
+  blackmarsh: { id: 'blackmarsh', name: 'The Sunken Mire', real: 'South America', tint: '#3f6a5a', ink: '#d9efe3', label: { lat: -12, lng: -60 }, blurb: 'Mangrove and hist-tree swamp, home of the lizard-folk.',
     patterns: ['{b} Hist', 'Shadow {b}', '{b}hill', '{b}moor', '{b}-Tava', 'Hist {b}'] },
-  solstheim: { id: 'solstheim', name: 'Solstheim', real: 'Greenland', tint: '#a8b8c4', ink: '#f2f2ee', label: { lat: 73, lng: -41 }, blurb: 'Snow in the north, ash in the south. Raven Rock and the Skaal.',
-    patterns: ['Fort {b}', '{b} Rock', 'Raven {b}', '{b}stead', 'Tel {b}'] },
-  atmora: { id: 'atmora', name: 'Atmora', real: 'Antarctica', tint: '#d4e3ee', ink: '#1d2a36', label: { lat: -78, lng: 20 }, blurb: 'The frozen homeland the Nords left behind.',
+  solstheim: { id: 'solstheim', name: 'Rimeholm', real: 'Greenland', tint: '#a8b8c4', ink: '#f2f2ee', label: { lat: 73, lng: -41 }, blurb: 'Snow in the north, ash in the south. An island of old stone and a long winter.',
+    patterns: ['Fort {b}', '{b} Rock', 'Crow {b}', '{b}stead', 'Hel {b}'] },
+  atmora: { id: 'atmora', name: 'Old Rime', real: 'Antarctica', tint: '#d4e3ee', ink: '#1d2a36', label: { lat: -78, lng: 20 }, blurb: 'The frozen homeland the northern clans left behind.',
     patterns: ['{b}thar', '{b}mor', '{b}ur', 'Old {b}'] },
 };
 
@@ -106,21 +106,21 @@ export function loreName(real: string, province: ProvinceId): string {
 
 /** What a kind of place is called in the games. */
 export const KIND_TITLE: Record<string, string> = {
-  crest: 'Hold capital', keep: 'Jarl\'s Keep', landmark: 'Landmark', town: 'Town', village: 'Settlement',
+  crest: 'Capital', keep: 'Lord\'s Keep', landmark: 'Landmark', town: 'Town', village: 'Settlement',
   waterfall: 'Waterfall', cave: 'Cave', ruin: 'Ancient Ruin', fort: 'Fort', camp: 'Camp', lighthouse: 'Beacon', volcano: 'Fire Mountain',
   spring: 'Hot Spring', pass: 'Mountain Pass', glacier: 'Glacier', grove: 'Wild Grove', shrine: 'Shrine', peak: 'Peak', stones: 'Standing Stones',
 };
 
 /** The seas and oceans, written across the water. */
 export const SEAS: { name: string; at: { lat: number; lng: number }; big: boolean }[] = [
-  { name: 'Padomaic Ocean', at: { lat: 8, lng: -150 }, big: true },
-  { name: 'Eltheric Ocean', at: { lat: 22, lng: -42 }, big: true },
+  { name: 'Voidwater Ocean', at: { lat: 8, lng: -150 }, big: true },
+  { name: 'Dawnward Ocean', at: { lat: 22, lng: -42 }, big: true },
   { name: 'Southern Sea', at: { lat: -22, lng: 82 }, big: true },
-  { name: 'Sea of Ghosts', at: { lat: 74, lng: 12 }, big: false },
-  { name: 'Inner Sea', at: { lat: 34.5, lng: 18 }, big: false },
-  { name: 'Topal Sea', at: { lat: 15.5, lng: -74 }, big: false },
-  { name: 'Abecean Sea', at: { lat: 38, lng: 132.5 }, big: false },
-  { name: 'Iliac Bay', at: { lat: 43, lng: -6 }, big: false },
-  { name: 'Eastern Sea', at: { lat: 30, lng: 125 }, big: false },
-  { name: 'Shivering Sea', at: { lat: -33, lng: 158 }, big: false },
+  { name: 'Sea of Wraiths', at: { lat: 74, lng: 12 }, big: false },
+  { name: 'Middle Sea', at: { lat: 34.5, lng: 18 }, big: false },
+  { name: 'Tidemark Sea', at: { lat: 15.5, lng: -74 }, big: false },
+  { name: 'Sunrise Sea', at: { lat: 38, lng: 132.5 }, big: false },
+  { name: 'Crescent Bay', at: { lat: 43, lng: -6 }, big: false },
+  { name: 'Jade Sea', at: { lat: 30, lng: 125 }, big: false },
+  { name: 'Fever Sea', at: { lat: -33, lng: 158 }, big: false },
 ];
