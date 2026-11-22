@@ -7,7 +7,7 @@ import { crestSvg, loadCrests } from './lib/crests';
 import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
-import { StreetLayer } from './lib/streets';
+import { createStreetLayer, type StreetLayer } from './lib/streets';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -396,7 +396,7 @@ export default function App() {
     map.setMapTypeId('roadmap');
     // the real streets and buildings of the view, redrawn in the region's style on top (cobbles, ruts, ash, sand, mud)
     streets.current?.detach();
-    streets.current = new StreetLayer(map, kit, roadKitName(region));
+    streets.current = createStreetLayer(map, kit, roadKitName(region));
     const bounds = new google.maps.LatLngBounds();
     route.path.forEach((p) => bounds.extend(p));
     map.fitBounds(bounds, 90);

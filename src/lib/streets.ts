@@ -78,7 +78,19 @@ function surfaceTile(pattern: Pattern, kit: RoadKit): HTMLCanvasElement {
   return c;
 }
 
-export class StreetLayer extends google.maps.OverlayView {
+/** What the page holds of a street layer: its only job is to be taken off the map. */
+export interface StreetLayer { detach(): void }
+
+let StreetLayerClass: (new (map: google.maps.Map, kit: RoadKit, kitName: string) => StreetLayer) | null = null;
+
+/** Puts the street layer on a map. (Call it only after Google Maps has loaded.) */
+export function createStreetLayer(map: google.maps.Map, kit: RoadKit, kitName: string): StreetLayer {
+  if (!StreetLayerClass) StreetLayerClass = defineStreetLayer();
+  return new StreetLayerClass(map, kit, kitName);
+}
+
+function defineStreetLayer() {
+return class StreetLayerImpl extends google.maps.OverlayView implements StreetLayer {
   private kit: RoadKit;
   private pattern: Pattern;
   private tile: HTMLCanvasElement;
@@ -255,4 +267,5 @@ export class StreetLayer extends google.maps.OverlayView {
       g.lineWidth = px; trace(r); g.stroke();
     }
   }
+};
 }
