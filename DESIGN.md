@@ -202,6 +202,22 @@ WastelandMaps' scenes (see `sceneLines.ts`, `describeSpot`) become Elder Scrolls
   8. Store purchases (Apple and Google) once there are apps.
 - Row-level security on every table from the start. Keep the publishable key in the app only.
 
+## 10.5 Accounts, the character and the ledger (screens)
+
+- **Sign-up and sign-in = WastelandMaps' flow:** email (a sign-in link), then the **home** (address + a four-digit **hearth number**, which is also the password), then a **character name**
+  (the callsign, renamed) and the **character type**. Later sign-ins use the hearth number; Face ID / fingerprint can be offered after a password sign-in. Five wrong tries lock it; a reset link by email.
+  Nothing of this exists in ElderMaps yet: the Supabase project is empty. The first build step is porting it.
+- **Character type:** pick one by swiping left and right through portraits (a real picture of each). Working list, each with our own name for the user to see:
+  northern humans = **Frostkin**; knightly humans = **Highmarchers**; desert humans = **Sunblades**; cat-folk = **Maned**; lizard-folk = **Scalekin**; ash-elves = **Emberkin**; high elves = **Gilded**;
+  wood elves = **Greenkin**; orcs = **Tuskborn**; imperial humans = **Aurelians**. Portraits are AI-made once (a pair per type, about a dozen pictures) and shipped with the app, so no per-user cost.
+  The choice is stored on the account and shown on the leaderboard and the "Discovered by" line.
+- **The ledger (the Pip-Boy twin):** a worn leather-and-brass **Wayfarer's Ledger**. Portrait: map on top, tabs below. Sideways: the map beside the ledger, with the search field, then the
+  tabs (**PLACES**, **RECORD** (data), **HERALD** (share)). Same layout and code as WastelandMaps, restyled (parchment, ink, brass corners, a wax seal). Easiest route: copy the
+  WastelandMaps components (Panels, AccountModal, HomePrompt, FaceIdOffer, Gallery, LocationCard, SceneModal) into ElderMaps and swap the theme and text.
+- **Paid cosmetics:** Town Legend (already paid) includes the **standard** style of the region. Extra **texture packs** (for example a different road surface or roof style for your own district,
+  or a different house look) can be a separate, optional cosmetic purchase. Do not take away anything already sold as part of Town Legend.
+- **Downloads:** a Town Legend city map is a one-time download of that city's street file (Supabase Storage), kept on the phone.
+
 ## 11. Risks and decisions
 
 - **Trademark and store rules:** "Elder Scrolls", "Skyrim", "Morrowind" and similar names belong to Bethesda. A free fan project is usually tolerated, but taking payments (caps, Town Legend) and putting
