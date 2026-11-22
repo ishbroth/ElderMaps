@@ -1,162 +1,258 @@
-// The street map as an old game would draw it. Google's own roads can only be recoloured, so while travelling the real streets and buildings of the view are read from
-// OpenStreetMap (the Overpass service) and drawn on top, in the style kit of the region: packed dirt with ruts, pale cobbles, ash roads, sand tracks, churned mud, with
-// the buildings as roofed footprints. Only the close views get it (zoom 15 and nearer): farther out, Google's recoloured map is enough.
+// The street map as an old game would draw it. Google's own roads can only be recoloured, so while travelling (and on the Town Legend map) the real streets are drawn on
+// top by us, in the style kit of the region: packed dirt with ruts, pale cobbles, ash roads, sand tracks, churned mud.
 //
-// This is a first version that asks the public Overpass service as the view moves. For the paid Town Legend city maps the same streets should be prepared ahead of time
-// for each metro (one small file per metro), which is faster, works offline and does not depend on a free service.
+// Built to be light: ONE canvas (not thousands of map objects), drawn only when the map has come to rest (not on every frame of a pan), only the roads in view, and only the
+// roads that matter at that zoom. The roads come from a small file prepared per metro (public/data/streets/<metro>.json, see _tools/build-streets.mjs), kept in memory as
+// plain number arrays; a view with no prepared file reads its roads (the main ones) from an Overpass mirror, a small square at a time.
 
 import type { RoadKit } from './styles';
 
-const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-const MIN_ZOOM = 15;
+const BASE = import.meta.env.BASE_URL;
+const MIRRORS = ['https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter'];
+const UNIT = 1e5;
+const MIN_ZOOM = 13;
 
-interface Way { id: number; kind: 'road' | 'building'; cls: string; path: google.maps.LatLngLiteral[] }
+/** One road: its class (1 biggest .. 7 smallest) and its points as whole counts of 1e-5 degrees, [lat, lng, lat, lng, ...]. */
+interface Road { cls: number; pts: Int32Array; minLat: number; maxLat: number; minLng: number; maxLng: number }
 
-/** How wide a kind of road is drawn, in metres. */
-const WIDTH_M: Record<string, number> = { motorway: 16, trunk: 14, primary: 12, secondary: 10, tertiary: 8, unclassified: 6, residential: 6, living_street: 5, service: 3.5, pedestrian: 4, track: 3, path: 1.6, footway: 1.6, cycleway: 1.8, steps: 1.6 };
+/** How wide each class of road is drawn, in metres. */
+const WIDTH_M = [0, 15, 12, 9.5, 7.5, 6, 3.2, 1.6];
+/** The smallest class drawn at a zoom (a bigger number means smaller roads are drawn too). */
+const classesAt = (zoom: number) => (zoom < 14 ? 3 : zoom < 15 ? 4 : zoom < 16 ? 5 : zoom < 17 ? 6 : 7);
 
 type Pattern = 'cobble' | 'dirt' | 'ash' | 'sand' | 'mud';
 const PATTERN_OF: Record<string, Pattern> = { north: 'dirt', imperial: 'cobble', ash: 'ash', sand: 'sand', swamp: 'mud', jungle: 'mud', gilded: 'cobble', basalt: 'ash', fever: 'cobble' };
 
-const metersPerPixel = (lat: number, zoom: number) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
+const OVERPASS_CLASS: Record<string, number> = { motorway: 1, trunk: 1, primary: 2, secondary: 3, tertiary: 4, residential: 5, unclassified: 5, living_street: 5 };
 
-const rng = (seed: number) => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+const mpp = (lat: number, zoom: number) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
+const worldX = (lng: number, zoom: number) => ((lng + 180) / 360) * 256 * 2 ** zoom;
+const worldY = (lat: number, zoom: number) => {
+  const s = Math.sin((lat * Math.PI) / 180);
+  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * 2 ** zoom;
+};
 
-export class StreetLayer {
-  private map: google.maps.Map;
+/** Multiplies a colour's brightness by a factor. */
+function shade(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v: number) => Math.max(0, Math.min(255, Math.round(v * f)));
+  return `rgb(${c((n >> 16) & 255)},${c((n >> 8) & 255)},${c(n & 255)})`;
+}
+
+/** A small tile of road surface, made once, that the road is painted with (stones, ruts, ash, sand or mud). */
+function surfaceTile(pattern: Pattern, kit: RoadKit): HTMLCanvasElement {
+  const S = 48;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d') as CanvasRenderingContext2D;
+  g.fillStyle = kit.roadFill; g.fillRect(0, 0, S, S);
+  let seed = 7; const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const dark = shade(kit.roadFill, 0.68), mid = shade(kit.roadFill, 0.86), light = shade(kit.roadFill, 1.18);
+  if (pattern === 'cobble') {
+    // rows of rounded stones, each a little different, with dark joints
+    const rows = 6, h = S / rows;
+    for (let y = 0; y < rows; y++) {
+      const n = 5 + (y % 2), w = S / n, off = y % 2 ? w / 2 : 0;
+      for (let i = -1; i <= n; i++) {
+        const x = i * w + off + (r() - 0.5) * 2, cy = y * h;
+        g.fillStyle = r() > 0.5 ? light : mid;
+        g.strokeStyle = dark; g.lineWidth = 1.3;
+        g.beginPath(); g.roundRect(x + 1, cy + 1, w - 2, h - 2, 3); g.fill(); g.stroke();
+      }
+    }
+  } else {
+    // speckle: pebbles and grit, heavier for dirt, mud and ash; sand is fine and pale
+    const count = pattern === 'sand' ? 220 : 160;
+    for (let i = 0; i < count; i++) {
+      g.fillStyle = r() > 0.5 ? dark : light; g.globalAlpha = 0.25 + r() * 0.4;
+      const s = pattern === 'sand' ? 0.7 + r() * 0.9 : 0.9 + r() * 2.1;
+      g.beginPath(); g.arc(r() * S, r() * S, s, 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+    if (pattern === 'dirt' || pattern === 'mud') {
+      // two wheel ruts
+      g.strokeStyle = dark; g.globalAlpha = 0.35; g.lineWidth = 2;
+      for (const y of [S * 0.3, S * 0.7]) { g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(S * 0.3, y + 2, S * 0.6, y - 2, S, y); g.stroke(); }
+      g.globalAlpha = 1;
+    }
+  }
+  return c;
+}
+
+export class StreetLayer extends google.maps.OverlayView {
   private kit: RoadKit;
-  private kitName: string;
-  private overlays: (google.maps.Polyline | google.maps.Polygon)[] = [];
-  private roads: { under: google.maps.Polyline; top: google.maps.Polyline; widthM: number; lat: number }[] = [];
-  private have = new Set<number>();
+  private pattern: Pattern;
+  private tile: HTMLCanvasElement;
+  private canvas: HTMLCanvasElement | null = null;
+  private roads: Road[] = [];
+  private loadedMetros = new Set<string>();
+  private liveTiles = new Set<string>();
+  private metros: { id: string; lat: number; lng: number; radiusKm: number }[] | null = null;
   private listeners: google.maps.MapsEventListener[] = [];
   private timer: number | undefined;
-  private busy = false;
   private dead = false;
 
   constructor(map: google.maps.Map, kit: RoadKit, kitName: string) {
-    this.map = map;
+    super();
     this.kit = kit;
-    this.kitName = kitName;
-    this.listeners.push(map.addListener('idle', () => this.later()));
-    this.listeners.push(map.addListener('zoom_changed', () => this.rescale()));
-    this.later();
+    this.pattern = PATTERN_OF[kitName] ?? 'cobble';
+    this.tile = surfaceTile(this.pattern, kit);
+    this.setMap(map);
   }
 
-  detach() {
+  onAdd() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.style.cssText = 'position:absolute;pointer-events:none;';
+    this.getPanes()?.overlayLayer.appendChild(this.canvas);
+    const map = this.getMap() as google.maps.Map;
+    this.listeners.push(map.addListener('idle', () => this.soon()));
+    this.listeners.push(map.addListener('zoom_changed', () => { if (this.canvas) this.canvas.style.visibility = 'hidden'; }));
+    this.soon();
+  }
+
+  onRemove() {
     this.dead = true;
     window.clearTimeout(this.timer);
     this.listeners.forEach((l) => l.remove());
-    this.overlays.forEach((o) => o.setMap(null));
-    this.overlays = [];
+    this.listeners = [];
+    this.canvas?.remove();
+    this.canvas = null;
     this.roads = [];
-    this.have.clear();
   }
 
-  private later() { window.clearTimeout(this.timer); this.timer = window.setTimeout(() => void this.load(), 350); }
+  detach() { this.setMap(null); }
 
-  private async load() {
-    if (this.dead || this.busy) return;
-    const zoom = this.map.getZoom() ?? 0;
-    const b = this.map.getBounds();
-    if (!b || zoom < MIN_ZOOM) return;
+  draw() { /* drawn when the map is at rest (see paint) */ }
+
+  private soon() { window.clearTimeout(this.timer); this.timer = window.setTimeout(() => void this.refresh(), 200); }
+
+  private async refresh() {
+    const map = this.getMap() as google.maps.Map | null;
+    if (this.dead || !map) return;
+    const zoom = map.getZoom() ?? 0;
+    if (zoom >= MIN_ZOOM) await this.ensureData(map);
+    if (!this.dead) this.paint();
+  }
+
+  /** The roads of the metro under the view, from its prepared file; where there is none, the main roads of the view from an Overpass mirror. */
+  private async ensureData(map: google.maps.Map) {
+    const c = map.getCenter(); if (!c) return;
+    if (!this.metros) {
+      try { this.metros = await (await fetch(`${BASE}data/metros-index.json`)).json(); } catch { this.metros = []; }
+    }
+    if (this.dead) return;
+    let best: { id: string; gap: number } | null = null;
+    for (const m of this.metros ?? []) {
+      const gap = Math.hypot((m.lat - c.lat()) * 111.32, (m.lng - c.lng()) * 111.32 * Math.cos((c.lat() * Math.PI) / 180)) - Math.min(m.radiusKm, 18);
+      if (gap <= 0 && (!best || gap < best.gap)) best = { id: m.id, gap };
+    }
+    if (best && !this.loadedMetros.has(best.id)) {
+      this.loadedMetros.add(best.id);
+      try {
+        const res = await fetch(`${BASE}data/streets/${best.id}.json`);
+        if (res.ok) { this.addMetro((await res.json()) as { o: [number, number]; roads: [number, number[]][] }); return; }
+      } catch { /* no prepared file: read the view live */ }
+    }
+    if (best && this.loadedMetros.has(best.id) && this.roads.length > 0) return; // prepared roads are there
+    await this.readLive(map);
+  }
+
+  private addMetro(d: { o: [number, number]; roads: [number, number[]][] }) {
+    for (const [cls, flat] of d.roads) {
+      const n = flat.length / 2;
+      const pts = new Int32Array(n * 2);
+      let x = flat[0], y = flat[1];
+      pts[0] = y + d.o[0]; pts[1] = x + d.o[1];
+      let minLat = pts[0], maxLat = pts[0], minLng = pts[1], maxLng = pts[1];
+      for (let i = 1; i < n; i++) {
+        x += flat[i * 2]; y += flat[i * 2 + 1];
+        const lat = y + d.o[0], lng = x + d.o[1];
+        pts[i * 2] = lat; pts[i * 2 + 1] = lng;
+        if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat; if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+      }
+      this.roads.push({ cls, pts, minLat, maxLat, minLng, maxLng });
+    }
+  }
+
+  /** A view with no prepared file: the main roads of one small square, from a mirror. */
+  private async readLive(map: google.maps.Map) {
+    const b = map.getBounds(); if (!b) return;
+    const zoom = map.getZoom() ?? 0;
+    if (zoom < 14) return;
     const ne = b.getNorthEast(), sw = b.getSouthWest();
-    // a view is read a little larger than it shows, but never more than about one and a half kilometres across
-    const padLat = (ne.lat() - sw.lat()) * 0.15, padLng = (ne.lng() - sw.lng()) * 0.15;
-    const s = sw.lat() - padLat, n = ne.lat() + padLat, w = sw.lng() - padLng, e = ne.lng() + padLng;
-    if ((n - s) > 0.02 || (e - w) > 0.03) return;
-    this.busy = true;
-    try {
-      const q = `[out:json][timeout:20];(way["highway"](${s},${w},${n},${e});way["building"](${s},${w},${n},${e}););out geom 3000;`;
-      let data: { elements?: { type: string; id: number; tags?: Record<string, string>; geometry?: { lat: number; lon: number }[] }[] } | null = null;
-      for (const url of ENDPOINTS) {
-        try {
-          const res = await fetch(`${url}?data=${encodeURIComponent(q)}`);
-          if (res.ok) { data = await res.json(); break; }
-        } catch { /* try the next one */ }
+    if (ne.lat() - sw.lat() > 0.05 || ne.lng() - sw.lng() > 0.07) return;
+    const key = `${Math.floor(sw.lat() * 50)}:${Math.floor(sw.lng() * 50)}:${Math.floor(ne.lat() * 50)}:${Math.floor(ne.lng() * 50)}`;
+    if (this.liveTiles.has(key)) return;
+    this.liveTiles.add(key);
+    const q = `[out:json][timeout:25];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential|unclassified|living_street)$"](${sw.lat()},${sw.lng()},${ne.lat()},${ne.lng()});out geom;`;
+    for (const url of MIRRORS) {
+      try {
+        const res = await fetch(url, { method: 'POST', body: `data=${encodeURIComponent(q)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        if (!res.ok) continue;
+        const els = ((await res.json()) as { elements?: { type: string; tags?: Record<string, string>; geometry?: { lat: number; lon: number }[] }[] }).elements ?? [];
+        const flat: [number, number[]][] = [];
+        for (const e of els) {
+          const cls = e.tags?.highway ? OVERPASS_CLASS[e.tags.highway] : 0;
+          if (!cls || !e.geometry || e.geometry.length < 2) continue;
+          const f: number[] = [Math.round(e.geometry[0].lon * UNIT), Math.round(e.geometry[0].lat * UNIT)];
+          for (let i = 1; i < e.geometry.length; i++) f.push(Math.round(e.geometry[i].lon * UNIT) - Math.round(e.geometry[i - 1].lon * UNIT), Math.round(e.geometry[i].lat * UNIT) - Math.round(e.geometry[i - 1].lat * UNIT));
+          flat.push([cls, f]);
+        }
+        this.addMetro({ o: [0, 0], roads: flat });
+        return;
+      } catch { /* the next mirror */ }
+    }
+    this.liveTiles.delete(key);
+  }
+
+  /** Draws the roads in view onto the canvas (only now, with the map at rest). */
+  private paint() {
+    const map = this.getMap() as google.maps.Map | null;
+    const proj = this.getProjection();
+    const canvas = this.canvas;
+    if (!map || !proj || !canvas) return;
+    const zoom = map.getZoom() ?? 0;
+    const div = map.getDiv();
+    const margin = 60;
+    const w = div.clientWidth + margin * 2, h = div.clientHeight + margin * 2;
+    const b = map.getBounds();
+    if (!b) return;
+    const ne = b.getNorthEast(), sw = b.getSouthWest();
+    // the canvas sits a little beyond the view on every side, so a small pan does not show an edge
+    const topLeft = proj.fromLatLngToDivPixel(new google.maps.LatLng(ne.lat(), sw.lng()));
+    if (!topLeft) return;
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio);
+    canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
+    canvas.style.left = `${topLeft.x - margin}px`; canvas.style.top = `${topLeft.y - margin}px`;
+    canvas.style.visibility = zoom >= MIN_ZOOM ? 'visible' : 'hidden';
+    const g = canvas.getContext('2d') as CanvasRenderingContext2D;
+    g.setTransform(ratio, 0, 0, ratio, 0, 0);
+    g.clearRect(0, 0, w, h);
+    if (zoom < MIN_ZOOM || this.roads.length === 0) return;
+    const fillPattern = g.createPattern(this.tile, 'repeat');
+    // world pixel of the canvas's top-left corner
+    const ox = worldX(sw.lng(), zoom) - margin, oy = worldY(ne.lat(), zoom) - margin;
+    const pad = (margin + 40) * (360 / (256 * 2 ** zoom));
+    const minLat = sw.lat() - pad, maxLat = ne.lat() + pad, minLng = sw.lng() - pad, maxLng = ne.lng() + pad;
+    const limit = classesAt(zoom);
+    const lat0 = (ne.lat() + sw.lat()) / 2;
+    const metre = 1 / mpp(lat0, zoom);
+    const visible = this.roads.filter((r) => r.cls <= limit && r.maxLat / UNIT >= minLat && r.minLat / UNIT <= maxLat && r.maxLng / UNIT >= minLng && r.minLng / UNIT <= maxLng);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    const trace = (r: Road) => {
+      g.beginPath();
+      for (let i = 0; i < r.pts.length; i += 2) {
+        const x = worldX(r.pts[i + 1] / UNIT, zoom) - ox, y = worldY(r.pts[i] / UNIT, zoom) - oy;
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
       }
-      if (!data || this.dead) return;
-      const ways: Way[] = [];
-      for (const el of data.elements ?? []) {
-        if (el.type !== 'way' || !el.geometry || el.geometry.length < 2 || this.have.has(el.id)) continue;
-        const path = el.geometry.map((p) => ({ lat: p.lat, lng: p.lon }));
-        if (el.tags?.building) ways.push({ id: el.id, kind: 'building', cls: el.tags.building, path });
-        else if (el.tags?.highway && WIDTH_M[el.tags.highway] !== undefined) ways.push({ id: el.id, kind: 'road', cls: el.tags.highway, path });
-      }
-      this.draw(ways);
-    } finally { this.busy = false; }
-  }
-
-  private draw(ways: Way[]) {
-    const k = this.kit;
-    const zoom = this.map.getZoom() ?? 16;
-    const pattern = PATTERN_OF[this.kitName] ?? 'cobble';
-    // buildings first (under the roads): a roofed footprint, the roof colour varying a little from one to the next
-    for (const w of ways) {
-      if (w.kind !== 'building') continue;
-      this.have.add(w.id);
-      const r = rng(w.id % 2147483646 + 1);
-      const shade = 0.86 + r() * 0.28;
-      const poly = new google.maps.Polygon({
-        map: this.map, paths: w.path, clickable: false, zIndex: 2,
-        fillColor: shade2(k.buildings, shade), fillOpacity: 0.96, strokeColor: k.buildingEdge, strokeWeight: 1.1, strokeOpacity: 0.9,
-      });
-      this.overlays.push(poly);
-    }
-    for (const w of ways) {
-      if (w.kind !== 'road') continue;
-      this.have.add(w.id);
-      const widthM = WIDTH_M[w.cls] ?? 5;
-      const lat = w.path[0].lat;
-      const px = Math.max(1.5, widthM / metersPerPixel(lat, zoom));
-      const rough = w.cls === 'path' || w.cls === 'track' || w.cls === 'footway' || w.cls === 'cycleway' || w.cls === 'steps';
-      // the road's edge, then its surface
-      const under = new google.maps.Polyline({ map: this.map, path: w.path, clickable: false, zIndex: 3, strokeColor: k.roadEdge, strokeOpacity: 0.95, strokeWeight: px + 2.4 });
-      const top = new google.maps.Polyline({
-        map: this.map, path: w.path, clickable: false, zIndex: 4, strokeColor: rough ? shade2(k.roadFill, 0.92) : k.roadFill, strokeOpacity: 1, strokeWeight: px,
-        icons: px >= 4 ? surfaceIcons(pattern, k, px, w.id) : undefined,
-      });
-      this.overlays.push(under, top);
-      this.roads.push({ under, top, widthM, lat });
+    };
+    // the small roads first, so the bigger ones lie over their joins
+    visible.sort((a, c) => c.cls - a.cls);
+    for (const r of visible) { const px = Math.max(1.4, WIDTH_M[r.cls] * metre); g.strokeStyle = this.kit.roadEdge; g.lineWidth = px + 2.2; trace(r); g.stroke(); }
+    for (const r of visible) {
+      const px = Math.max(1.4, WIDTH_M[r.cls] * metre);
+      g.strokeStyle = px >= 4 && fillPattern ? fillPattern : this.kit.roadFill;
+      g.lineWidth = px; trace(r); g.stroke();
     }
   }
-
-  /** The roads are drawn in pixels, so a change of zoom resizes them to the same width in metres. */
-  private rescale() {
-    const zoom = this.map.getZoom() ?? 16;
-    for (const r of this.roads) {
-      const px = Math.max(1.5, r.widthM / metersPerPixel(r.lat, zoom));
-      r.under.setOptions({ strokeWeight: px + 2.4 });
-      r.top.setOptions({ strokeWeight: px });
-    }
-  }
-}
-
-/** Multiplies a colour's brightness by a factor (so no two roofs are quite alike). */
-function shade2(hex: string, f: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const c = (v: number) => Math.max(0, Math.min(255, Math.round(v * f)));
-  return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => c(v).toString(16).padStart(2, '0')).join('')}`;
-}
-
-/** The marks along a road that make it look like cobbles, ruts, ash or sand, repeating along it. */
-function surfaceIcons(pattern: Pattern, k: RoadKit, px: number, id: number): google.maps.IconSequence[] {
-  const dark = shade2(k.roadFill, 0.72), light = shade2(k.roadFill, 1.18);
-  const dot = (path: google.maps.SymbolPath | string, color: string, scale: number, opacity: number, offset: string, repeat: string) => ({
-    icon: { path, fillColor: color, fillOpacity: opacity, strokeColor: color, strokeOpacity: opacity, strokeWeight: 0.6, scale },
-    offset, repeat,
-  }) as google.maps.IconSequence;
-  const C = google.maps.SymbolPath.CIRCLE;
-  const s = Math.max(1, Math.min(2.6, px / 5));
-  if (pattern === 'cobble') {
-    // rows of stones: two staggered lines of pale and dark dots
-    return [dot(C, light, s, 0.9, '0px', `${Math.round(5 + s * 2)}px`), dot(C, dark, s * 0.8, 0.8, `${Math.round(2.5 + s)}px`, `${Math.round(5 + s * 2)}px`), dot(C, dark, s * 0.6, 0.6, `${(id % 7) + 1}px`, `${Math.round(9 + s * 2)}px`)];
-  }
-  if (pattern === 'dirt' || pattern === 'mud') {
-    // wheel ruts and scattered pebbles
-    return [dot('M 0,-1 L 0,1', dark, px * 0.28, 0.55, '0px', '3px'), dot(C, light, s * 0.55, 0.7, `${(id % 11) + 2}px`, `${Math.round(11 + s * 3)}px`), dot(C, dark, s * 0.5, 0.6, `${(id % 5) + 5}px`, `${Math.round(8 + s * 3)}px`)];
-  }
-  if (pattern === 'ash') return [dot(C, dark, s * 0.7, 0.55, '0px', `${Math.round(7 + s * 2)}px`), dot(C, light, s * 0.5, 0.45, '4px', `${Math.round(13 + s * 2)}px`)];
-  // sand: fine drifts
-  return [dot(C, light, s * 0.55, 0.6, '0px', `${Math.round(9 + s * 2)}px`), dot(C, dark, s * 0.45, 0.45, '5px', `${Math.round(12 + s * 2)}px`)];
 }

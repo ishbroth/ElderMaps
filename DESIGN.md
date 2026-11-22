@@ -22,6 +22,13 @@ Morrowind city details in section 3 are the part to check against screenshots be
 - **Names:** Elder Scrolls names stay in code and in image-model prompts, but **nothing user-facing may use them**. Province names, sea names, titles and tooltips use our own names (table in section 2).
   Done already: province and sea names, kind titles, the look labels (NORTHERN and PARCHMENT), the title line and the page description.
 - **Town Legend map overlay** is to be built, in a believable game style, varied by region (section 6).
+- **The game loop is WastelandMaps' loop:** unlock a place's snapshot (septims), **clear the enemies**, then **physically discover** the place: that pays the loot. Loot buys **rooms and
+  upgrades in the house building game**, **weapons**, **health potions** (the stim pak, renamed, with a small potion-bottle icon) and **legendary time** (same effect and icon as now;
+  in battle it first makes a **"shout" visual and sound attack**, then the slow-motion effect starts). Loot names are in `src/lib/loot.ts` (our own names, regional herbs).
+- **Town Legend map contents:** (1) the streets of the whole metro in the region's style; (2) the **surrounding villages, mills, farms and other country places** that lie in the metro's real
+  area (the pre-plotted icons round the core city, from `cities.json` and `wild.json`), shown as on the main map; (3) **only addresses people paid to have rendered** are plotted, each
+  with an icon that matches the kind of building (house, shop, church, mill, tower... guessed from the address as WastelandMaps does), opening its shared render.
+- **Streets are pre-mapped per metro** (`public/data/streets/<metro>.json`, built by `_tools/build-streets.mjs`) and drawn on a single canvas only when the map is at rest, to keep memory and battery use low.
 
 ## 1. What carries over, and what it becomes
 
