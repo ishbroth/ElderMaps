@@ -13,6 +13,8 @@ interface Props {
   plan: RaidPlan;
   spawns: Spawns;
   arsenal: Arsenal;
+  /** Both hands bought: two weapons or spells at once. */
+  dual?: boolean;
   level: number;
   potions: number;
   shouts: number;
@@ -23,7 +25,7 @@ interface Props {
 const SPELL_COLOR: Record<string, string> = { shock: '#bfe6ff', frost: '#9fd8ff', fire: '#ff9a3c', drain: '#c0386e' };
 
 /** The fight: the place's picture, the enemies walking out of its ground, and the traveller's hands. Hold to charge, let go to strike. */
-export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, level, potions, shouts, onDone, onExit }: Props) {
+export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, dual = false, level, potions, shouts, onDone, onExit }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const game = useRef<Game | null>(null);
@@ -93,7 +95,14 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, l
   const up = () => game.current?.release();
 
   const g = game.current;
-  const pickHands = (cls: ItemCls) => { if (!g) return; g.setHands([cls]); setHands(g.slots.map((s) => s.weapon.cls)); setWheel(false); g.paused = false; };
+  // with both hands bought a second pick fills the other hand (the same kind twice is allowed); a two-handed weapon or the bow always takes both
+  const pickHands = (cls: ItemCls) => {
+    if (!g) return;
+    const two = cls === 'twohand' || cls === 'bow' || hands.some((h) => h === 'twohand' || h === 'bow');
+    const next = !dual || two ? [cls] : hands.length < 2 ? [...hands, cls] : [hands[1], cls];
+    g.setHands(next); setHands(g.slots.map((s) => s.weapon.cls));
+    if (!dual || two || next.length >= 2) { setWheel(false); g.paused = false; }
+  };
   const openWheel = () => { if (g) { g.paused = !wheel; } setWheel(!wheel); };
 
   return (
@@ -121,6 +130,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, l
               {(['twohand', 'bow', 'onehand'] as ItemCls[]).map((c) => (
                 <button key={c} type="button" className={`em-wheel-${c}`} disabled={!arsenal[c]} onClick={() => pickHands(c)}>{CLASS_NAME[c]}<small>{arsenal[c] ? weaponAt(c, arsenal[c] as 1 | 2 | 3 | 4).name : 'NOT YET'}</small></button>
               ))}
+              {dual && <button type="button" className="em-wheel-twohand" onClick={() => { g.setHands([hands[0]]); setHands(g.slots.map((s) => s.weapon.cls)); }}>ONE HAND ONLY: START THE PICK AGAIN</button>}
               <div className="em-wheel-magic">
                 {(['shock', 'frost', 'fire', 'drain'] as ItemCls[]).map((c) => (
                   <button key={c} type="button" disabled={!arsenal[c]} onClick={() => pickHands(c)}>{CLASS_NAME[c]}<small>{arsenal[c] ? weaponAt(c, arsenal[c] as 1 | 2 | 3 | 4).name : 'NOT YET'}</small></button>

@@ -11,6 +11,7 @@ import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitN
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
 import TownLegend from './TownLegend';
+import Shop from './Shop';
 import CombatScreen from './CombatScreen';
 import { planFor } from './lib/combat/data';
 import { metroForSpot } from './lib/townLegend';
@@ -134,6 +135,7 @@ export default function App() {
   const regionCache = useRef(new Map<string, string | null>());
   const account = useAccount();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
   // a new sign-in opens the making of a character by itself, once
   const setupShown = useRef(false);
   useEffect(() => {
@@ -642,7 +644,8 @@ export default function App() {
           <CombatScreen title="Test" imageUrl="/_test.png" plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
-        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}
+        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} />}
+        {shopOpen && !trip && <Shop onClose={() => setShopOpen(false)} onBought={() => void account.refresh()} />}
 
         {trip && step && (
           <div className="em-nav">

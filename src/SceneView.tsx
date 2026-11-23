@@ -4,7 +4,7 @@ import { KIND_TITLE, type Province } from './lib/lore';
 import { GLIMPSE_MESSAGES, requestGlimpse, type Glimpse } from './lib/glimpse';
 import CombatScreen from './CombatScreen';
 import { finishRun, startRun, type RunStart } from './lib/clear';
-import { STARTING_ARSENAL, planFor, worthFor } from './lib/combat/data';
+import { STARTING_ARSENAL, planFor, worthFor, type Arsenal } from './lib/combat/data';
 import { LOOT, REGIONAL_HERBS } from './lib/loot';
 
 interface Props {
@@ -78,7 +78,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
         {state === 'working' && <p className="em-fine em-wave-note">THE RIFT OPENS… A MOMENT</p>}
         {paidLine && <p className="em-fine">{paidLine}</p>}
         {run && glimpse && (
-          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={STARTING_ARSENAL} level={0} potions={run.pack.potions} shouts={run.pack.shouts}
+          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={{ ...STARTING_ARSENAL, ...(run.arsenal as Arsenal) }} dual={run.pack.dual} level={0} potions={run.pack.potions} shouts={run.pack.shouts}
             onDone={async (res) => {
               const end = await finishRun(run.runId, res.won, province.id, spot.kind, res.potionsUsed, res.shoutsUsed);
               if (res.won) onCleared(spot.id);

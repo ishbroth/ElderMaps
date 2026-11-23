@@ -2,7 +2,7 @@
 
 import { db } from './account';
 
-export interface RunStart { runId: string; worth: number; pack: { potions: number; shouts: number } }
+export interface RunStart { runId: string; worth: number; pack: { potions: number; shouts: number; dual: boolean }; arsenal: Record<string, number> }
 export type StartOutcome = { ok: true; run: RunStart } | { ok: false; reason: 'locked' | 'cleared' | 'bad_place' | 'failed' };
 
 export async function startRun(spot: { id: string; kind: string }): Promise<StartOutcome> {

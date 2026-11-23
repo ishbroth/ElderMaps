@@ -56,8 +56,11 @@ Deno.serve(async (req) => {
     if (done && done.length > 0) return reply(req, { error: 'cleared' }, 409);
     const { data: run, error } = await db.from('raid_runs').insert({ user_id: user, place_id: placeId }).select('id').single();
     if (error || !run) return reply(req, { error: 'server' }, 500);
-    const { data: pack } = await db.from('pack').select('potions,shouts').eq('user_id', user).maybeSingle();
-    return reply(req, { runId: run.id, worth: await worthOf(placeId, kind), pack: { potions: pack?.potions ?? 0, shouts: pack?.shouts ?? 0 } });
+    const { data: pack } = await db.from('pack').select('potions,shouts,dual').eq('user_id', user).maybeSingle();
+    const { data: owned2 } = await db.from('arsenal').select('cls,tier').eq('user_id', user);
+    const arsenal: Record<string, number> = { onehand: 1, twohand: 0, bow: 0, shock: 0, frost: 0, fire: 0, drain: 0 };
+    for (const r of owned2 ?? []) arsenal[r.cls as string] = Math.max(arsenal[r.cls as string] ?? 0, r.tier as number);
+    return reply(req, { runId: run.id, worth: await worthOf(placeId, kind), pack: { potions: pack?.potions ?? 0, shouts: pack?.shouts ?? 0, dual: pack?.dual ?? false }, arsenal });
   }
 
   if (b.action === 'finish') {

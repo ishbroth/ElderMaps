@@ -214,3 +214,15 @@ button { font: inherit; }
 
 /* [Cleared]: small, under the mark of a place the traveller has cleared */
 .em-cleared { font-size: 8px; letter-spacing: 1px; line-height: 1; margin-top: -1px; color: var(--pin, #f2f2ee); text-shadow: 0 0 3px #000, 0 0 2px #000; pointer-events: none; white-space: nowrap; }
+
+/* the forge and the alchemist */
+.em-shop { max-height: 100%; }
+.em-shop-list { text-align: left; }
+.em-shop-list h3 { margin: 14px 0 4px; font-size: 12px; letter-spacing: 3px; color: var(--sky-dim, #9aa3a8); }
+.em-shop-list h4 { margin: 8px 0 2px; font-size: 11px; letter-spacing: 2px; }
+.em-shop-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.em-shop-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+.em-shop-list li span { display: grid; gap: 1px; font-size: 13px; letter-spacing: 1px; }
+.em-shop-list li small { font-size: 10px; color: var(--sky-dim, #9aa3a8); letter-spacing: 0.5px; }
+.em-shop-list li i { font-style: normal; font-size: 10px; color: var(--sky-dim, #9aa3a8); }
+.em-shop-owned { opacity: 0.6; }
