@@ -124,3 +124,21 @@ export const SEAS: { name: string; at: { lat: number; lng: number }; big: boolea
   { name: 'Jade Sea', at: { lat: 30, lng: 125 }, big: false },
   { name: 'Fever Sea', at: { lat: -33, lng: 158 }, big: false },
 ];
+
+/** A short name for what each province is like, said after its name on a place's card. */
+export const EPITHET: Record<ProvinceId, string> = {
+  skyrim: 'the Frozen North', highrock: 'the Misty Marches', hammerfell: 'the Sunlit Sands', orsinium: 'the Stronghold Lands', elsweyr: 'the Sunmane Plains', valenwood: 'the Living Canopy',
+  morrowind: 'the Ashen Lands', summerset: 'the Crystal Isle', shivering: 'the Mad Isles', cyrodiil: 'the Imperial Heartland', blackmarsh: 'the Drowned Marsh', solstheim: 'the Ash and Ice Isle', atmora: 'the Frozen Homeland',
+};
+
+/** What a state or province of the real world is called inside each of ours: "Dominion of Ohio". {x} is the real name. */
+export const REGION_TITLE: Record<ProvinceId, string> = {
+  skyrim: 'Hold of {x}', highrock: 'Duchy of {x}', hammerfell: 'Emirate of {x}', orsinium: 'Clanlands of {x}', elsweyr: 'Reach of {x}', valenwood: 'Canopy of {x}',
+  morrowind: 'Houselands of {x}', summerset: 'Court of {x}', shivering: 'Fancy of {x}', cyrodiil: 'Dominion of {x}', blackmarsh: 'Fen of {x}', solstheim: 'Steading of {x}', atmora: 'Rime of {x}',
+};
+
+/** The line on a place's card: "Dominion of Ohio, Aurelia, the Imperial Heartland" (the first part only when the state or province is known). */
+export function placeLine(province: ProvinceId, region?: string | null): string {
+  const p = PROVINCES[province];
+  return [region ? REGION_TITLE[province].split('{x}').join(region) : '', p.name, EPITHET[province]].filter(Boolean).join(', ');
+}

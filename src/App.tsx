@@ -4,13 +4,13 @@ import { findPlace, loadGoogle } from './lib/google';
 import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
 import { glyph, glyphForCategory } from './lib/glyphs';
 import { crestSvg, loadCrests } from './lib/crests';
-import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lore';
+import { KIND_TITLE, PROVINCES, SEAS, loreName, placeLine, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
 import AccountModal from './Account';
-import { accountsEnabled, useAccount } from './lib/account';
+import { accountsEnabled, loadFound, reportDiscovery, useAccount } from './lib/account';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -95,6 +95,9 @@ export default function App() {
   const lookRef = useRef(look);
   const seenRef = useRef(seen);
   const [viewing, setViewing] = useState<Spot | null>(null);
+  // the state or province a tapped place is in (asked of Google once per place)
+  const [regionName, setRegionName] = useState<string | null>(null);
+  const regionCache = useRef(new Map<string, string | null>());
   const account = useAccount();
   const [accountOpen, setAccountOpen] = useState(false);
   // a new sign-in opens the making of a character by itself, once
@@ -111,6 +114,30 @@ export default function App() {
 
   useEffect(() => { tripRef.current = trip; }, [trip]);
   useEffect(() => { lookRef.current = look; localStorage.setItem('eldermaps:look', look); document.documentElement.dataset.look = look; }, [look]);
+  // the state or province of a tapped place, for its card (asked of Google once per place)
+  useEffect(() => {
+    const spot = viewing ?? selected;
+    if (!spot) { setRegionName(null); return; }
+    const key = spot.lat.toFixed(3) + ',' + spot.lng.toFixed(3);
+    if (regionCache.current.has(key)) { setRegionName(regionCache.current.get(key) ?? null); return; }
+    setRegionName(null);
+    let off = false;
+    new google.maps.Geocoder().geocode({ location: { lat: spot.lat, lng: spot.lng } }).then(({ results }) => {
+      const part = results.flatMap((r) => r.address_components).find((c) => c.types.includes('administrative_area_level_1'));
+      const name = part?.long_name ?? null;
+      regionCache.current.set(key, name);
+      if (!off) setRegionName(name);
+    }).catch(() => { regionCache.current.set(key, null); });
+    return () => { off = true; };
+  }, [selected, viewing]);
+  // signed in, the places found on the account fill in on the map (with what this device already knew)
+  const accountRef = useRef(account);
+  useEffect(() => { accountRef.current = account; }, [account]);
+  useEffect(() => {
+    const id = account.session?.user.id;
+    if (!id) return;
+    void loadFound(id).then((ids) => { if (ids.length) setSeen((prev) => new Set([...prev, ...ids])); });
+  }, [account.session?.user.id]);
   useEffect(() => { seenRef.current = seen; try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch { /* storage unavailable */ } }, [seen]);
 
   const say = useCallback((text: string) => {
@@ -119,10 +146,13 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(''), 4200);
   }, []);
 
-  const discover = useCallback((spot: Spot) => {
+  const discover = useCallback((spot: Spot, here?: LatLng) => {
     if (seenRef.current.has(spot.id)) return;
     setSeen((prev) => new Set(prev).add(spot.id));
     say(`DISCOVERED: ${spot.name.toUpperCase()}`);
+    // signed in and on the spot: the server checks the position, keeps the place on the account and gives the points
+    const who = accountRef.current?.session;
+    if (who && here) void reportDiscovery(who.user.id, spot, here).then((r) => { if (r && r.added > 0) { say(`DISCOVERED: ${spot.name.toUpperCase()} · +${r.added} XP`); void accountRef.current?.refresh(); } });
   }, [say]);
 
   // ---- start: Google and the world's data ----
@@ -174,7 +204,9 @@ export default function App() {
     const scale = 256 * 2 ** (map.getZoom() ?? zoom);
     const taken: { x: number; y: number }[] = [];
     const written: { x: number; y: number; w: number }[] = [];
-    const add = (spot: Spot, labelled: boolean) => {
+    // the map shows only icons and shields: a place's name is on its card when it is tapped
+    const add = (spot: Spot, _wantsName: boolean) => {
+      let labelled = false;
       if (wanted.size >= 700) return;
       let x = 0, y = 0;
       if (proj) {
@@ -318,11 +350,11 @@ export default function App() {
         for (const m of world.metros.slice(0, 1500)) {
           if (Math.abs(m.lat - here.lat) > 0.2 || Math.abs(m.lng - here.lng) > 0.3) continue;
           for (const [name, lat, lng, kind] of world.keys[m.id] ?? []) {
-            if (distanceMeters(here, { lat, lng }) < 500) discover({ id: `k:${m.id}:${name}`, kind, real: name, name, province: 'cyrodiil', lat, lng, fame: 0, note: '' });
+            if (distanceMeters(here, { lat, lng }) < 500) discover({ id: `k:${m.id}:${name}`, kind, real: name, name, province: 'cyrodiil', lat, lng, fame: 0, note: '' }, here);
           }
         }
         for (const [id, name, lat, lng, type] of world.wild) {
-          if (Math.abs(lat - here.lat) < 0.01 && Math.abs(lng - here.lng) < 0.015 && distanceMeters(here, { lat, lng }) < 500) discover({ id: `w:${id}`, kind: type, real: name, name, province: 'cyrodiil', lat, lng, fame: 0, note: '' });
+          if (Math.abs(lat - here.lat) < 0.01 && Math.abs(lng - here.lng) < 0.015 && distanceMeters(here, { lat, lng }) < 500) discover({ id: `w:${id}`, kind: type, real: name, name, province: 'cyrodiil', lat, lng, fame: 0, note: '' }, here);
         }
       }
       // on the road
@@ -502,7 +534,7 @@ export default function App() {
             <p className="em-card-kind">{KIND_TITLE[selected.kind] ?? selected.kind} · {province.name}</p>
             {selected.real !== selected.name && <p className="em-card-real">in the old tongue: {selected.real}</p>}
             {selected.kind === 'crest' && <p className="em-card-note">{selected.note}</p>}
-            <p className="em-card-blurb">{province.blurb}</p>
+            <p className="em-card-blurb">{placeLine(province.id, regionName)}</p>
             <div className="em-card-buttons">
               <button type="button" className="em-btn" onClick={() => void startTravel(selected)}>FAST TRAVEL</button>
               <button type="button" className="em-btn em-btn-ghost" onClick={() => setViewing(selected)}>VIEW</button>

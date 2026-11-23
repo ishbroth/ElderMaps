@@ -116,3 +116,19 @@ export async function saveSetup(userId: string, p: { characterName: string; char
   const { error } = await db().functions.invoke('set-hearth-password', { body: {} });
   return error ? 'Saved, but the number could not be set as your password. Open the account again to retry.' : null;
 }
+
+// ---- discoveries ----
+
+/** The ids of the places this person has discovered (kept on the account, so they follow them to any device). */
+export async function loadFound(userId: string): Promise<string[]> {
+  const { data } = await db().from('found_places').select('place_id').eq('user_id', userId);
+  return ((data ?? []) as { place_id: string }[]).map((r) => r.place_id);
+}
+
+/** Tells the server a place was reached on foot: it checks the position, records the discovery and answers with the points it added. Null if it could not be recorded. */
+export async function reportDiscovery(userId: string, spot: { id: string; name: string; real: string; lat: number; lng: number }, here: { lat: number; lng: number }): Promise<{ added: number; total: number } | null> {
+  const kept = await db().from('found_places').upsert({ user_id: userId, place_id: spot.id, name: spot.name, old_name: spot.real !== spot.name ? spot.real : null, lat: spot.lat, lng: spot.lng }, { onConflict: 'user_id,place_id', ignoreDuplicates: true });
+  void kept;
+  const { data, error } = await db().functions.invoke('report-discovery', { body: { placeId: spot.id, lat: spot.lat, lng: spot.lng, userLat: here.lat, userLng: here.lng } });
+  return error || !data ? null : (data as { added: number; total: number });
+}
