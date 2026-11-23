@@ -10,14 +10,30 @@
     "wild": "node _tools/build-wild.mjs",
     "keys": "node _tools/build-keys.mjs",
     "cities": "node _tools/build-cities.mjs",
-    "icon": "node _tools/make-icon.mjs"
+    "icon": "node _tools/make-icon.mjs",
+    "app:sync": "npm run build && cap sync",
+    "app:assets": "capacitor-assets generate",
+    "app:android": "npm run app:sync && cap open android",
+    "app:ios": "npm run app:sync && cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/geolocation": "^8.2.5",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@supabase/supabase-js": "^2.119.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
     "@types/geojson": "^7946.0.16",
     "@types/google.maps": "^3.66.7",
     "@types/node": "^24.19.2",

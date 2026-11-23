@@ -1,0 +1,20 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+// The app wraps the built website (dist/). Change appId before the first store upload: it cannot be changed afterwards.
+const config: CapacitorConfig = {
+  appId: 'com.eldermaps.app',
+  appName: 'ElderMaps',
+  webDir: 'dist',
+  backgroundColor: '#0b0d10',
+  server: {
+    // Android serves the pages from https://localhost; iOS from capacitor://localhost (both are allowed by the server's CORS list and the Maps key)
+    androidScheme: 'https',
+  },
+  ios: { contentInset: 'never', backgroundColor: '#0b0d10' },
+  android: { backgroundColor: '#0b0d10' },
+  plugins: {
+    SplashScreen: { launchAutoHide: false, backgroundColor: '#0b0d10', showSpinner: false },
+  },
+};
+
+export default config;
