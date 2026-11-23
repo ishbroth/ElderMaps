@@ -10,6 +10,12 @@ import { callerId, corsHeaders, reply, serviceClient } from '../_shared/common.t
 const REACH_M = 900; // a little more than the phone's own 500 m, for a slow or poor position
 const WORTHS = [10, 15, 20, 30, 50, 75];
 
+let metros: { id: string; lat: number; lng: number; radiusKm: number }[] | null = null;
+async function metroInfo(id: string) {
+  if (!metros) { try { metros = (await (await fetch('https://eldermaps.com/data/metros-index.json')).json()) as typeof metros; } catch { metros = []; } }
+  return (metros ?? []).find((m) => m.id === id) ?? null;
+}
+
 const km = (aLat: number, aLng: number, bLat: number, bLng: number): number => {
   const r = Math.PI / 180;
   const dLat = (bLat - aLat) * r, dLng = (bLng - aLng) * r;
@@ -26,7 +32,12 @@ Deno.serve(async (req) => {
   const placeId = typeof b.placeId === 'string' ? b.placeId.slice(0, 200) : '';
   const [lat, lng, userLat, userLng] = [b.lat, b.lng, b.userLat, b.userLng].map(Number);
   if (!placeId || ![lat, lng, userLat, userLng].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(userLat) > 90) return reply(req, { error: 'bad_request' }, 400);
-  if (km(lat, lng, userLat, userLng) * 1000 > REACH_M) return reply(req, { error: 'too_far' }, 403);
+  // a big city is reached by going into its area, at least half a mile (0.8 km) in: the server checks the position against the metro, not the city's single point
+  const metroId = typeof b.metroId === 'string' && /^[a-z0-9-]{3,80}$/.test(b.metroId) ? b.metroId : '';
+  if (metroId && placeId.startsWith('c:')) {
+    const m = await metroInfo(metroId);
+    if (!m || km(m.lat, m.lng, userLat, userLng) > m.radiusKm - 0.8) return reply(req, { error: 'too_far' }, 403);
+  } else if (km(lat, lng, userLat, userLng) * 1000 > REACH_M) return reply(req, { error: 'too_far' }, 403);
   const asked = Number(b.points);
   const points = WORTHS.includes(asked) ? asked : 10;
 

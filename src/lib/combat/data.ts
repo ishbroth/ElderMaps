@@ -1,7 +1,7 @@
 // What lives in the places of the realm, and what the traveller fights with. The ids are working names; `name` is what people read, and it is our own (nothing from the games on screen).
 
 export type EnemyId = 'skeleton' | 'wight' | 'bandit' | 'banditmaned' | 'banditscale' | 'brassspider' | 'brasssphere' | 'marshcrab' | 'troll' | 'sabretiger' | 'mammoth' | 'giant' | 'vampire' | 'sorcerer';
-export type BossId = 'gjenganger' | 'colossus' | 'dragon';
+export type BossId = 'gjenganger' | 'colossus' | 'dragon' | 'vampirelord' | 'giantchief';
 
 export interface EnemyType {
   id: EnemyId | BossId;
@@ -19,6 +19,8 @@ export interface EnemyType {
   ranged?: boolean;
   /** What the journal says about it living in the place. */
   now: string;
+  /** The id of the pictures to draw it with, when it shares them with another (the giant chieftain is a bigger giant). */
+  art?: string;
 }
 
 /** Hit points are scaled so the weakest enemy falls to two blows of the starting sword (16 damage each). */
@@ -43,6 +45,8 @@ export const ENEMIES: Record<EnemyId, EnemyType> = {
 export const BOSSES: Record<BossId, EnemyType> = {
   gjenganger: { id: 'gjenganger', name: 'Gjenganger', plural: 'gjengangers', hp: Math.round(700 * S), speed: 0.045, every: 1.6, size: 2.4, now: 'A Gjenganger, lord of the dead, sits on the oldest throne of it.' },
   colossus: { id: 'colossus', name: 'Brass Colossus', plural: 'brass colossi', hp: Math.round(1000 * S), speed: 0.04, every: 2, size: 3.2, now: 'A brass colossus still keeps its watch over the machinery.' },
+  vampirelord: { id: 'vampirelord', name: 'Vampire Lord', plural: 'vampire lords', hp: Math.round(850 * S), speed: 0.05, every: 1.5, size: 2.5, ranged: true, now: 'A Vampire Lord holds court in the deepest hall, and the lesser vampires are only his guests.' },
+  giantchief: { id: 'giantchief', name: 'Giant Chieftain', plural: 'giant chieftains', hp: Math.round(1200 * S), speed: 0.04, every: 2, size: 3.5, art: 'giant', now: 'The chieftain of the giants stands here, taller than the trees, with a club cut from a whole oak.' },
   dragon: { id: 'dragon', name: 'Dragon', plural: 'dragons', hp: Math.round(1400 * S), speed: 0.045, every: 1.8, size: 3.6, flying: true, now: 'A dragon has come to roost on it, and the sky itself is afraid.' },
 };
 export const enemyById = (id: EnemyId | BossId): EnemyType => (ENEMIES as Record<string, EnemyType>)[id] ?? (BOSSES as Record<string, EnemyType>)[id];
@@ -98,6 +102,8 @@ const hash = (s: string): number => { let h = 2166136261; for (let i = 0; i < s.
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 
 export interface RaidPlan {
+  /** A big city: if the picture has sky to fly in, the fight is a single dragon (it circles in the sky and swoops in close now and then). */
+  dragonSky?: boolean;
   worth: number;
   enemies: (EnemyId | BossId)[];
   boss: BossId | null;
@@ -156,13 +162,18 @@ export function planFor(id: string, kind: string, worth: number, province: strin
   const enemies: EnemyId[] = second ? [first, second] : [first];
   // the lords of the old places: a Gjenganger in a barrow or ruin, a brass colossus in a brass ruin, from worth 50
   let boss: BossId | null = null;
-  if (worth >= 50) boss = (kind === 'ruin' || kind === 'cave' || kind === 'stones' || kind === 'shrine') ? (province === 'morrowind' || province === 'orsinium' ? 'colossus' : 'gjenganger') : kind === 'mill' || kind === 'tower' || kind === 'fort' ? 'colossus' : 'gjenganger';
+  if (worth >= 50) {
+    boss = kind === 'ruin' || kind === 'cave' || kind === 'stones' ? (province === 'morrowind' || province === 'orsinium' ? 'colossus' : 'gjenganger')
+      : kind === 'keep' || kind === 'tower' || kind === 'shrine' ? 'vampirelord'
+      : kind === 'peak' || kind === 'glacier' || kind === 'volcano' || kind === 'grove' || kind === 'pass' ? 'giantchief'
+      : kind === 'mill' || kind === 'fort' ? 'colossus' : 'gjenganger';
+  }
   const budget = 120 + worth * 24;
   const avgHp = enemies.reduce((sum, e) => sum + enemyById(e).hp, 0) / enemies.length;
   let total = Math.max(hashLeast(enemies), Math.min(40, Math.round((boss ? budget * 0.6 : budget) / avgHp)));
   if (boss) total = Math.max(3, Math.min(total, 24));
   const waves = wavesFor(total);
-  return { worth, enemies, boss, waves, total: waves.reduce((a, b) => a + b, 0) };
+  return { worth, enemies, boss, waves, total: waves.reduce((a, b) => a + b, 0), ...(kind === 'crest' || kind === 'town' ? { dragonSky: true } : {}) };
 }
 const hashLeast = (enemies: EnemyId[]): number => { const hardest = Math.max(...enemies.map((e) => enemyById(e).hp)); return hardest > 270 ? 2 : hardest > 135 ? 3 : 5; };
 

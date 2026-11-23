@@ -17,7 +17,7 @@ import { metroForSpot } from './lib/townLegend';
 import { bearingBetween, riderSvg } from './lib/rider';
 import { createVivid, type Vivid } from './lib/vivid';
 import AccountModal from './Account';
-import { accountsEnabled, loadFound, reportDiscovery, useAccount } from './lib/account';
+import { accountsEnabled, db, loadFound, reportDiscovery, useAccount } from './lib/account';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type Metro, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -63,7 +63,7 @@ function loadSeen(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as string[]); } catch { return new Set(); }
 }
 
-function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, onPick: () => void): HTMLElement {
+function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, cleared: boolean, onPick: () => void): HTMLElement {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = `em-pin em-k-${spot.kind}${seen ? ' em-seen' : ''}`;
@@ -71,8 +71,9 @@ function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, o
   el.setAttribute('aria-label', spot.name);
   const icon = document.createElement('span');
   icon.className = 'em-ico';
-  icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real, spot.iso2) : glyph(spot.pic ?? (spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind));
+  icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real, spot.iso2, seen) : glyph(spot.pic ?? (spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind), seen);
   el.appendChild(icon);
+  if (cleared) { const c = document.createElement('span'); c.className = 'em-cleared'; c.textContent = '[Cleared]'; el.appendChild(c); }
   if (labelled) {
     const label = document.createElement('span');
     label.className = 'em-lab';
@@ -116,6 +117,9 @@ export default function App() {
   const lookRef = useRef(look);
   const seenRef = useRef(seen);
   const [viewing, setViewing] = useState<Spot | null>(null);
+  // the places this person has cleared (a small [Cleared] shows under their marks)
+  const [cleared, setCleared] = useState<Set<string>>(new Set());
+  const clearedRef = useRef(cleared);
   // the Town Legend (the map of a whole city) that is open, if any
   const [legend, setLegend] = useState<Metro | null>(null);
   // (while developing, ?legendtest=<metro id> opens that city's map straight away)
@@ -168,6 +172,12 @@ export default function App() {
     if (!id) return;
     void loadFound(id).then((ids) => { if (ids.length) setSeen((prev) => new Set([...prev, ...ids])); });
   }, [account.session?.user.id]);
+  useEffect(() => { clearedRef.current = cleared; }, [cleared]);
+  useEffect(() => {
+    const id = account.session?.user.id;
+    if (!id) { setCleared(new Set()); return; }
+    void db().from('raid_runs').select('place_id').eq('user_id', id).eq('won', true).then((r) => setCleared(new Set(((r.data ?? []) as { place_id: string }[]).map((x) => x.place_id))));
+  }, [account.session?.user.id]);
   useEffect(() => { seenRef.current = seen; try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch { /* storage unavailable */ } }, [seen]);
 
   const say = useCallback((text: string) => {
@@ -176,13 +186,13 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(''), 4200);
   }, []);
 
-  const discover = useCallback((spot: Spot, here?: LatLng) => {
+  const discover = useCallback((spot: Spot, here?: LatLng, metroId?: string) => {
     if (seenRef.current.has(spot.id)) return;
     setSeen((prev) => new Set(prev).add(spot.id));
     say(`DISCOVERED: ${spot.name.toUpperCase()}`);
     // signed in and on the spot: the server checks the position, keeps the place on the account and gives the points
     const who = accountRef.current?.session;
-    if (who && here) void reportDiscovery(who.user.id, spot, here).then((r) => { if (r && r.added > 0) { say(`DISCOVERED: ${spot.name.toUpperCase()} · +${r.added} XP`); void accountRef.current?.refresh(); } });
+    if (who && here) void reportDiscovery(who.user.id, spot, here, metroId).then((r) => { if (r && r.added > 0) { say(`DISCOVERED: ${spot.name.toUpperCase()} · +${r.added} XP`); void accountRef.current?.refresh(); } });
   }, [say]);
 
   // ---- start: Google and the world's data ----
@@ -316,15 +326,16 @@ export default function App() {
     // pins are added and taken away one by one, so the rest does not flicker
     for (const [id, pin] of pins.current) {
       const want = wanted.get(id);
-      const key = want ? `${want.labelled}|${seenRef.current.has(id)}|${lookRef.current}` : '';
+      const key = want ? `${want.labelled}|${seenRef.current.has(id)}|${clearedRef.current.has(id)}|${lookRef.current}` : '';
       if (!want || key !== pin.key) { pin.handle.setMap(null); pins.current.delete(id); }
     }
     for (const [id, { spot, labelled }] of wanted) {
       if (pins.current.has(id)) continue;
       const isSeen = seenRef.current.has(id);
-      const handle = createHtmlMarker({ position: { lat: spot.lat, lng: spot.lng }, element: pinElement(spot, ink, isSeen, labelled, () => setSelected(spot)), zIndex: spot.kind === 'crest' ? 8 : 5 });
+      const isCleared = clearedRef.current.has(id);
+      const handle = createHtmlMarker({ position: { lat: spot.lat, lng: spot.lng }, element: pinElement(spot, ink, isSeen, labelled, isCleared, () => setSelected(spot)), zIndex: spot.kind === 'crest' ? 8 : 5 });
       handle.setMap(map);
-      pins.current.set(id, { handle, key: `${labelled}|${isSeen}|${lookRef.current}` });
+      pins.current.set(id, { handle, key: `${labelled}|${isSeen}|${isCleared}|${lookRef.current}` });
     }
   }, [world]);
 
@@ -363,7 +374,7 @@ export default function App() {
     return () => handle.remove();
   }, [ready, refresh]);
   // a look or a discovery changes how pins are drawn
-  useEffect(() => { refresh(); }, [look, seen, refresh]);
+  useEffect(() => { refresh(); }, [look, seen, cleared, refresh]);
 
   // ---- search ----
   const search = async (e: React.FormEvent) => {
@@ -393,6 +404,18 @@ export default function App() {
         }
         for (const [id, name, lat, lng, type] of world.wild) {
           if (Math.abs(lat - here.lat) < 0.01 && Math.abs(lng - here.lng) < 0.015 && distanceMeters(here, { lat, lng }) < 500) discover({ id: `w:${id}`, kind: type, real: name, name, province: 'cyrodiil', lat, lng, fame: 0, note: '' }, here);
+        }
+      }
+      // a big city is discovered by going into its area, at least half a mile in
+      if (!tripRef.current) {
+        for (const m of world.metros) {
+          if (Math.abs(m.lat - here.lat) > m.radiusKm / 111 + 0.05 || Math.abs(m.lng - here.lng) > m.radiusKm / (111 * Math.max(0.2, Math.cos((m.lat * Math.PI) / 180))) + 0.05) continue;
+          if (distanceMeters(here, { lat: m.lat, lng: m.lng }) / 1000 > m.radiusKm - 0.8) continue;
+          let anchor: [string, number, number, number, 'crest' | 'town' | 'village', string] | null = null; let gap = 25_000;
+          for (const c of [...world.cities.crest, ...world.cities.town]) { const d = distanceMeters({ lat: c[1], lng: c[2] }, { lat: m.lat, lng: m.lng }); if (d < gap) { gap = d; anchor = c; } }
+          if (!anchor) continue;
+          const prov = world.provinceOfCountry(anchor[5]);
+          discover({ id: `c:${anchor[0]}:${anchor[1]}`, kind: anchor[4], real: anchor[0], name: loreName(anchor[0], prov), province: prov, lat: anchor[1], lng: anchor[2], fame: anchor[3], note: '', iso2: anchor[5] }, here, m.id);
         }
       }
       // on the road
@@ -500,7 +523,7 @@ export default function App() {
     roadLayers.current.halo = new google.maps.Polyline({ map, path: route.path, strokeColor: '#f1e4bd', strokeWeight: 11, strokeOpacity: 0.62, zIndex: 3 });
     const print = { path: 'M-2.2 -1.4 Q-1.4 -2.2 -0.6 -1.4 L-0.6 1.4 Q-1.4 2 -2.2 1.4 Z M0.6 -1.4 Q1.4 -2.2 2.2 -1.4 L2.2 1.4 Q1.4 2 0.6 1.4 Z', fillColor: '#4a2a14', fillOpacity: 0.9, strokeOpacity: 0, scale: 2.1 };
     roadLayers.current.line = new google.maps.Polyline({ map, path: route.path, strokeOpacity: 0, zIndex: 4, icons: [{ icon: print, offset: '0', repeat: '22px' }, { icon: { ...print, scale: 1.7, fillOpacity: 0.55 }, offset: '11px', repeat: '22px' }] });
-    const endEl = pinElement(to, '#7a2a1a', true, true, () => undefined);
+    const endEl = pinElement(to, '#7a2a1a', true, true, false, () => undefined);
     roadLayers.current.end = createHtmlMarker({ position: dest, element: endEl, zIndex: 6 });
     roadLayers.current.end.setMap(map);
     const meEl = document.createElement('div');
@@ -605,7 +628,7 @@ export default function App() {
 
         {viewing && !trip && (
           <SceneView spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
-            signedIn={!!account.session} onSpent={() => void account.refresh()}
+            signedIn={!!account.session} onSpent={() => void account.refresh()} onCleared={(id) => setCleared((prev) => new Set(prev).add(id))}
             onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
             onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
         )}
@@ -616,7 +639,7 @@ export default function App() {
         )}
 
         {import.meta.env.DEV && new URLSearchParams(window.location.search).has('combattest') && (
-          <CombatScreen title="Test" imageUrl="/_test.png" plan={planFor('x', 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
+          <CombatScreen title="Test" imageUrl="/_test.png" plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}

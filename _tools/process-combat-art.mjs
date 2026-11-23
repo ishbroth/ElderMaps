@@ -14,7 +14,7 @@ fs.mkdirSync(path.join(OUT, 'weapons'), { recursive: true });
 const manifestFile = path.join(OUT, 'manifest.json');
 const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : { enemies: {}, weapons: {} };
 
-const ENEMY = new Set(['skeleton','wight','bandit','banditmaned','banditscale','brassspider','brasssphere','marshcrab','troll','sabretiger','mammoth','giant','vampire','sorcerer','gjenganger','colossus','dragon']);
+const ENEMY = new Set(['skeleton','wight','bandit','banditmaned','banditscale','brassspider','brasssphere','marshcrab','troll','sabretiger','mammoth','giant','vampire','sorcerer','gjenganger','vampirelord','colossus','dragon']);
 
 /** Raw RGBA of an image region with the magenta background made transparent. */
 async function keyed(input, region) {

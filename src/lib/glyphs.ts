@@ -42,11 +42,12 @@ const BASE: Record<string, Part[]> = {
 
 const GLYPHS: Record<string, Part[]> = { ...BASE, ...MORE };
 
-export function glyph(kind: string): string {
+/** A mark as an SVG: filled once the place is discovered, a hollow outline before. */
+export function glyph(kind: string, filled = true): string {
   const parts = GLYPHS[kind] ?? GLYPHS.landmark;
   const body = parts.map((p) => (p.line
     ? `<path d="${p.d}" fill="none" stroke="currentColor" stroke-width="${p.line}" stroke-linecap="round" stroke-linejoin="round"/>`
-    : `<path d="${p.d}" fill="currentColor" fill-rule="evenodd"/>`)).join('');
+    : filled ? `<path d="${p.d}" fill="currentColor" fill-rule="evenodd"/>` : `<path d="${p.d}" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>`)).join('');
   return `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">${body}</svg>`;
 }
 

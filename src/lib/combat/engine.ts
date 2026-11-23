@@ -48,6 +48,8 @@ export interface Enemy {
   chill: number;
   gait: number;
   lift: number;
+  /** A dragon in the sky of a city picture: circling far off, swooping in close and pausing to strike, then back up. */
+  sky?: { mode: 'circle' | 'swoop' | 'hover' | 'retreat'; t: number; next: number; baseV: number; hit: number; attacking: boolean };
 }
 
 export interface Effect {
@@ -85,6 +87,8 @@ export interface GameOptions {
   random?: () => number;
   /** How wide an enemy's picture is against its height, for aiming (given by the screen). */
   ratio?: (e: Enemy) => number;
+  /** The picture has sky to fly in and the plan is a dragon: where the sky ends (the dragon circles above that). */
+  dragonSky?: { v: number };
 }
 
 export class Game {
@@ -129,6 +133,7 @@ export class Game {
   private strength: number;
   private pending: { t: number; run: () => void }[] = [];
   private finalBoss: BossId | null;
+  private dragonSky: { v: number } | null;
 
   constructor(o: GameOptions) {
     this.plan = o.plan; this.spawns = o.spawns; this.arsenal = o.arsenal;
@@ -144,6 +149,7 @@ export class Game {
     this.order = this.waves.map((size) => Array.from({ length: size }, () => ({ type: enemyById(o.plan.enemies[Math.floor(this.random() * o.plan.enemies.length)]), boss: false })));
     // a dragon turns up at random, never as an ordinary enemy: as the last boss, one fight in eight (and a worth 30 place or more can have one even with no boss of its own)
     this.finalBoss = o.plan.boss;
+    this.dragonSky = o.dragonSky ?? null;
     if (o.plan.worth >= 30 && this.random() < 0.125) this.finalBoss = 'dragon';
     this.banner = 'WAVE 1'; this.bannerT = 2.2;
   }
@@ -273,6 +279,8 @@ export class Game {
   heightOf(e: Enemy): number {
     const pr = this.spawns.person;
     const scale = this.spawns.scale ?? 1;
+    // a dragon over a city: small and far off in the sky, filling the view when it hovers close
+    if (e.sky) return 0.09 + 0.62 * Math.pow(Math.max(0, (e.p - 0.12) / 0.74), 1.1);
     const vv = e.type.flying ? Math.max(e.v0, this.spawns.horizon + 0.15) : e.v0;
     const start = pr
       ? Math.max(0.016, pr.h * Math.max(0, vv - this.spawns.horizon) / Math.max(0.05, pr.v - this.spawns.horizon)) * Math.pow(e.type.size, 0.55)
@@ -283,6 +291,11 @@ export class Game {
   }
 
   private spawn(type: EnemyType, boss: boolean) {
+    if (this.dragonSky && type.id === 'dragon') {
+      const v = Math.max(0.12, Math.min(0.5, this.dragonSky.v * 0.5));
+      this.enemies.push({ id: this.nextId++, type, boss: true, u0: 0.5, v0: v, toU: 0.5, u: 0.5, v, p: 0.12, travel: 1, hp: Math.round(type.hp * 1.4 * this.strength), maxHp: Math.round(type.hp * 1.4 * this.strength), state: 'walking', t: 0, hurt: 0, phase: 0, exit: 1, chill: 0, gait: 0, lift: 0, sky: { mode: 'circle', t: 0, next: 10 + this.random() * 6, baseV: v, hit: 0, attacking: false } });
+      return;
+    }
     const pts = this.spawns.points;
     const point = pts[Math.floor(this.random() * pts.length)] ?? { u: 0.5, v: 0.64 };
     const v0 = Math.max(this.spawns.horizon + 0.02, point.v);
@@ -292,6 +305,37 @@ export class Game {
       id: this.nextId++, type, boss, u0: point.u, v0, toU: 0.2 + this.random() * 0.6, u: point.u, v: v0, p: 0, travel,
       hp: Math.round(type.hp * this.strength), maxHp: Math.round(type.hp * this.strength), state: 'walking', t: 0, hurt: 0, phase: this.random() * 6.28, exit: this.random() < 0.5 ? -1 : 1, chill: 0, gait: 0, lift: 0,
     });
+  }
+
+  /** The dragon over a city: circle, swoop in, hover and strike, retreat, and again. */
+  private flyDragon(e: Enemy, dt: number) {
+    const s = e.sky as NonNullable<Enemy['sky']>;
+    s.t += dt; e.gait += dt * 4.5;
+    if (s.mode === 'circle') {
+      e.p = 0.12 + 0.02 * Math.sin(s.t * 0.8);
+      e.u = 0.5 + 0.34 * Math.sin(s.t * 0.45); e.v = s.baseV + 0.03 * Math.sin(s.t * 0.9);
+      if (s.t >= s.next) { s.mode = 'swoop'; s.t = 0; }
+    } else if (s.mode === 'swoop') {
+      e.p = Math.min(0.86, e.p + dt / 2.4);
+      e.u += (0.5 - e.u) * Math.min(1, dt * 2.2); e.v = s.baseV + (0.84 - s.baseV) * ((e.p - 0.12) / 0.74);
+      if (e.p >= 0.86) { s.mode = 'hover'; s.t = 0; s.hit = 0; }
+    } else if (s.mode === 'hover') {
+      // it pauses in front, in reach of a sword, and strikes
+      e.p = 0.86; e.u = 0.5 + 0.06 * Math.sin(s.t * 1.6); e.v = 0.84 + 0.01 * Math.sin(s.t * 3);
+      const cycle = e.type.every;
+      const phase = s.t - s.hit * cycle;
+      s.attacking = phase > cycle - 0.45;
+      if (phase >= cycle) {
+        const [lo, hi] = STRIKE_SHARE.strong;
+        this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++;
+        if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
+      }
+      if (s.t >= 5.5) { s.mode = 'retreat'; s.t = 0; s.attacking = false; }
+    } else {
+      e.p = Math.max(0.12, e.p - dt / 2.2);
+      e.v = s.baseV + (0.84 - s.baseV) * ((e.p - 0.12) / 0.74); e.u += (0.5 + 0.34 * Math.sin(s.t) - e.u) * Math.min(1, dt);
+      if (e.p <= 0.121) { s.mode = 'circle'; s.t = 0; s.next = 11 + this.random() * 6; }
+    }
   }
 
   update(dt: number) {
@@ -353,6 +397,7 @@ export class Game {
       e.t += dt; e.hurt = Math.max(0, e.hurt - dt);
       if (e.chill > 0) e.chill = Math.max(0, e.chill - dt);
       const slow = e.chill > 0 ? 0.4 : 1;
+      if (e.sky && e.state === 'walking') { this.flyDragon(e, edt); continue; }
       if (e.state === 'walking') {
         const stopAt = e.type.ranged ? 0.8 : 1;
         e.p = Math.min(stopAt, e.p + (edt * slow) / e.travel);

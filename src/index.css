@@ -211,3 +211,6 @@ button { font: inherit; }
 .em-wheel button:disabled { opacity: 0.4; cursor: default; }
 .em-wheel-twohand { grid-column: 1 / 3; }
 .em-wheel-magic { grid-column: 1 / 3; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* [Cleared]: small, under the mark of a place the traveller has cleared */
+.em-cleared { font-size: 8px; letter-spacing: 1px; line-height: 1; margin-top: -1px; color: var(--pin, #f2f2ee); text-shadow: 0 0 3px #000, 0 0 2px #000; pointer-events: none; white-space: nowrap; }

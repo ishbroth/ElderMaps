@@ -76,7 +76,7 @@ function choiceFor(name: string, iso2: string): CrestChoice {
 }
 
 /** A city's crest as an SVG. The rim and the device take the marker's ink where the field is dark; otherwise a dark device. */
-export function crestSvg(name: string, iso2 = ''): string {
+export function crestSvg(name: string, iso2 = '', discovered = true): string {
   const c = choiceFor(name, iso2);
   const shape = SHAPES[(c.s ?? hashOf(name)) % SHAPES.length];
   const col = COLOURS[c.f] ?? COLOURS.black;
@@ -88,5 +88,8 @@ export function crestSvg(name: string, iso2 = ''): string {
     : `<path d="${q.d}" fill="${col.ink}" fill-rule="evenodd" stroke="${outline}" stroke-width="0.9" stroke-linejoin="round" paint-order="stroke"/>`)).join('');
   return `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true"><defs><clipPath id="${id}"><path d="${shape}"/></clipPath></defs>`
     + `<path d="${shape}" fill="${col.main}"/><g clip-path="url(#${id})">${patternSvg(c.p, col.second)}</g>`
-    + `<path d="${shape}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>${parts}</svg>`;
+    + (discovered
+      ? `<path d="${shape}" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>`
+      : `<path d="${shape}" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round" opacity="0.8"/>`)
+    + `${parts}</svg>`;
 }

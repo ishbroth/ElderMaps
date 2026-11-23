@@ -46,11 +46,14 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, l
       if (off) return;
       if (!loaded) { setPhase('error'); return; }
       bg.current = img; setRatio(img.naturalWidth / img.naturalHeight);
-      const ids = [...new Set([...plan.enemies, ...(plan.boss ? [plan.boss] : []), 'dragon'])];
+      const ids = [...new Set([...plan.enemies, ...(plan.boss ? [plan.boss] : []), 'dragon', ...(plan.boss === 'giantchief' ? ['giant'] : [])].map((id) => (id === 'giantchief' ? 'giant' : id)))];
       assets.current = await loadCombatAssets(ids, ITEM_CLASSES.map((c) => weaponAt(c, (arsenal[c] || 1) as 1 | 2 | 3 | 4).art));
       if (off) return;
       const looked = analyzeSpawns(img, { ...spawns, ...DEFAULT_SPAWNS, ...spawns });
-      const g = new Game({ plan, spawns: looked ?? { ...DEFAULT_SPAWNS, ...spawns }, arsenal, hands: ['onehand'], level, potions, shouts, ratio: (e: Enemy) => { const f = assets.current.enemies[e.type.id]?.frames[0]; return f ? f.naturalWidth / f.naturalHeight : 0.45; } });
+      // a big city with sky in its picture is a dragon at once, in the sky (and the plan's ground enemies are the fallback when there is no sky)
+      const skyPlan = plan.dragonSky && looked?.sky && looked.sky.fraction >= 0.12;
+      const usedPlan: RaidPlan = skyPlan ? { worth: plan.worth, enemies: [], boss: 'dragon', waves: [], total: 1, dragonSky: true } : plan;
+      const g = new Game({ plan: usedPlan, dragonSky: skyPlan && looked?.sky ? { v: looked.sky.v } : undefined, spawns: looked ?? { ...DEFAULT_SPAWNS, ...spawns }, arsenal, hands: ['onehand'], level, potions, shouts, ratio: (e: Enemy) => { const f = assets.current.enemies[e.type.id]?.frames[0]; return f ? f.naturalWidth / f.naturalHeight : 0.45; } });
       game.current = g; if (import.meta.env.DEV) (window as unknown as { __game?: Game }).__game = g; setHands(g.slots.map((s) => s.weapon.cls));
       setPhase('fighting');
     })();
@@ -187,12 +190,16 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: CombatAssets, W: number, H: number) {
-  const sprites = art.enemies[e.type.id];
+  const sprites = art.enemies[e.type.art ?? e.type.id];
   const h = g.heightOf(e) * H;
   let frame = Math.floor(e.gait * 2) % 2;
-  if (e.state === 'striking') frame = 2; else if (e.state === 'dying') frame = 3;
+  if (e.state === 'striking' || e.sky?.attacking) frame = 2; else if (e.state === 'dying') frame = 3;
   const img = sprites?.frames[frame];
-  const w = img ? h * (img.naturalWidth / img.naturalHeight) : h * 0.45;
+  // every pose is drawn at the same scale (the one that makes the first pose h tall), so a lunge is bigger and a corpse lower, and a flapping wing keeps its size
+  const base = sprites?.frames[0];
+  const sc = img && base ? h / base.naturalHeight : 1;
+  const w = img ? img.naturalWidth * sc : h * 0.45;
+  const dh = img ? img.naturalHeight * sc : h;
   const x = e.u * W, y = (e.v - e.lift) * H;
   // its shadow stays on the ground
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x, e.v * H, w * 0.4, h * 0.06, 0, 0, Math.PI * 2); ctx.fill();
@@ -202,7 +209,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: Combat
   if (e.hurt > 0 && Math.floor(e.hurt * 40) % 2 === 0) ctx.globalAlpha *= 0.65;
   const lean = e.state === 'walking' ? Math.sin(e.gait * Math.PI) * 0.03 : 0;
   ctx.translate(x, y); ctx.rotate(lean);
-  if (img) ctx.drawImage(img, -w / 2, -h, w, h);
+  if (img) ctx.drawImage(img, -w / 2, -dh, w, dh);
   else { ctx.fillStyle = e.boss ? '#5a2a2a' : '#2a2f36'; ctx.fillRect(-w / 2, -h, w, h); }
   if (e.chill > 0) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(140,200,255,0.35)'; ctx.fillRect(-w / 2, -h, w, h); }
   ctx.restore();

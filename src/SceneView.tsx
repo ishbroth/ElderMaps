@@ -16,6 +16,8 @@ interface Props {
   onNeedsAccount: (what: string) => void;
   /** A glimpse was paid for: the balance has changed. */
   onSpent: () => void;
+  /** The place was cleared: the map marks it. */
+  onCleared: (placeId: string) => void;
   /** Opens the Town Legend of the city this place belongs to. */
   onTownLegend: () => void;
   onTravel: () => void;
@@ -23,7 +25,7 @@ interface Props {
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ spot, province, icon, signedIn, onNeedsAccount, onSpent, onTownLegend, onTravel, onClose }: Props) {
+export default function SceneView({ spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onTravel, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -79,6 +81,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
           <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={STARTING_ARSENAL} level={0} potions={run.pack.potions} shouts={run.pack.shouts}
             onDone={async (res) => {
               const end = await finishRun(run.runId, res.won, province.id, spot.kind, res.potionsUsed, res.shoutsUsed);
+              if (res.won) onCleared(spot.id);
               if (res.won && end?.loot) setPaidLine(`${end.paid ? 'LOOT: ' : 'HELD UNTIL YOU VISIT IN PERSON: '}${Object.entries(end.loot).map(([id, n]) => `${n} ${lootName(id).toUpperCase()}`).join(', ')}`);
             }}
             onExit={() => setRun(null)} />
@@ -90,7 +93,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
               {state === 'working' ? 'GLIMPSING…' : <>GLIMPSE · {cost} SEPTIMS <span aria-hidden="true">🔒</span></>}
             </button>
           )}
-          {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR THE AREA</button>}
+          {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR</button>}
           {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>THE STORY</button>}
           {hasTownLegend(spot.kind) && state !== 'ready' && (
             <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>

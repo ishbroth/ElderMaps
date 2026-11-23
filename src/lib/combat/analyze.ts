@@ -12,6 +12,8 @@ const W = 96, H = 96;
 const PERSON_M = 1.75;
 
 export interface Found extends Spawns {
+  /** How much of the picture is sky (0 to 1), and where its lower edge is (the middle of the skyline, 0 to 1). */
+  sky?: { fraction: number; v: number };
   /** Spots on a building or a ruin, well above the ground: an enemy starting here climbs down (rare). */
   high: { u: number; v: number }[];
   /** Spots at the edges of the picture on the ground, where a street or a gap runs out of sight: an enemy starting here walks in from the side. */
@@ -100,6 +102,9 @@ export function analyzeRgba(px: ArrayLike<number>, fallback: Spawns, random: () 
       ground[j] = 1; stack.push(j);
     }
   }
+  let skyCount = 0;
+  for (let i = 0; i < W * H; i++) skyCount += sky[i];
+  const skyInfo = { fraction: skyCount / (W * H), v: [...skyline].sort((a, b) => a - b)[Math.floor(W / 2)] };
   let groundCount = 0;
   for (let i = 0; i < W * H; i++) groundCount += ground[i];
   if (debug) { debug.ground = ground; debug.sky = sky; }
@@ -119,7 +124,7 @@ export function analyzeRgba(px: ArrayLike<number>, fallback: Spawns, random: () 
     if (H - top >= 3) { hasGround[x] = 1; groundTop[x] = top / H; }
   }
   const groundCols = [...Array(W).keys()].filter((x) => hasGround[x]);
-  if (groundCount < W * H * 0.05 || groundCols.length < W * 0.25) return analyzeRough(tex, sky, skyline, fallback, random);
+  if (groundCount < W * H * 0.05 || groundCols.length < W * 0.25) return analyzeRough(tex, sky, skyline, fallback, random, skyInfo);
 
   // the horizon: where open ground runs out under the sky (a street going off into the distance) is as far as the ground goes; otherwise it is kept above every building's foot
   const openFar: number[] = [];
@@ -180,7 +185,7 @@ export function analyzeRgba(px: ArrayLike<number>, fallback: Spawns, random: () 
   const feet = pick(footSpots, 6, 0.1);
   const road = pick(roadSpots, feet.length >= 4 ? 3 : 8, 0.12);
   const points = [...feet, ...road];
-  if (points.length < 4) return analyzeRough(tex, sky, skyline, fallback, random);
+  if (points.length < 4) return analyzeRough(tex, sky, skyline, fallback, random, skyInfo);
 
   // the edges: where the ground reaches the left or right side of the picture, at mid-height of the ground there
   const edges: { u: number; v: number }[] = [];
@@ -196,11 +201,11 @@ export function analyzeRgba(px: ArrayLike<number>, fallback: Spawns, random: () 
     const v = b.up + (b.v - b.up) * (0.3 + random() * 0.2);
     if (v > b.up + 0.08) high.push({ u: (b.x + 0.5) / W, v });
   }
-  return { horizon, points, high: high.slice(0, 4), edges, person: { v: vRef, h: hRef }, ...(fallback.scale !== undefined ? { scale: fallback.scale } : {}) };
+  return { horizon, points, high: high.slice(0, 4), edges, sky: skyInfo, person: { v: vRef, h: hRef }, ...(fallback.scale !== undefined ? { scale: fallback.scale } : {}) };
 }
 
 /** A picture with no clear street (rubble field, trees, a view with no ground showing): the ground is guessed from where it is rough and low. */
-function analyzeRough(tex: Float32Array, sky: Uint8Array, skyline: Float32Array, fallback: Spawns, random: () => number): Found | null {
+function analyzeRough(tex: Float32Array, sky: Uint8Array, skyline: Float32Array, fallback: Spawns, random: () => number, skyInfo?: { fraction: number; v: number }): Found | null {
   const horizon = horizonFromSkyline(skyline);
   const ground: { u: number; v: number; s: number }[] = [];
   for (let gy = 0; gy < 14; gy++) for (let gx = 0; gx < 18; gx++) {
@@ -219,7 +224,7 @@ function analyzeRough(tex: Float32Array, sky: Uint8Array, skyline: Float32Array,
   }
   if (out.length < 4) return null;
   const buildingM = Math.max(3, fallback.buildingM ?? 20);
-  return { horizon, points: out, high: [], edges: [], person: { v: 0.9, h: Math.max(0.022, Math.min(0.2, 0.12 * (8 / buildingM) ** 0.6)) }, ...(fallback.scale !== undefined ? { scale: fallback.scale } : {}) };
+  return { horizon, points: out, high: [], edges: [], sky: skyInfo, person: { v: 0.9, h: Math.max(0.022, Math.min(0.2, 0.12 * (8 / buildingM) ** 0.6)) }, ...(fallback.scale !== undefined ? { scale: fallback.scale } : {}) };
 }
 
 /** Where the horizon is, from the skyline: below the typical skyline (buildings stand on ground below it), kept to a believable band. */
