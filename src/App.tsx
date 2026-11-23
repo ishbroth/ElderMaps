@@ -41,7 +41,14 @@ const SEEN_KEY = 'eldermaps:seen';
 
 const townCount = (zoom: number): number => (zoom < 5 ? 0 : zoom === 5 ? 140 : zoom === 6 ? 520 : 1e9);
 const villageCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 700 : 1e9);
-const crestCount = (zoom: number): number => (zoom <= 3 ? 36 : zoom === 4 ? 70 : zoom === 5 ? 110 : zoom === 6 ? 260 : 1e9);
+/** Which capitals show at each zoom, by the size of the metro: fully zoomed out the big ones of the world (a higher bar in China and India, which have so many), more as you come in. */
+const crestOk = (zoom: number, pop: number, iso2: string): boolean => {
+  const asia = iso2 === 'CN' || iso2 === 'IN';
+  if (zoom <= 3) return pop >= (asia ? 10e6 : 4e6);
+  if (zoom === 4) return pop >= (asia ? 6e6 : 2.5e6);
+  if (zoom === 5) return pop >= (asia ? 3e6 : 1.5e6);
+  return true;
+};
 /** A few world-famous natural landmarks and parks that stay on the map even fully zoomed out (the rest come in as you zoom). */
 const FAMOUS_LOW = new Set(['Yellowstone National Park', 'Victoria Falls', 'Iguaçu Falls', 'Angel Falls', 'Grand Canyon National Park', 'Serengeti National Park', 'Galápagos National Park', 'Niagara Falls', 'Mount Everest', 'Mont Blanc', 'Uluru', 'Mount Kilimanjaro', 'Great Barrier Reef']);
 const famousFar = (name: string, type: string, fame: number): boolean => FAMOUS_LOW.has(name) || (fame >= 125 && type !== 'keep' && type !== 'fort' && type !== 'tower');
@@ -243,13 +250,13 @@ export default function App() {
     // the cities, biggest first and more of them as you come in: crests (the anchors of metros over a million), towns (smaller metros that stand alone),
     // and villages (every other city over 60,000, drawn as a farm, a mill or a mine)
     const tiers: [typeof world.cities.crest, number, 'crest' | 'town' | 'village', number][] = [
-      [world.cities.crest, crestCount(zoom), 'crest', 220], [world.cities.town, townCount(zoom), 'town', 220], [world.cities.village, villageCount(zoom), 'village', 260],
+      [world.cities.crest, 1e9, 'crest', 260], [world.cities.town, townCount(zoom), 'town', 220], [world.cities.village, villageCount(zoom), 'village', 260],
     ];
     for (const [list, allowed, kind, cap] of tiers) {
       let shown = 0;
       for (let i = 0; i < list.length && i < allowed && shown < cap; i++) {
         const [name, lat, lng, pop, , iso2] = list[i];
-        if (!inView(lat, lng)) continue;
+        if (!inView(lat, lng) || (kind === 'crest' && !crestOk(zoom, pop, iso2))) continue;
         const province = world.provinceOfCountry(iso2);
         const pic = kind === 'village' || kind === 'town' ? settlementPic(kind, name, pop) : undefined;
         add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,

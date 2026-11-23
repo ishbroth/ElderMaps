@@ -35,10 +35,22 @@ export const RUIN_KIT_OF_PROVINCE: Record<string, string> = {
 };
 
 /** The kit for a place: caves and ruins get their land's ancient-ruin kit, everything else its land's building kit. */
-export const kitFor = (kind: string, province: string): string => (kind === 'cave' || kind === 'ruin' ? RUIN_KIT_OF_PROVINCE[province] : KIT_OF_PROVINCE[province]) ?? 'imperial';
+export const kitFor = (kind: string, province: string): string => (kind === 'cave' || kind === 'ruin' || NATURAL.has(kind) ? RUIN_KIT_OF_PROVINCE[province] : KIT_OF_PROVINCE[province]) ?? 'imperial';
 
-/** Natural places stay natural: no buildings are invented for them. */
+/** Natural places: the landform stays the star. */
 const NATURAL = new Set(['waterfall', 'peak', 'volcano', 'glacier', 'grove', 'spring', 'pass']);
+
+/** What a natural place may be given besides its own nature: one touch of the ancient, chosen by the name (so a place is always dressed the same) and sized to the feature. */
+const NATURAL_FLAVORS: Record<string, string[]> = {
+  waterfall: ['an ancient carved altar on a rock ledge beside the falls, with a few worn steps leading to it', 'the remains of a ruined stone bridge or aqueduct arch spanning the gorge above the falls', 'a half-hidden doorway of carved stone behind the curtain of water, the entrance to something old', 'a small ruined shrine with a glowing lantern on the cliff'],
+  peak: ['a ruined watchtower or ancient shrine on a ridge or the summit, tiny against the mountain', 'a line of worn ancient steps and a broken gate climbing the slope', 'the lost walls of a mountain city half swallowed by the rock and snow, small against the mountain', 'a stone-ringed altar on a high shoulder with a faint glow'],
+  volcano: ['an altar of sacrifice on a rim ledge, with a thin line of stairs', 'the ruins of a temple half buried in ash on the slope', 'a stone gate and bridge of an old forge-city at the foot'],
+  glacier: ['a stone-guarded entrance to an ancient fortress, with carved pillars standing out of the ice', 'frozen ruins and broken statues emerging from the ice', 'an ancient cairn and standing stones on the ice shelf'],
+  grove: ['a ring of standing stones and an overgrown altar in a clearing', 'the ivy-covered ruins of a lost city among the trees, small against the forest', 'a witch\'s lair: a crooked hut of bones and branches with hanging charms and a faint green glow', 'a stone-guarded entrance to an ancient underground fortress between the roots of a great tree'],
+  spring: ['ancient ruined baths and a carved basin around the water', 'a stone altar with offerings beside the pool'],
+  pass: ['a ruined gatehouse and wall of an old fortress across the pass', 'weathered watchtower ruins on the heights above the road', 'a stone-guarded gate to an old underground fortress at the side of the pass'],
+};
+const flavorHash = (s: string): number => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
 /** Extra guidance by the kind of place. */
 const KIND_HINT: Record<string, string> = {
@@ -70,7 +82,7 @@ export function glimpsePrompt(name: string, kind: string, kit: string): string {
   return [
     `Re-imagine this real photograph as a scene from a high-fantasy realm, in ${style}`,
     `This is "${name}". ${hint}`,
-    NATURAL.has(kind) ? 'This is a natural place: do NOT add any buildings, walls, arches, bridges or other architecture that are not in the photograph; its fantasy comes only from colour, light, atmosphere and a few magical details in nature (glowing plants, motes of light).' : '',
+    NATURAL.has(kind) ? `This is a natural place, and the landform itself stays the star: keep its exact shape and most of the frame natural. Give it just ONE touch of the ancient, in the style above and sized to the feature (small against a mountain, larger beside a stream): ${NATURAL_FLAVORS[kind][flavorHash(name) % NATURAL_FLAVORS[kind].length]}. Never hide or replace the natural feature; do not add a town or modern buildings.` : '',
     'IMPORTANT: keep the exact composition, camera angle and framing of the photograph, and keep the overall shape, size, proportions and layout of the main building or landscape, so anyone who knows the place would still recognise it; only its materials, roofs, details and surroundings are rebuilt in the fantasy style. Do NOT replace it with a generic building.',
     'Remove anything modern: cars, wires, road signs, glass-and-steel, modern clothing, text and logos. No people in the foreground.',
     'Painterly, realistic fantasy-game art with rich textures and soft atmospheric light, and a few faint floating motes of light in the air. The image must fill the whole frame to its edges: no glowing border, no vignette, no frame, no edge effect. No text, no letters, no watermark.',
