@@ -10,17 +10,19 @@ import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, r
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
+import TownLegend from './TownLegend';
+import { metroForSpot } from './lib/townLegend';
 import { bearingBetween, riderSvg } from './lib/rider';
 import { createVivid, type Vivid } from './lib/vivid';
 import AccountModal from './Account';
 import { accountsEnabled, loadFound, reportDiscovery, useAccount } from './lib/account';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
-import { loadWorld, type World } from './lib/world';
+import { loadWorld, type Metro, type World } from './lib/world';
 import TornFrame from './TornFrame';
 import TintLayer from './TintLayer';
 
 /** One thing on the map that can be picked. */
-interface Spot {
+export interface Spot {
   id: string;
   kind: string;
   real: string;
@@ -112,6 +114,15 @@ export default function App() {
   const lookRef = useRef(look);
   const seenRef = useRef(seen);
   const [viewing, setViewing] = useState<Spot | null>(null);
+  // the Town Legend (the map of a whole city) that is open, if any
+  const [legend, setLegend] = useState<Metro | null>(null);
+  // (while developing, ?legendtest=<metro id> opens that city's map straight away)
+  useEffect(() => {
+    if (!import.meta.env.DEV || !world) return;
+    const id = new URLSearchParams(window.location.search).get('legendtest');
+    const m = id ? world.metros.find((x) => x.id === id) : null;
+    if (m) setLegend(m);
+  }, [world]);
   // the state or province a tapped place is in (asked of Google once per place)
   const [regionName, setRegionName] = useState<string | null>(null);
   const regionCache = useRef(new Map<string, string | null>());
@@ -593,7 +604,13 @@ export default function App() {
         {viewing && !trip && (
           <SceneView spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
             signedIn={!!account.session} onSpent={() => void account.refresh()}
+            onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
             onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
+        )}
+
+        {legend && world && !trip && (
+          <TownLegend metro={legend} province={world.provinceOfCountry(legend.country)} world={world} signedIn={!!account.session} septims={account.septims}
+            onNeedsAccount={() => { setLegend(null); setAccountOpen(true); }} onSpent={() => void account.refresh()} onOpenSpot={(s) => setViewing(s)} onClose={() => setLegend(null)} />
         )}
 
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}

@@ -12,12 +12,14 @@ interface Props {
   onNeedsAccount: (what: string) => void;
   /** A glimpse was paid for: the balance has changed. */
   onSpent: () => void;
+  /** Opens the Town Legend of the city this place belongs to. */
+  onTownLegend: () => void;
   onTravel: () => void;
   onClose: () => void;
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ spot, province, icon, signedIn, onNeedsAccount, onSpent, onTravel, onClose }: Props) {
+export default function SceneView({ spot, province, icon, signedIn, onNeedsAccount, onSpent, onTownLegend, onTravel, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -64,7 +66,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
           )}
           {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>THE STORY</button>}
           {hasTownLegend(spot.kind) && state !== 'ready' && (
-            <button type="button" className="em-btn em-btn-ghost" onClick={() => onNeedsAccount('THE TOWN LEGEND')} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>
+            <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>
           )}
           <button type="button" className="em-btn em-btn-ghost" onClick={onTravel}>FAST TRAVEL</button>
         </div>

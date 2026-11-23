@@ -31,6 +31,20 @@ async function cityTier(name: string, lat: number): Promise<string | null> {
   return tiers.get(`${name}|${Math.round(lat * 100)}`) ?? null;
 }
 
+/** The metro whose area a point lies in (so a Town Legend can plot every place glimpsed in its city), or null in open country. */
+let metros: { id: string; lat: number; lng: number; radiusKm: number }[] | null = null;
+async function metroOf(lat: number, lng: number): Promise<string | null> {
+  if (!metros) {
+    try { metros = (await (await fetch(`${SITE}/data/metros-index.json`)).json()) as typeof metros; } catch { metros = []; }
+  }
+  let best: { id: string; gap: number } | null = null;
+  for (const m of metros ?? []) {
+    const gap = Math.hypot((m.lat - lat) * 111.32, (m.lng - lng) * 111.32 * Math.cos((lat * Math.PI) / 180)) - m.radiusKm;
+    if (gap <= 0 && (!best || gap < best.gap)) best = { id: m.id, gap };
+  }
+  return best?.id ?? null;
+}
+
 /** What it costs, in credits (1 credit = 100 septims): a big city (crest or town mark) 4, anywhere else 1. */
 async function costOf(placeId: string): Promise<number> {
   if (!placeId.startsWith('c:')) return 1;
@@ -110,7 +124,8 @@ Deno.serve(async (req) => {
     if ((count ?? 0) >= cap) { await giveBack(); return reply(req, { error: 'busy' }, 429); }
 
     const kit = kitFor(kind, province);
-    await db.from('renders').upsert({ place_id: placeId, place_name: name, kit, status: 'generating', started_at: new Date().toISOString(), lat, lng, discovered_by: user, created_at: new Date().toISOString() }, { onConflict: 'place_id' });
+    const metro = await metroOf(lat, lng);
+    await db.from('renders').upsert({ place_id: placeId, place_name: name, kit, kind, metro_id: metro, status: 'generating', started_at: new Date().toISOString(), lat, lng, discovered_by: user, created_at: new Date().toISOString() }, { onConflict: 'place_id' });
 
     // 3. the photograph: a freely licensed one first, Street View as the last resort
     let hit: PhotoHit | null = null;
