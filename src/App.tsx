@@ -8,6 +8,7 @@ import { KIND_TITLE, PROVINCES, SEAS, loreName, type ProvinceId } from './lib/lo
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
+import SceneView from './SceneView';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -34,10 +35,10 @@ interface Spot {
 const MAX_ZOOM = 11; // the map stops at about city level: the crest over downtown and the key places round it
 const SEEN_KEY = 'eldermaps:seen';
 
-const townCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 400 : 1e9);
-const villageCount = (zoom: number): number => (zoom < 7 ? 0 : zoom === 7 ? 250 : 1e9);
+const townCount = (zoom: number): number => (zoom < 5 ? 0 : zoom === 5 ? 140 : zoom === 6 ? 520 : 1e9);
+const villageCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 700 : 1e9);
 const crestCount = (zoom: number): number => (zoom <= 3 ? 18 : zoom === 4 ? 45 : zoom === 5 ? 110 : zoom === 6 ? 260 : 1e9);
-const wildFame = (zoom: number): number => (zoom <= 4 ? 1e9 : zoom === 5 ? 90 : zoom === 6 ? 55 : zoom === 7 ? 32 : 0);
+const wildFame = (zoom: number): number => (zoom <= 3 ? 1e9 : zoom === 4 ? 110 : zoom === 5 ? 55 : zoom === 6 ? 26 : zoom === 7 ? 12 : zoom === 8 ? 6 : 0);
 
 function loadSeen(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as string[]); } catch { return new Set(); }
@@ -91,6 +92,7 @@ export default function App() {
   const tripRef = useRef(trip);
   const lookRef = useRef(look);
   const seenRef = useRef(seen);
+  const [viewing, setViewing] = useState<Spot | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const roadLayers = useRef<{ line?: google.maps.Polyline; halo?: google.maps.Polyline; end?: HtmlMarkerHandle; me?: HtmlMarkerHandle }>({});
   const savedView = useRef<{ center: LatLng; zoom: number } | null>(null);
@@ -163,7 +165,7 @@ export default function App() {
     const taken: { x: number; y: number }[] = [];
     const written: { x: number; y: number; w: number }[] = [];
     const add = (spot: Spot, labelled: boolean) => {
-      if (wanted.size >= 380) return;
+      if (wanted.size >= 700) return;
       let x = 0, y = 0;
       if (proj) {
         const pt = proj.fromLatLngToPoint(new google.maps.LatLng(spot.lat, spot.lng));
@@ -182,7 +184,7 @@ export default function App() {
     // and villages (every other city over 60,000, drawn as a farm, a mill or a mine)
     const hashName = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h; };
     const tiers: [typeof world.cities.crest, number, 'crest' | 'town' | 'village', number][] = [
-      [world.cities.crest, crestCount(zoom), 'crest', 140], [world.cities.town, townCount(zoom), 'town', 110], [world.cities.village, villageCount(zoom), 'village', 110],
+      [world.cities.crest, crestCount(zoom), 'crest', 220], [world.cities.town, townCount(zoom), 'town', 220], [world.cities.village, villageCount(zoom), 'village', 260],
     ];
     for (const [list, allowed, kind, cap] of tiers) {
       let shown = 0;
@@ -192,7 +194,7 @@ export default function App() {
         const province = world.provinceOfCountry(iso2);
         const pic = kind === 'village' ? (['farm', 'mill', 'mine'] as const)[hashName(name) % 3] : undefined;
         add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,
-          note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 8);
+          note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 7);
         shown++;
       }
     }
@@ -220,10 +222,10 @@ export default function App() {
     }
     // the countryside: waterfalls, caves, ruins, forts, camps, beacons, fire mountains, springs, passes, glaciers, groves, shrines and peaks
     const fameFloor = wildFame(zoom);
-    if (zoom >= 5) {
+    if (zoom >= 4) {
       let count = 0;
       for (const [id, name, lat, lng, type, fame] of world.wild) {
-        if (count > 150) break;
+        if (count > 420) break;
         if (fame < fameFloor || !inView(lat, lng)) continue;
         const province = world.provinceAt(lat, lng);
         add({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, note: KIND_TITLE[type] ?? type }, zoom >= 7);
@@ -259,7 +261,7 @@ export default function App() {
         const el = document.createElement('div');
         el.className = 'em-province';
         el.style.color = look === 'skyrim' ? '#f2f2ee' : '#3b2a1a';
-        el.innerHTML = `<b>${p.name}</b><small>${p.real}</small>`;
+        el.innerHTML = `<b>${p.name}</b>`;
         const h = createHtmlMarker({ position: p.label, element: el, zIndex: 2 });
         h.setMap(map);
         labels.current.push(h);
@@ -492,9 +494,14 @@ export default function App() {
             <p className="em-card-blurb">{province.blurb}</p>
             <div className="em-card-buttons">
               <button type="button" className="em-btn" onClick={() => void startTravel(selected)}>FAST TRAVEL</button>
-              <button type="button" className="em-btn em-btn-ghost" onClick={() => { discover(selected); }}>MARK DISCOVERED</button>
+              <button type="button" className="em-btn em-btn-ghost" onClick={() => setViewing(selected)}>VIEW</button>
             </div>
           </aside>
+        )}
+
+        {viewing && !trip && (
+          <SceneView spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
+            onNeedsAccount={(what) => say(`${what} NEEDS AN ACCOUNT: THEY OPEN SOON`)} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
         )}
 
         {trip && step && (

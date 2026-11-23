@@ -1,7 +1,9 @@
 // Which cities get which mark on the map.
 //   crest    the anchor city of a metro of 1,000,000 or more (Cleveland: its metro is over a million, though the city is not)
 //   town     the anchor of a smaller metro (200,000 to 1,000,000) that stands on its own (Akron, Youngstown)
-//   village  any other city of 60,000 or more: the farms, mills and mines about a bigger place (Parma, Lorain, Canton)
+//   village  any other city big enough for where it stands: the farms, mills and mines about a bigger place (Parma, Lorain, Canton). The bar is higher round a big metro
+//            (90,000 within 70 km of a crest, so suburbs do not crowd it) and lower in open country (25,000 when no crest is within 70 km and no town within 30 km, so
+//            a lone city like Saginaw, Bay City, Mansfield or Lima gets its mark); 50,000 near a town.
 // Metros come from WastelandMaps' index (metros-index.json); the cities from GeoNames' cities15000 (download it to _data/cities15000.txt first):
 //   https://download.geonames.org/export/dump/cities15000.zip
 //   node _tools/build-cities.mjs
@@ -15,7 +17,7 @@ const fold = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').rep
 const cities = readFileSync('_data/cities15000.txt', 'utf8').split('\n').map((line) => {
   const c = line.split('\t');
   return { name: c[1], ascii: c[2], lat: Number(c[4]), lng: Number(c[5]), iso2: c[8], pop: Number(c[14]) };
-}).filter((c) => c.pop >= 60000 && Number.isFinite(c.lat));
+}).filter((c) => c.pop >= 25000 && Number.isFinite(c.lat));
 const metros = JSON.parse(readFileSync('public/data/metros-index.json', 'utf8'));
 
 // how big is the metro's own main city (so the main city anchors, not a bigger suburb that lends its name to the whole urban area)
@@ -44,11 +46,14 @@ for (const m of metros.filter((x) => x.pop >= 200_000 && x.pop < 1_000_000).sort
   if (near(m, picked, KM_APART)) continue;
   picked.push({ name: m.name, lat: m.lat, lng: m.lng, pop: m.pop, tier: 'town', iso2: m.country });
 }
-// the villages: every other city of 60,000 or more, one to each stretch of country
+// the villages: every other city that clears the bar for where it stands, one to each stretch of country
 const marked = picked.slice();
 let villages = 0;
 for (const c of cities.sort((a, b) => b.pop - a.pop)) {
   if (near(c, marked, 9)) continue;
+  const nearest = (tier) => picked.filter((p) => p.tier === tier && p.iso2 === c.iso2).reduce((m, p) => Math.min(m, km(c.lat, c.lng, p.lat, p.lng)), Infinity);
+  const floor = nearest('crest') < 70 ? 90000 : nearest('town') < 30 ? 50000 : 25000;
+  if (c.pop < floor) continue;
   picked.push({ name: c.name, lat: c.lat, lng: c.lng, pop: c.pop, tier: 'village', iso2: c.iso2 });
   marked.push(c);
   villages++;

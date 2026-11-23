@@ -108,7 +108,7 @@ export function loreName(real: string, province: ProvinceId): string {
 export const KIND_TITLE: Record<string, string> = {
   crest: 'Capital', keep: 'Lord\'s Keep', landmark: 'Landmark', town: 'Town', village: 'Settlement',
   waterfall: 'Waterfall', cave: 'Cave', ruin: 'Ancient Ruin', fort: 'Fort', camp: 'Camp', lighthouse: 'Beacon', volcano: 'Fire Mountain',
-  spring: 'Hot Spring', pass: 'Mountain Pass', glacier: 'Glacier', grove: 'Wild Grove', shrine: 'Shrine', peak: 'Peak', stones: 'Standing Stones',
+  spring: 'Hot Spring', pass: 'Mountain Pass', glacier: 'Glacier', grove: 'Wild Grove', shrine: 'Shrine', peak: 'Peak', stones: 'Standing Stones', mill: 'Mill', tower: 'Watchtower',
 };
 
 /** The seas and oceans, written across the water. */
