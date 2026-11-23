@@ -27,9 +27,9 @@ function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: 
   return (
     <>
     {onSex && (
-      <div className="em-seg em-sex" role="group" aria-label="Man or woman">
-        <button type="button" className={sex === 'm' ? 'on' : ''} onClick={() => onSex('m')}>MAN</button>
-        <button type="button" className={sex === 'f' ? 'on' : ''} onClick={() => onSex('f')}>WOMAN</button>
+      <div className="em-seg em-sex" role="group" aria-label="Male or female">
+        <button type="button" className={sex === 'm' ? 'on' : ''} onClick={() => onSex('m')}>MALE</button>
+        <button type="button" className={sex === 'f' ? 'on' : ''} onClick={() => onSex('f')}>FEMALE</button>
       </div>
     )}
     <div className="em-types">

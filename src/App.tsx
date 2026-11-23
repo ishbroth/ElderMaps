@@ -41,7 +41,10 @@ const SEEN_KEY = 'eldermaps:seen';
 
 const townCount = (zoom: number): number => (zoom < 5 ? 0 : zoom === 5 ? 140 : zoom === 6 ? 520 : 1e9);
 const villageCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 700 : 1e9);
-const crestCount = (zoom: number): number => (zoom <= 3 ? 18 : zoom === 4 ? 45 : zoom === 5 ? 110 : zoom === 6 ? 260 : 1e9);
+const crestCount = (zoom: number): number => (zoom <= 3 ? 36 : zoom === 4 ? 70 : zoom === 5 ? 110 : zoom === 6 ? 260 : 1e9);
+/** A few world-famous natural landmarks and parks that stay on the map even fully zoomed out (the rest come in as you zoom). */
+const FAMOUS_LOW = new Set(['Yellowstone National Park', 'Victoria Falls', 'Iguaçu Falls', 'Angel Falls', 'Grand Canyon National Park', 'Serengeti National Park', 'Galápagos National Park', 'Niagara Falls', 'Mount Everest', 'Mont Blanc']);
+const famousFar = (name: string, type: string, fame: number): boolean => FAMOUS_LOW.has(name) || (fame >= 125 && type !== 'keep' && type !== 'fort' && type !== 'tower');
 const wildFame = (zoom: number): number => (zoom <= 3 ? 1e9 : zoom === 4 ? 110 : zoom === 5 ? 55 : zoom === 6 ? 26 : zoom === 7 ? 12 : zoom === 8 ? 6 : 0);
 
 function loadSeen(): Set<string> {
@@ -278,11 +281,11 @@ export default function App() {
     }
     // the countryside: waterfalls, caves, ruins, forts, camps, beacons, fire mountains, springs, passes, glaciers, groves, shrines and peaks
     const fameFloor = wildFame(zoom);
-    if (zoom >= 4) {
+    if (zoom >= 3) {
       let count = 0;
       for (const [id, name, lat, lng, type, fame] of world.wild) {
         if (count > 420) break;
-        if (fame < fameFloor || !inView(lat, lng)) continue;
+        if ((fame < fameFloor && !(zoom <= 4 && famousFar(name, type, fame))) || !inView(lat, lng)) continue;
         const province = world.provinceAt(lat, lng);
         add({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, pic: wildPic(type, name), note: KIND_TITLE[type] ?? type }, zoom >= 7);
         count++;
