@@ -11,6 +11,8 @@ import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitN
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
 import TownLegend from './TownLegend';
+import CombatScreen from './CombatScreen';
+import { planFor } from './lib/combat/data';
 import { metroForSpot } from './lib/townLegend';
 import { bearingBetween, riderSvg } from './lib/rider';
 import { createVivid, type Vivid } from './lib/vivid';
@@ -611,6 +613,10 @@ export default function App() {
         {legend && world && !trip && (
           <TownLegend metro={legend} province={world.provinceOfCountry(legend.country)} world={world} signedIn={!!account.session} septims={account.septims}
             onNeedsAccount={() => { setLegend(null); setAccountOpen(true); }} onSpent={() => void account.refresh()} onOpenSpot={(s) => setViewing(s)} onClose={() => setLegend(null)} />
+        )}
+
+        {import.meta.env.DEV && new URLSearchParams(window.location.search).has('combattest') && (
+          <CombatScreen title="Test" imageUrl="/_test.png" plan={planFor('x', 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}

@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
 import { KIND_TITLE, type Province } from './lib/lore';
 import { GLIMPSE_MESSAGES, requestGlimpse, type Glimpse } from './lib/glimpse';
+import CombatScreen from './CombatScreen';
+import { finishRun, startRun, type RunStart } from './lib/clear';
+import { STARTING_ARSENAL, planFor, worthFor } from './lib/combat/data';
+import { LOOT, REGIONAL_HERBS } from './lib/loot';
 
 interface Props {
   spot: { id: string; name: string; real: string; kind: string; note: string; lat: number; lng: number };
@@ -25,6 +29,9 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
   const [glimpse, setGlimpse] = useState<Glimpse | null>(null);
   const [problem, setProblem] = useState('');
+  // clearing the place: the fight, and what it paid
+  const [run, setRun] = useState<RunStart | null>(null);
+  const [paidLine, setPaidLine] = useState('');
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
@@ -42,6 +49,16 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
     if (alive.current) { setProblem('IT IS TAKING A LONG TIME: OPEN IT AGAIN IN A MINUTE. YOU WILL NOT BE CHARGED TWICE'); setState('idle'); }
   };
 
+  const clearOut = async () => {
+    if (!glimpse) return;
+    setProblem(''); setPaidLine('');
+    const r = await startRun({ id: spot.id, kind: spot.kind });
+    if (!r.ok) { setProblem(r.reason === 'cleared' ? 'YOU HAVE ALREADY CLEARED THIS PLACE' : r.reason === 'locked' ? 'GLIMPSE THE PLACE FIRST' : 'THE FIGHT COULD NOT BEGIN: TRY AGAIN'); return; }
+    setRun(r.run);
+  };
+  const lootName = (id: string) => LOOT.find((l) => l.id === id)?.name ?? REGIONAL_HERBS.find((h) => h.loot.id === id)?.loot.name ?? id;
+  const worth = run?.worth ?? worthFor(spot.kind, 10);
+
   return (
     <div className="em-scene-back" role="dialog" aria-modal="true" aria-label={`${spot.name}: its story`} onClick={onClose}>
       <article className="em-scene" style={{ ['--prov' as string]: province.ink }} onClick={(e) => e.stopPropagation()}>
@@ -57,6 +74,15 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
           </>
         )}
         {state === 'working' && <p className="em-fine em-wave-note">THE RIFT OPENS… A MOMENT</p>}
+        {paidLine && <p className="em-fine">{paidLine}</p>}
+        {run && glimpse && (
+          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={STARTING_ARSENAL} level={0} potions={run.pack.potions} shouts={run.pack.shouts}
+            onDone={async (res) => {
+              const end = await finishRun(run.runId, res.won, province.id, spot.kind, res.potionsUsed, res.shoutsUsed);
+              if (res.won && end?.loot) setPaidLine(`${end.paid ? 'LOOT: ' : 'HELD UNTIL YOU VISIT IN PERSON: '}${Object.entries(end.loot).map(([id, n]) => `${n} ${lootName(id).toUpperCase()}`).join(', ')}`);
+            }}
+            onExit={() => setRun(null)} />
+        )}
         {problem && <p className="em-note">{problem}</p>}
         <div className="em-card-buttons">
           {state !== 'ready' && (
@@ -64,6 +90,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
               {state === 'working' ? 'GLIMPSING…' : <>GLIMPSE · {cost} SEPTIMS <span aria-hidden="true">🔒</span></>}
             </button>
           )}
+          {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR THE AREA</button>}
           {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>THE STORY</button>}
           {hasTownLegend(spot.kind) && state !== 'ready' && (
             <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>

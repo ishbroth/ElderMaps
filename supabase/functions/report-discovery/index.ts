@@ -2,7 +2,7 @@
 // (XP). Nothing but this function writes the discoveries table, so nobody can award themselves places; each place counts once per person.
 //
 // POST { placeId, lat, lng, userLat, userLng, points? }  ->  { added, total } | { error }
-//   added: points this place added (0 if it was already on the record)
+//   added: points this place added (0 if it was already on the record); loot: what a place cleared earlier paid now that it was reached
 // Deploy: supabase functions deploy report-discovery
 
 import { callerId, corsHeaders, reply, serviceClient } from '../_shared/common.ts';
@@ -37,7 +37,9 @@ Deno.serve(async (req) => {
     const { error } = await db.from('discoveries').insert({ user_id: user, place_id: placeId, points });
     if (!error) added = points;
   }
+  // a place cleared before it was visited pays what it was holding, now that it has been reached
+  const { data: held } = await db.rpc('claim_loot', { p_user: user, p_place: placeId });
   const { data: rows } = await db.from('discoveries').select('points').eq('user_id', user);
   const total = (rows ?? []).reduce((sum, r) => sum + (r.points as number), 0);
-  return reply(req, { added, total });
+  return reply(req, { added, total, loot: held ?? null });
 });
