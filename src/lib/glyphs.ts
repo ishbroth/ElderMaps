@@ -5,7 +5,9 @@ type Part = { d: string; line?: number };
 const fill = (d: string): Part => ({ d });
 const line = (d: string, w = 1.8): Part => ({ d, line: w });
 
-const GLYPHS: Record<string, Part[]> = {
+import { MORE } from './glyphsMore';
+
+const BASE: Record<string, Part[]> = {
   // the capital: a keep inside a ring
   crest: [
     line('M12 1.8a10.2 10.2 0 1 0 0 20.4 10.2 10.2 0 0 0 0-20.4Z', 1.5),
@@ -37,6 +39,8 @@ const GLYPHS: Record<string, Part[]> = {
   mine: [fill('M2.8 21.5v-3.2a9.2 9.2 0 0 1 18.4 0v3.2Zm6.2 0v-3.3a3 3 0 0 1 6 0v3.3Z'), line('M7.6 9.6l-2.4-2.4M16.4 9.6l2.4-2.4M12 8V4.6', 1.8)],
   carriage: [fill('M3 8.2h12.6l3 4.6H21v4.2H3Z'), fill('M7.6 16.6a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Zm9 0a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Z')],
 };
+
+const GLYPHS: Record<string, Part[]> = { ...BASE, ...MORE };
 
 export function glyph(kind: string): string {
   const parts = GLYPHS[kind] ?? GLYPHS.landmark;

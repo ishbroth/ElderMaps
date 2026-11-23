@@ -121,6 +121,8 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
   const o = out.data;
   const mpp = (156543.03392 * Math.cos((tileLat(y + 0.5, z) * Math.PI) / 180)) / 2 ** z; // metres per pixel here
   const EXAG = 7;
+  // how strong the colours are: 1 is the full game-bright palette; lower is calmer. (A middle road between the cold map and the bright one.)
+  const SAT = 0.66;
   const lx = -0.55, ly = -0.55, lz = 0.65; // the light comes from the upper left
   const ln = Math.hypot(lx, ly, lz);
   const flat = lz / ln;
@@ -147,6 +149,7 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
         if (x0 > 0 || x1 > 0 || y0 > 0 || y1 > 0) col = mix(col, [200, 240, 245], 0.5);
         // a soft shading of the sea floor, so the shelves show
         const sh = 0.94 + 0.12 * Math.max(-1, Math.min(1, (x0 - x1) / 400));
+        { const gry = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11; const s2 = SAT + 0.1; col = [gry + (col[0] - gry) * s2, gry + (col[1] - gry) * s2, gry + (col[2] - gry) * s2]; }
         o[i * 4] = col[0] * sh; o[i * 4 + 1] = col[1] * sh; o[i * 4 + 2] = col[2] * sh; o[i * 4 + 3] = 255;
         continue;
       }
@@ -162,7 +165,8 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
       const snow = smooth(snowLine - 250, snowLine + 350, e);
       const steepRock = smooth(0.15, 0.6, Math.hypot(dzdx, dzdy) / boost * 14);
       col = mix(col, blend((p) => p.rock), steepRock * 0.45 * (1 - snow));
-      col = mix(col, [250, 252, 255], snow);
+      col = mix(col, [246, 249, 252], snow);
+      { const gry = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11; col = [gry + (col[0] - gry) * SAT, gry + (col[1] - gry) * SAT, gry + (col[2] - gry) * SAT]; }
       const k2 = Math.max(0.35, Math.min(1.5, 0.62 + shade * 0.7 + (snow > 0.5 ? 0.12 : 0)));
       o[i * 4] = Math.min(255, col[0] * k2); o[i * 4 + 1] = Math.min(255, col[1] * k2); o[i * 4 + 2] = Math.min(255, col[2] * k2); o[i * 4 + 3] = 255;
     }

@@ -3,6 +3,7 @@ import { distanceMeters, getFix, watchFix, type LatLng } from './lib/geo';
 import { findPlace, loadGoogle } from './lib/google';
 import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
 import { glyph, glyphForCategory } from './lib/glyphs';
+import { settlementPic, wildPic } from './lib/glyphsMore';
 import { crestSvg, loadCrests } from './lib/crests';
 import { KIND_TITLE, PROVINCES, SEAS, loreName, placeLine, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
@@ -238,7 +239,6 @@ export default function App() {
 
     // the cities, biggest first and more of them as you come in: crests (the anchors of metros over a million), towns (smaller metros that stand alone),
     // and villages (every other city over 60,000, drawn as a farm, a mill or a mine)
-    const hashName = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h; };
     const tiers: [typeof world.cities.crest, number, 'crest' | 'town' | 'village', number][] = [
       [world.cities.crest, crestCount(zoom), 'crest', 220], [world.cities.town, townCount(zoom), 'town', 220], [world.cities.village, villageCount(zoom), 'village', 260],
     ];
@@ -248,7 +248,7 @@ export default function App() {
         const [name, lat, lng, pop, , iso2] = list[i];
         if (!inView(lat, lng)) continue;
         const province = world.provinceOfCountry(iso2);
-        const pic = kind === 'village' ? (['farm', 'mill', 'mine'] as const)[hashName(name) % 3] : undefined;
+        const pic = kind === 'village' || kind === 'town' ? settlementPic(kind, name, pop) : undefined;
         add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,
           note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 7);
         shown++;
@@ -284,7 +284,7 @@ export default function App() {
         if (count > 420) break;
         if (fame < fameFloor || !inView(lat, lng)) continue;
         const province = world.provinceAt(lat, lng);
-        add({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, note: KIND_TITLE[type] ?? type }, zoom >= 7);
+        add({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, pic: wildPic(type, name), note: KIND_TITLE[type] ?? type }, zoom >= 7);
         count++;
       }
     }
