@@ -10,6 +10,7 @@ import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, r
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
+import { bearingBetween, riderSvg } from './lib/rider';
 import { createVivid, type Vivid } from './lib/vivid';
 import AccountModal from './Account';
 import { accountsEnabled, loadFound, reportDiscovery, useAccount } from './lib/account';
@@ -387,6 +388,7 @@ export default function App() {
         const p = progressAlong(t.route, here);
         setTrip({ ...t, step: p.step, toTurn: p.toTurn, remaining: p.remaining, gps: true });
         roadLayers.current.me?.setPosition(here);
+        if (lastHere.current && distanceMeters(lastHere.current, here) > 4) { faceRider(bearingBetween(lastHere.current, here)); lastHere.current = here; } else if (!lastHere.current) lastHere.current = here;
         if (p.remaining < 60) arrive(t.to);
       }
     }, () => { setFollowing(false); say('THE ROAD CANNOT FIND YOU: LOCATION IS OFF'); });
@@ -407,6 +409,10 @@ export default function App() {
 
   // ---- fast travel: the road to a place, on the flat sketched map ----
   const streets = useRef<StreetLayer | null>(null);
+  // the rider on the road: its element (turned to face the way it goes) and where it was last, to know which way that is
+  const riderEl = useRef<HTMLElement | null>(null);
+  const lastHere = useRef<LatLng | null>(null);
+  const faceRider = (deg: number) => { riderEl.current?.style.setProperty('--turn', `${deg.toFixed(0)}deg`); };
   const clearRoad = useCallback(() => {
     streets.current?.detach();
     streets.current = null;
@@ -477,13 +483,19 @@ export default function App() {
     const bounds = new google.maps.LatLngBounds();
     route.path.forEach((p) => bounds.extend(p));
     map.fitBounds(bounds, 90);
-    roadLayers.current.halo = new google.maps.Polyline({ map, path: route.path, strokeColor: '#e9dcb8', strokeWeight: 9, strokeOpacity: 0.95, zIndex: 3 });
-    roadLayers.current.line = new google.maps.Polyline({ map, path: route.path, strokeColor: '#7a2a1a', strokeWeight: 4.5, strokeOpacity: 0.95, zIndex: 4 });
+    // the way is a pale trail with hoofprints pressed along it (a line of paired prints, turned to follow the road)
+    roadLayers.current.halo = new google.maps.Polyline({ map, path: route.path, strokeColor: '#f1e4bd', strokeWeight: 11, strokeOpacity: 0.62, zIndex: 3 });
+    const print = { path: 'M-2.2 -1.4 Q-1.4 -2.2 -0.6 -1.4 L-0.6 1.4 Q-1.4 2 -2.2 1.4 Z M0.6 -1.4 Q1.4 -2.2 2.2 -1.4 L2.2 1.4 Q1.4 2 0.6 1.4 Z', fillColor: '#4a2a14', fillOpacity: 0.9, strokeOpacity: 0, scale: 2.1 };
+    roadLayers.current.line = new google.maps.Polyline({ map, path: route.path, strokeOpacity: 0, zIndex: 4, icons: [{ icon: print, offset: '0', repeat: '22px' }, { icon: { ...print, scale: 1.7, fillOpacity: 0.55 }, offset: '11px', repeat: '22px' }] });
     const endEl = pinElement(to, '#7a2a1a', true, true, () => undefined);
     roadLayers.current.end = createHtmlMarker({ position: dest, element: endEl, zIndex: 6 });
     roadLayers.current.end.setMap(map);
     const meEl = document.createElement('div');
-    meEl.className = 'em-me';
+    meEl.className = 'em-rider';
+    meEl.innerHTML = `<div class="em-rider-body">${riderSvg()}</div>`;
+    riderEl.current = meEl;
+    lastHere.current = null;
+    faceRider(route.path.length > 1 ? bearingBetween(route.path[0], route.path[Math.min(8, route.path.length - 1)]) : 0);
     roadLayers.current.me = createHtmlMarker({ position: route.path[0] ?? from, element: meEl, zIndex: 7 });
     roadLayers.current.me.setMap(map);
     spokenStep.current = -1;
@@ -516,6 +528,8 @@ export default function App() {
     const next = t.step + 1;
     if (next >= t.route.steps.length) { arrive(t.to); return; }
     const from = t.route.steps[next].start;
+    const stepPath = t.route.steps[next].path.length > 1 ? t.route.steps[next].path : [t.route.steps[next].start, t.route.steps[next].end];
+    faceRider(bearingBetween(stepPath[0], stepPath[Math.min(3, stepPath.length - 1)]));
     roadLayers.current.me?.setPosition(from);
     mapRef.current?.panTo(from);
     const rest = t.route.steps.slice(next).reduce((a, s) => a + s.meters, 0);

@@ -175,3 +175,10 @@ button { font: inherit; }
 .em-discovered-by { position: absolute; left: 4px; bottom: 3px; z-index: 3; pointer-events: none; font-size: 10px; letter-spacing: 1px; color: #f4f4ee; text-shadow: 0 0 4px #000, 0 0 2px #000, 0 1px 2px #000; }
 .em-wave-note { animation: em-pulse 1.4s ease-in-out infinite; }
 @keyframes em-pulse { 50% { opacity: 0.35; } }
+
+/* the rider: an armoured rider on a horse, seen from above, facing the way it goes, its legs moving in turn */
+.em-rider { width: 44px; height: 58px; transform: translate(-50%, -50%); position: absolute; pointer-events: none; }
+.em-rider-body { width: 100%; height: 100%; transform: rotate(var(--turn, 0deg)); transition: transform 0.4s ease; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+.em-rider .em-leg-a { animation: em-gallop 0.42s ease-in-out infinite alternate; }
+.em-rider .em-leg-b { animation: em-gallop 0.42s ease-in-out infinite alternate-reverse; }
+@keyframes em-gallop { from { transform: translateY(-1.6px); } to { transform: translateY(1.6px); } }
