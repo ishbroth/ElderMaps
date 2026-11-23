@@ -12,6 +12,7 @@ import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
 import TownLegend from './TownLegend';
 import Shop from './Shop';
+import BuySeptims from './BuySeptims';
 import CombatScreen from './CombatScreen';
 import { planFor } from './lib/combat/data';
 import { metroForSpot } from './lib/townLegend';
@@ -136,6 +137,15 @@ export default function App() {
   const account = useAccount();
   const [accountOpen, setAccountOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
+  // coming back from Stripe: the septims arrive a moment after the payment, so the balance is looked at a few times
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get('purchase');
+    if (!result) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (result === 'success') { [1500, 4000, 9000].forEach((ms) => window.setTimeout(() => void accountRef.current?.refresh(), ms)); window.setTimeout(() => say('PAYMENT RECEIVED: YOUR SEPTIMS ARE ON THE WAY'), 400); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // a new sign-in opens the making of a character by itself, once
   const setupShown = useRef(false);
   useEffect(() => {
@@ -644,7 +654,8 @@ export default function App() {
           <CombatScreen title="Test" imageUrl="/_test.png" plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
-        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} />}
+        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} onBuy={() => { setAccountOpen(false); setBuyOpen(true); }} />}
+        {buyOpen && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}
         {shopOpen && !trip && <Shop onClose={() => setShopOpen(false)} onBought={() => void account.refresh()} />}
 
         {trip && step && (

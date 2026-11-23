@@ -226,3 +226,5 @@ button { font: inherit; }
 .em-shop-list li small { font-size: 10px; color: var(--sky-dim, #9aa3a8); letter-spacing: 0.5px; }
 .em-shop-list li i { font-style: normal; font-size: 10px; color: var(--sky-dim, #9aa3a8); }
 .em-shop-owned { opacity: 0.6; }
+
+.em-packs { display: grid; gap: 8px; margin: 12px 0 4px; }

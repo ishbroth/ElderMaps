@@ -49,7 +49,7 @@ function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: 
 }
 
 /** Signing in, the first-time setup (character, home, hearth number) and the account's own card. */
-export default function AccountModal({ account, onClose, onShop }: { account: Account; onClose: () => void; onShop?: () => void }) {
+export default function AccountModal({ account, onClose, onShop, onBuy }: { account: Account; onClose: () => void; onShop?: () => void; onBuy?: () => void }) {
   const signedIn = !!account.session;
   const needsSetup = signedIn && account.loaded && (!account.profile?.characterName || !account.home?.hearthNumber);
   const [mode, setMode] = useState<'link' | 'hearth'>('link');
@@ -137,7 +137,7 @@ export default function AccountModal({ account, onClose, onShop }: { account: Ac
             <p className="em-fine">{account.email}</p>
             <p className="em-fine">HOME: {account.home?.address} · HEARTH {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
             <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
-            <div className="em-card-buttons">{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
+            <div className="em-card-buttons">{onBuy && <button type="button" className="em-btn" onClick={onBuy}>BUY SEPTIMS</button>}{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
           </>
         )}
       </article>

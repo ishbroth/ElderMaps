@@ -34,3 +34,10 @@ export async function callerId(req: Request): Promise<string | null> {
   const { data, error } = await serviceClient().auth.getUser(token);
   return error ? null : data.user?.id ?? null;
 }
+
+/** What a pack of septims costs and gives (1 credit = 100 septims). The server decides this; the browser only asks for a pack by name. */
+export const PACKS: Record<string, { credits: number; cents: number; label: string }> = {
+  septims400: { credits: 4, cents: 99, label: '400 septims' },
+  septims1800: { credits: 18, cents: 399, label: '1,800 septims' },
+  septims4400: { credits: 44, cents: 999, label: '4,400 septims' },
+};
