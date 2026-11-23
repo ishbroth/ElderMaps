@@ -12,6 +12,8 @@ import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
 import TownLegend from './TownLegend';
 import Shop from './Shop';
+import Ledger from './Ledger';
+import { spotById } from './lib/spots';
 import BuySeptims from './BuySeptims';
 import CombatScreen from './CombatScreen';
 import { planFor } from './lib/combat/data';
@@ -119,6 +121,19 @@ export default function App() {
   const lookRef = useRef(look);
   const seenRef = useRef(seen);
   const [viewing, setViewing] = useState<Spot | null>(null);
+  const foundSpots = useMemo(() => {
+    if (!world) return [] as Spot[];
+    const out: Spot[] = [];
+    for (const id of seen) { const sp = spotById(world, id); if (sp) out.push(sp); }
+    return out;
+  }, [world, seen]);
+  const shareMap = async () => {
+    const map = mapRef.current; if (!map) return;
+    const c = map.getCenter(); if (!c) return;
+    const url = `${window.location.origin}/?at=${c.lat().toFixed(4)},${c.lng().toFixed(4)},${map.getZoom() ?? 5}`;
+    if (navigator.share) { try { await navigator.share({ title: 'ElderMaps', text: 'A look at the realm on ElderMaps', url }); return; } catch { /* cancelled */ } }
+    try { await navigator.clipboard.writeText(url); say('LINK COPIED'); } catch { say(url); }
+  };
   // the places this person has cleared (a small [Cleared] shows under their marks)
   const [cleared, setCleared] = useState<Set<string>>(new Set());
   const clearedRef = useRef(cleared);
@@ -225,6 +240,18 @@ export default function App() {
     }).catch((e: Error) => { if (!cancelled) setProblem(e.message); });
     return () => { cancelled = true; };
   }, []);
+
+  // the map keeps its size when the ledger comes and goes or the phone is turned, and a shared link (?at=lat,lng,zoom) opens it on that view
+  useEffect(() => {
+    const map = mapRef.current; const box = mapBox.current;
+    if (!map || !box || !ready) return;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => google.maps.event.trigger(map, 'resize')) : null;
+    ro?.observe(box);
+    const at = new URLSearchParams(window.location.search).get('at');
+    const m = at ? /^(-?[\d.]+),(-?[\d.]+),(\d+)$/.exec(at) : null;
+    if (m) { map.setCenter({ lat: Number(m[1]), lng: Number(m[2]) }); map.setZoom(Math.min(MAX_ZOOM, Number(m[3]))); }
+    return () => ro?.disconnect();
+  }, [ready]);
 
   // ---- the look: the map's style, the tint over each province ----
   useEffect(() => {
@@ -675,6 +702,10 @@ export default function App() {
           </div>
         )}
       </div>
+      {!trip && (
+        <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
+          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} />
+      )}
     </div>
   );
 }

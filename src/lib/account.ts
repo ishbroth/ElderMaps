@@ -45,6 +45,9 @@ export interface Account {
   home: Home | null;
   /** The septims held. */
   septims: number;
+  /** The loot in the bag, by kind, and what is carried. */
+  loot: Record<string, number>;
+  pack: { potions: number; shouts: number; dual: boolean };
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -55,6 +58,8 @@ export function useAccount(): Account {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [home, setHome] = useState<Home | null>(null);
   const [balance, setBalance] = useState(0);
+  const [loot, setLoot] = useState<Record<string, number>>({});
+  const [pack, setPack] = useState({ potions: 0, shouts: 0, dual: false });
 
   useEffect(() => {
     if (!accountsEnabled) return;
@@ -66,12 +71,18 @@ export function useAccount(): Account {
   const refresh = useCallback(async () => {
     if (!accountsEnabled) return;
     const s = (await db().auth.getSession()).data.session;
-    if (!s) { setProfile(null); setHome(null); setBalance(0); setLoaded(true); return; }
-    const [p, h, c] = await Promise.all([
+    if (!s) { setProfile(null); setHome(null); setBalance(0); setLoot({}); setPack({ potions: 0, shouts: 0, dual: false }); setLoaded(true); return; }
+    const [p, h, c, lb, pk] = await Promise.all([
       db().from('profiles').select('character_name,character_type,character_sex').eq('user_id', s.user.id).maybeSingle(),
       db().from('user_home').select('place_id,address,lat,lng,hearth_number,skipped').eq('user_id', s.user.id).maybeSingle(),
       db().from('credits').select('balance').eq('user_id', s.user.id).maybeSingle(),
+      db().from('loot_bag').select('loot_id,qty').eq('user_id', s.user.id),
+      db().from('pack').select('potions,shouts,dual').eq('user_id', s.user.id).maybeSingle(),
     ]);
+    const bag: Record<string, number> = {};
+    for (const r of (lb.data ?? []) as { loot_id: string; qty: number }[]) bag[r.loot_id] = r.qty;
+    setLoot(bag);
+    setPack({ potions: pk.data?.potions ?? 0, shouts: pk.data?.shouts ?? 0, dual: !!pk.data?.dual });
     setProfile(p.data ? { characterName: p.data.character_name ?? null, characterType: p.data.character_type ?? null, characterSex: p.data.character_sex === 'f' ? 'f' : p.data.character_sex === 'm' ? 'm' : null } : { characterName: null, characterType: null, characterSex: null });
     setHome(h.data ? { placeId: h.data.place_id ?? undefined, address: h.data.address ?? undefined, lat: h.data.lat ?? undefined, lng: h.data.lng ?? undefined, hearthNumber: h.data.hearth_number ?? undefined, skipped: !!h.data.skipped } : null);
     setBalance((c.data?.balance as number | undefined) ?? 0);
@@ -82,7 +93,7 @@ export function useAccount(): Account {
 
   const signOut = useCallback(async () => { await db().auth.signOut(); setProfile(null); setHome(null); setBalance(0); }, []);
 
-  return { session, email: session?.user.email ?? null, loaded, profile, home, septims: septims(balance), refresh, signOut };
+  return { session, email: session?.user.email ?? null, loaded, profile, home, septims: septims(balance), loot, pack, refresh, signOut };
 }
 
 /** Sends the emailed sign-in link. Null when it went; else a message. */
