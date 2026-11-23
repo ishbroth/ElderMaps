@@ -9,6 +9,7 @@ import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, r
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
+import { createVivid, type Vivid } from './lib/vivid';
 import AccountModal from './Account';
 import { accountsEnabled, loadFound, reportDiscovery, useAccount } from './lib/account';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
@@ -80,7 +81,11 @@ export default function App() {
   const [world, setWorld] = useState<World | null>(null);
   const [problem, setProblem] = useState('');
   const [ready, setReady] = useState(false);
-  const [look, setLook] = useState<LookId>(() => (localStorage.getItem('eldermaps:look') === 'oblivion' ? 'oblivion' : 'skyrim'));
+  const [look, setLook] = useState<LookId>(() => { const l = localStorage.getItem('eldermaps:look'); return l === 'oblivion' || l === 'vivid' ? l : 'skyrim'; });
+  // the vivid look's two layers (the relief and the clouds), and whether the clouds are on
+  const vividRef = useRef<Vivid | null>(null);
+  const [cloudsOn, setCloudsOn] = useState(true);
+  const cloudsRef = useRef(true);
   const [selected, setSelected] = useState<Spot | null>(null);
   const [toast, setToast] = useState('');
   const [query, setQuery] = useState('');
@@ -179,12 +184,21 @@ export default function App() {
     const map = mapRef.current;
     if (!map || !ready) return;
     if (!tripRef.current) map.setOptions({ styles: WORLD_STYLES[look], backgroundColor: PALETTE[look].backdrop });
-    map.data.setStyle((feature) => {
-      const p = PROVINCES[feature.getProperty('province') as ProvinceId];
-      void p;
-      return { visible: false, clickable: false };
-    });
-  }, [look, ready]);
+    cloudsRef.current = cloudsOn;
+    // the vivid look swaps Google's own map for our relief, with the clouds over it; the others are Google's terrain map as before
+    if (!tripRef.current) {
+      map.overlayMapTypes.clear();
+      if (look === 'vivid' && world) {
+        vividRef.current ??= createVivid(world.provinceAt);
+        map.mapTypes.set('vivid', vividRef.current.base);
+        map.setMapTypeId('vivid');
+        if (cloudsOn) map.overlayMapTypes.push(vividRef.current.clouds);
+      } else map.setMapTypeId('terrain');
+    }
+    map.data.setStyle(() => (look === 'vivid' && !tripRef.current
+      ? { visible: true, clickable: false, fillOpacity: 0, strokeColor: '#ffffff', strokeOpacity: 0.3, strokeWeight: 1 }
+      : { visible: false, clickable: false }));
+  }, [look, ready, world, cloudsOn]);
 
   // ---- what is on the map at this view ----
   const refresh = useCallback(() => {
@@ -302,7 +316,7 @@ export default function App() {
       for (const p of Object.values(PROVINCES)) {
         const el = document.createElement('div');
         el.className = 'em-province';
-        el.style.color = look === 'skyrim' ? '#f2f2ee' : '#3b2a1a';
+        el.style.color = look !== 'oblivion' ? '#f2f2ee' : '#3b2a1a';
         el.innerHTML = `<b>${p.name}</b>`;
         const h = createHtmlMarker({ position: p.label, element: el, zIndex: 2 });
         h.setMap(map);
@@ -399,7 +413,14 @@ export default function App() {
     tripRef.current = null;
     if (map) {
       map.setOptions({ styles: WORLD_STYLES[lookRef.current], maxZoom: MAX_ZOOM, backgroundColor: PALETTE[lookRef.current].backdrop });
-      map.setMapTypeId('terrain');
+      // back to the map the look calls for (the vivid relief with its clouds, or Google's terrain)
+      if (lookRef.current === 'vivid' && vividRef.current) {
+        map.mapTypes.set('vivid', vividRef.current.base);
+        map.setMapTypeId('vivid');
+        map.overlayMapTypes.clear();
+        if (cloudsRef.current) map.overlayMapTypes.push(vividRef.current.clouds);
+        map.data.setStyle(() => ({ visible: true, clickable: false, fillOpacity: 0, strokeColor: '#ffffff', strokeOpacity: 0.3, strokeWeight: 1 }));
+      } else map.setMapTypeId('terrain');
       if (savedView.current) { map.setCenter(savedView.current.center); map.setZoom(Math.min(MAX_ZOOM, savedView.current.zoom)); }
     }
   }, [clearRoad]);
@@ -438,6 +459,8 @@ export default function App() {
     const kit = roadKitFor(region);
     map.setOptions({ styles: world ? localStyleFor(region) : LOCAL_STYLE, maxZoom: 19, backgroundColor: kit.ground });
     map.setMapTypeId('roadmap');
+    map.overlayMapTypes.clear();
+    map.data.setStyle(() => ({ visible: false, clickable: false }));
     // the real streets and buildings of the view, redrawn in the region's style on top (cobbles, ruts, ash, sand, mud)
     streets.current?.detach();
     streets.current = createStreetLayer(map, kit, roadKitName(region));
@@ -499,7 +522,7 @@ export default function App() {
     <div className={`em-app em-${look}${trip ? ' em-road' : ''}`} style={{ background: pal.backdrop }}>
       <div className="em-stage">
         <div ref={mapBox} className="em-map" />
-        {ready && world && !trip && <TintLayer map={mapRef.current} world={world} look={look} />}
+        {ready && world && !trip && look !== 'vivid' && <TintLayer map={mapRef.current} world={world} look={look} />}
         <div className="em-vignette" aria-hidden="true" />
         {look === 'oblivion' && !trip && <TornFrame />}
 
@@ -511,7 +534,8 @@ export default function App() {
               <button type="submit" aria-label="Search">⌕</button>
             </form>
             <div className="em-tools">
-              <button type="button" onClick={() => setLook(look === 'skyrim' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : 'PARCHMENT'}</button>
+              <button type="button" onClick={() => setLook(look === 'skyrim' ? 'vivid' : look === 'vivid' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
+              {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
               {accountsEnabled && <button type="button" onClick={() => setAccountOpen(true)} title="Your account">{account.session ? (account.profile?.characterName ?? 'YOU').toUpperCase().slice(0, 12) : 'ENTER'}</button>}
               <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
               {voiceAvailable() && <button type="button" onClick={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }} title="The road's voice">{voiceOn ? '♪ VOICE' : '♪ OFF'}</button>}

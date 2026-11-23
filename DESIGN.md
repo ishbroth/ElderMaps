@@ -245,3 +245,14 @@ WastelandMaps' scenes (see `sceneLines.ts`, `describeSpot`) become Elder Scrolls
 3. Home building game art: pre-rendered images, 3D, or a mix (section 8)?
 4. Is the Town Legend map one purchase per metro, at the same price as Project: Atlas?
 5. Do we start with accounts (step 1) before any rendering, as above?
+
+## 14. The VIVID look of the large map (added)
+
+A second look beside NORTHERN (unchanged: Google's cold terrain map) and PARCHMENT. Switch with the look button; the clouds have their own button. How it is made (src/lib/vivid.ts):
+- **Relief:** Terrarium elevation tiles read in the browser, shaded with exaggerated heights (mountains taller than they are), coloured by height, by the snow line (lower toward the poles) and by each
+  province's palette, blended across borders: greener grass, whiter snow, sandier desert, ash lands, murky marsh, and seas that change tone by region (turquoise off the sunny south, deep blue in the north).
+- **Lakes and rivers:** Natural Earth, drawn on top. **Borders:** thin white lines.
+- **Clouds:** NASA GIBS (free, no key): yesterday's true-colour picture of the Earth, with its white colourless parts laid over the map as soft clouds. They are real, but **a day old**, not live, and daily
+  swaths leave a few gaps. Snow and ice are white too, so near the poles most of it is left out. A live global cloud layer needs a paid weather service (the free RainViewer satellite feed was empty when tried);
+  the free GOES and Himawari imagery on GIBS is near-live but covers only the Americas or Asia-Pacific.
+- **Limits:** lakes and seas are one palette per region, not painted per lake; the look is drawn on the phone tile by tile, so very slow phones may take a moment on first view.

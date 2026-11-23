@@ -1,7 +1,7 @@
 // The map's looks, as Google Maps styles. SKYRIM keeps Google's own shaded relief (the terrain map) and turns it cold and grey, like the render of the game's map;
 // OBLIVION warms it to the sepia of old parchment; LOCAL is the flat sketched city map you see when you enter a city: used for the road to a place.
 
-export type LookId = 'skyrim' | 'oblivion';
+export type LookId = 'skyrim' | 'oblivion' | 'vivid';
 
 const off = [{ visibility: 'off' }];
 
@@ -112,11 +112,12 @@ export function localStyleFor(province: string): google.maps.MapTypeStyle[] {
   ];
 }
 
-export const WORLD_STYLES: Record<LookId, google.maps.MapTypeStyle[]> = { skyrim, oblivion };
+export const WORLD_STYLES: Record<LookId, google.maps.MapTypeStyle[]> = { skyrim, oblivion, vivid: skyrim };
 export const LOCAL_STYLE = local;
 
 /** What the page itself draws on top, per look. */
 export const PALETTE: Record<LookId, { ink: string; dim: string; ocean: string; backdrop: string; panel: string; line: string }> = {
   skyrim: { ink: '#f2f2ee', dim: '#9aa3a8', ocean: '#b9cbd6', backdrop: '#0b0d10', panel: 'rgba(12,16,20,0.82)', line: 'rgba(201,194,176,0.45)' },
+  vivid: { ink: '#f4f4ee', dim: '#a9b3b8', ocean: '#e4f3fa', backdrop: '#12385f', panel: 'rgba(12,16,20,0.82)', line: 'rgba(201,194,176,0.45)' },
   oblivion: { ink: '#2f2316', dim: '#6b563a', ocean: '#4d6a73', backdrop: '#5a4128', panel: 'rgba(224,206,160,0.92)', line: 'rgba(90,65,40,0.6)' },
 };
