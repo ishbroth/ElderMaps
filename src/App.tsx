@@ -9,6 +9,8 @@ import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, r
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView from './SceneView';
+import AccountModal from './Account';
+import { accountsEnabled, useAccount } from './lib/account';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -93,6 +95,14 @@ export default function App() {
   const lookRef = useRef(look);
   const seenRef = useRef(seen);
   const [viewing, setViewing] = useState<Spot | null>(null);
+  const account = useAccount();
+  const [accountOpen, setAccountOpen] = useState(false);
+  // a new sign-in opens the making of a character by itself, once
+  const setupShown = useRef(false);
+  useEffect(() => {
+    if (setupShown.current || !account.session || !account.loaded) return;
+    if (!account.profile?.characterName || !account.home?.hearthNumber) { setupShown.current = true; setAccountOpen(true); }
+  }, [account.session, account.loaded, account.profile?.characterName, account.home?.hearthNumber]);
   const toastTimer = useRef<number | undefined>(undefined);
   const roadLayers = useRef<{ line?: google.maps.Polyline; halo?: google.maps.Polyline; end?: HtmlMarkerHandle; me?: HtmlMarkerHandle }>({});
   const savedView = useRef<{ center: LatLng; zoom: number } | null>(null);
@@ -470,6 +480,7 @@ export default function App() {
             </form>
             <div className="em-tools">
               <button type="button" onClick={() => setLook(look === 'skyrim' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : 'PARCHMENT'}</button>
+              {accountsEnabled && <button type="button" onClick={() => setAccountOpen(true)} title="Your account">{account.session ? (account.profile?.characterName ?? 'YOU').toUpperCase().slice(0, 12) : 'ENTER'}</button>}
               <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
               {voiceAvailable() && <button type="button" onClick={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }} title="The road's voice">{voiceOn ? '♪ VOICE' : '♪ OFF'}</button>}
             </div>
@@ -501,8 +512,10 @@ export default function App() {
 
         {viewing && !trip && (
           <SceneView spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
-            onNeedsAccount={(what) => say(`${what} NEEDS AN ACCOUNT: THEY OPEN SOON`)} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
+            onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
         )}
+
+        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}
 
         {trip && step && (
           <div className="em-nav">
