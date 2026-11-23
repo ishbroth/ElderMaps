@@ -155,3 +155,23 @@ button { font: inherit; }
 .em-portrait-emblem { display: grid; place-items: center; }
 .em-portrait-emblem span { font-size: 64px; color: rgba(255, 255, 255, 0.8); }
 .em-types-arrow { background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); width: 34px; height: 54px; font-size: 24px; cursor: pointer; }
+
+/* the glimpse: the real photograph dissolves into the realm's version of the place on a wave of light */
+.em-reveal { margin: 0; }
+.em-reveal-frame { position: relative; overflow: hidden; aspect-ratio: 4 / 3; background: #0b0d10; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+.em-reveal-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.em-reveal-after { clip-path: circle(0% at 50% 55%); opacity: 0; }
+.em-reveal.go .em-reveal-after { animation: em-wave-in 3.2s cubic-bezier(0.3, 0.1, 0.2, 1) forwards; }
+.em-reveal.go .em-reveal-before { animation: em-before-out 3.2s ease-in forwards; }
+.em-reveal-wave { position: absolute; left: 50%; top: 55%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; pointer-events: none; opacity: 0; box-shadow: 0 0 22px 10px rgba(180, 225, 255, 0.85), inset 0 0 18px 6px rgba(255, 255, 255, 0.9); }
+.em-reveal.go .em-reveal-wave { animation: em-wave-ring 3.2s cubic-bezier(0.3, 0.1, 0.2, 1) forwards; }
+@keyframes em-wave-in { 0% { clip-path: circle(0% at 50% 55%); opacity: 1; filter: brightness(2) blur(6px); } 70% { filter: brightness(1.15) blur(1px); } 100% { clip-path: circle(100% at 50% 55%); opacity: 1; filter: none; } }
+@keyframes em-before-out { 0%, 40% { filter: none; } 100% { filter: saturate(0.2) brightness(1.4) blur(3px); } }
+@keyframes em-wave-ring { 0% { opacity: 0.95; transform: scale(1); } 100% { opacity: 0; transform: scale(60); } }
+.em-reveal figcaption { text-align: center; margin-top: 8px; }
+.em-reveal figcaption b { display: block; letter-spacing: 2px; }
+.em-reveal figcaption small { display: block; font-size: 10px; line-height: 1.4; color: var(--sky-dim, #9aa3a8); margin-top: 4px; }
+.em-reveal figcaption a { color: inherit; }
+.em-discovered-by { position: absolute; left: 4px; bottom: 3px; z-index: 3; pointer-events: none; font-size: 10px; letter-spacing: 1px; color: #f4f4ee; text-shadow: 0 0 4px #000, 0 0 2px #000, 0 1px 2px #000; }
+.em-wave-note { animation: em-pulse 1.4s ease-in-out infinite; }
+@keyframes em-pulse { 50% { opacity: 0.35; } }

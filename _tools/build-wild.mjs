@@ -1,7 +1,7 @@
 // The countryside of the map: waterfalls, caves, ruins, forts, camps, lighthouses, volcanoes, hot springs, passes, glaciers, parks, monasteries and peaks,
 // from Wikidata (the more language editions write about a place, the better known it is). Writes public/data/wild.json: [id, name, lat, lng, type, fame].
 //   node _tools/build-wild.mjs
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const KINDS = [
   // [type, Wikidata class, fewest language editions that write about it, most to take]. The floors are low, so the lesser-known places of the countryside are in too, not only the famous.
@@ -61,5 +61,6 @@ for (const [type, qid, min, limit, country] of KINDS) {
   console.log(type, qid, got.length);
   await sleep(1500);
 }
+for (const e of JSON.parse(readFileSync('_tools/wild-extras.json', 'utf8'))) if (!all.has(e[0])) all.set(e[0], e);
 writeFileSync('public/data/wild.json', JSON.stringify([...all.values()]));
 console.log('total', all.size);

@@ -43,7 +43,7 @@ const townCount = (zoom: number): number => (zoom < 5 ? 0 : zoom === 5 ? 140 : z
 const villageCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 700 : 1e9);
 const crestCount = (zoom: number): number => (zoom <= 3 ? 36 : zoom === 4 ? 70 : zoom === 5 ? 110 : zoom === 6 ? 260 : 1e9);
 /** A few world-famous natural landmarks and parks that stay on the map even fully zoomed out (the rest come in as you zoom). */
-const FAMOUS_LOW = new Set(['Yellowstone National Park', 'Victoria Falls', 'Iguaçu Falls', 'Angel Falls', 'Grand Canyon National Park', 'Serengeti National Park', 'Galápagos National Park', 'Niagara Falls', 'Mount Everest', 'Mont Blanc']);
+const FAMOUS_LOW = new Set(['Yellowstone National Park', 'Victoria Falls', 'Iguaçu Falls', 'Angel Falls', 'Grand Canyon National Park', 'Serengeti National Park', 'Galápagos National Park', 'Niagara Falls', 'Mount Everest', 'Mont Blanc', 'Uluru', 'Mount Kilimanjaro', 'Great Barrier Reef']);
 const famousFar = (name: string, type: string, fame: number): boolean => FAMOUS_LOW.has(name) || (fame >= 125 && type !== 'keep' && type !== 'fort' && type !== 'tower');
 const wildFame = (zoom: number): number => (zoom <= 3 ? 1e9 : zoom === 4 ? 110 : zoom === 5 ? 55 : zoom === 6 ? 26 : zoom === 7 ? 12 : zoom === 8 ? 6 : 0);
 
@@ -571,6 +571,7 @@ export default function App() {
 
         {viewing && !trip && (
           <SceneView spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
+            signedIn={!!account.session} onSpent={() => void account.refresh()}
             onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
         )}
 
