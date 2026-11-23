@@ -3,15 +3,15 @@ import { CHARACTER_TYPES, saveSetup, sendSignInLink, signInWithHearth, type Acco
 import { findPlace } from './lib/google';
 
 /** The portrait of a character type. (A drawn emblem for now; the painted portraits replace it when they are made: public/portraits/<id>.jpg is used when it exists.) */
-function Portrait({ id, name }: { id: string; name: string }) {
+function Portrait({ id, name, sex }: { id: string; name: string; sex: 'm' | 'f' }) {
   const [missing, setMissing] = useState(false);
   const hue = (CHARACTER_TYPES.findIndex((c) => c.id === id) * 36 + 20) % 360;
-  if (!missing) return <img className="em-portrait" src={`${import.meta.env.BASE_URL}portraits/${id}.jpg`} alt={name} onError={() => setMissing(true)} draggable={false} />;
+  if (!missing) return <img className="em-portrait" src={`${import.meta.env.BASE_URL}portraits/${id}${sex === 'f' ? '-f' : ''}.jpg`} alt={name} onError={() => setMissing(true)} draggable={false} />;
   return <div className="em-portrait em-portrait-emblem" style={{ background: `radial-gradient(circle at 50% 35%, hsl(${hue} 35% 38%), hsl(${hue} 30% 14%))` }} aria-label={name}><span>{name.slice(0, 1)}</span></div>;
 }
 
 /** Choose a character type by swiping left and right (or with the arrows). */
-function TypePicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: (id: string) => void; sex: 'm' | 'f'; onSex?: (s: 'm' | 'f') => void }) {
   const i = Math.max(0, CHARACTER_TYPES.findIndex((c) => c.id === value));
   const track = useRef<HTMLDivElement>(null);
   const go = (to: number) => {
@@ -25,18 +25,26 @@ function TypePicker({ value, onChange }: { value: string; onChange: (id: string)
     if (CHARACTER_TYPES[n] && CHARACTER_TYPES[n].id !== value) onChange(CHARACTER_TYPES[n].id);
   };
   return (
+    <>
+    {onSex && (
+      <div className="em-seg em-sex" role="group" aria-label="Man or woman">
+        <button type="button" className={sex === 'm' ? 'on' : ''} onClick={() => onSex('m')}>MAN</button>
+        <button type="button" className={sex === 'f' ? 'on' : ''} onClick={() => onSex('f')}>WOMAN</button>
+      </div>
+    )}
     <div className="em-types">
       <button type="button" className="em-types-arrow" aria-label="Previous" onClick={() => go(i - 1)}>‹</button>
       <div className="em-types-track" ref={track} onScroll={onScroll}>
         {CHARACTER_TYPES.map((c) => (
           <figure key={c.id} className="em-type">
-            <Portrait id={c.id} name={c.name} />
+            <Portrait key={`${c.id}${sex}`} id={c.id} name={c.name} sex={sex} />
             <figcaption><b>{c.name.toUpperCase()}</b><i>{c.blurb}</i></figcaption>
           </figure>
         ))}
       </div>
       <button type="button" className="em-types-arrow" aria-label="Next" onClick={() => go(i + 1)}>›</button>
     </div>
+    </>
   );
 }
 
@@ -53,6 +61,7 @@ export default function AccountModal({ account, onClose }: { account: Account; o
   // setup
   const [name, setName] = useState(account.profile?.characterName ?? '');
   const [type, setType] = useState(account.profile?.characterType ?? CHARACTER_TYPES[0].id);
+  const [sex, setSex] = useState<'m' | 'f'>(account.profile?.characterSex ?? 'm');
   const [address, setAddress] = useState(account.home?.address ?? '');
   const [number, setNumber] = useState(account.home?.hearthNumber !== undefined ? String(account.home.hearthNumber).padStart(4, '0') : '');
 
@@ -75,7 +84,7 @@ export default function AccountModal({ account, onClose }: { account: Account; o
     setBusy(true); setNote('');
     const found = await findPlace(address).catch(() => null);
     if (!found) { setBusy(false); setNote('That address could not be found. Try the street, town and country.'); return; }
-    const problem = await saveSetup(account.session.user.id, { characterName: name.trim(), characterType: type, address: found.name, lat: found.center.lat, lng: found.center.lng, hearthNumber: Number(number) });
+    const problem = await saveSetup(account.session.user.id, { characterName: name.trim(), characterType: type, characterSex: sex, address: found.name, lat: found.center.lat, lng: found.center.lng, hearthNumber: Number(number) });
     setBusy(false);
     if (problem) { setNote(problem); return; }
     await account.refresh();
@@ -112,7 +121,7 @@ export default function AccountModal({ account, onClose }: { account: Account; o
         {needsSetup && (
           <>
             <h2>MAKE YOUR CHARACTER</h2>
-            <TypePicker value={type} onChange={setType} />
+            <TypePicker value={type} onChange={setType} sex={sex} onSex={setSex} />
             <label className="em-field">CHARACTER NAME<input value={name} maxLength={20} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} placeholder="what the realm will call you" /></label>
             <label className="em-field">YOUR HOME (ADDRESS)<input value={address} autoComplete="street-address" onChange={(e) => setAddress(e.target.value)} placeholder="street, town, country" /></label>
             <label className="em-field">HEARTH NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="0000" /></label>
@@ -124,7 +133,7 @@ export default function AccountModal({ account, onClose }: { account: Account; o
         {signedIn && account.loaded && !needsSetup && (
           <>
             <h2>{account.profile?.characterName}</h2>
-            <TypePicker value={account.profile?.characterType ?? CHARACTER_TYPES[0].id} onChange={() => undefined} />
+            <TypePicker value={account.profile?.characterType ?? CHARACTER_TYPES[0].id} onChange={() => undefined} sex={account.profile?.characterSex ?? 'm'} />
             <p className="em-fine">{account.email}</p>
             <p className="em-fine">HOME: {account.home?.address} · HEARTH {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
             <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>

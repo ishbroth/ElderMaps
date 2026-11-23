@@ -25,6 +25,17 @@ const TYPES = {
   greenkin: 'A lithe forest elf with tan skin, leaf-brown face paint, pointed ears and sharp green eyes, a hooded cloak of leaves and bark-brown leather, a bow strap across the chest, a dense canopy of giant trees behind.',
   tuskborn: 'A powerful green-skinned orc with prominent lower tusks, a scarred brow and a braided topknot, wearing heavy dark iron armour trimmed with fur, a glowing forge and a basalt fortress behind. Fierce but noble.',
   aurelian: 'An imperial human of the marble cities, olive skin, short dark hair, a thin gold laurel, wearing red-and-gold ornate legionary armour with a heavy red cloak, white marble columns and a busy city behind.',
+  // the women (saved as <id>-f.jpg)
+  'frostkin-f': 'A strong northern clan shieldmaiden, human, long braided fair hair threaded with small bone beads, blue war paint across the eyes, a fur-lined cloak over riveted mail, snow and dark pines behind.',
+  'highmarcher-f': 'A noble human woman knight-mage of a misty kingdom, auburn hair in a braided crown, calm sharp eyes, a velvet surcoat bearing an invented heraldic device over fine plate, a crystal-tipped staff over the shoulder, grey castle walls and fog behind.',
+  'sunblade-f': 'A dark-skinned human desert swordswoman, tight black curls, a white-and-gold linen wrap and head scarf, the hilt of a curved sabre at the shoulder, sun-baked sandstone arches behind.',
+  'maned-f': 'A feline humanoid cat-woman with golden-tawny fur finely striped, a shorter mane braided with small gold rings, green eyes and pointed ears, wearing silk and supple leather with small gold charms, a lantern-lit desert bazaar at dusk behind. Clearly a cat-folk face, dignified and clever.',
+  'scalekin-f': 'A reptilian lizard-woman of the swamps, smoother green-gold scales with a low crest of soft spines, orange slit-pupil eyes, a long snout, a woven collar of shells, feathers and beads, misty mangrove marsh behind. Dignified and strange.',
+  'emberkin-f': 'A slender elf woman with ash-grey skin, glowing red eyes, sharp angular features and long white hair in a braid, wearing dark segmented shell-like armour with red trim, a drifting ash storm and a smoking volcano behind.',
+  'gilded-f': 'A tall, golden-skinned high elf woman with long pointed ears, high cheekbones and pale amber eyes, wearing ornate gilded armour and a pale silk cape, crystal spires and sunlit gardens behind.',
+  'greenkin-f': 'A lithe forest elf woman with tan skin, leaf-brown face paint, pointed ears and sharp green eyes, a hooded cloak of leaves and bark-brown leather, a bow strap across the chest, a dense canopy of giant trees behind.',
+  'tuskborn-f': 'A powerful green-skinned orc woman with prominent lower tusks, a scarred cheek and braided hair with iron rings, wearing heavy dark iron armour trimmed with fur, a glowing forge and a basalt fortress behind. Fierce but noble.',
+  'aurelian-f': 'An imperial human woman of the marble cities, olive skin, dark hair in an elegant braided updo with a thin gold laurel, wearing red-and-gold ornate armour with a heavy red cloak, white marble columns and a busy city behind.',
 };
 
 async function paint(id) {

@@ -33,7 +33,7 @@ export const CHARACTER_TYPES: { id: string; name: string; blurb: string }[] = [
   { id: 'aurelian', name: 'Aurelians', blurb: 'Imperial folk of the roads and the marble cities.' },
 ];
 
-export interface Profile { characterName: string | null; characterType: string | null }
+export interface Profile { characterName: string | null; characterType: string | null; /** 'm' or 'f' */ characterSex: 'm' | 'f' | null }
 export interface Home { address?: string; lat?: number; lng?: number; placeId?: string; hearthNumber?: number; skipped: boolean }
 
 export interface Account {
@@ -68,11 +68,11 @@ export function useAccount(): Account {
     const s = (await db().auth.getSession()).data.session;
     if (!s) { setProfile(null); setHome(null); setBalance(0); setLoaded(true); return; }
     const [p, h, c] = await Promise.all([
-      db().from('profiles').select('character_name,character_type').eq('user_id', s.user.id).maybeSingle(),
+      db().from('profiles').select('character_name,character_type,character_sex').eq('user_id', s.user.id).maybeSingle(),
       db().from('user_home').select('place_id,address,lat,lng,hearth_number,skipped').eq('user_id', s.user.id).maybeSingle(),
       db().from('credits').select('balance').eq('user_id', s.user.id).maybeSingle(),
     ]);
-    setProfile(p.data ? { characterName: p.data.character_name ?? null, characterType: p.data.character_type ?? null } : { characterName: null, characterType: null });
+    setProfile(p.data ? { characterName: p.data.character_name ?? null, characterType: p.data.character_type ?? null, characterSex: p.data.character_sex === 'f' ? 'f' : p.data.character_sex === 'm' ? 'm' : null } : { characterName: null, characterType: null, characterSex: null });
     setHome(h.data ? { placeId: h.data.place_id ?? undefined, address: h.data.address ?? undefined, lat: h.data.lat ?? undefined, lng: h.data.lng ?? undefined, hearthNumber: h.data.hearth_number ?? undefined, skipped: !!h.data.skipped } : null);
     setBalance((c.data?.balance as number | undefined) ?? 0);
     setLoaded(true);
@@ -108,8 +108,8 @@ export async function signInWithHearth(email: string, digits: string): Promise<s
 }
 
 /** Saves the character and the home, then sets the hearth password from the saved number. Null when it all went; else a message. */
-export async function saveSetup(userId: string, p: { characterName: string; characterType: string; address: string; lat: number; lng: number; placeId?: string; hearthNumber: number }): Promise<string | null> {
-  const prof = await db().from('profiles').upsert({ user_id: userId, character_name: p.characterName, character_type: p.characterType, updated_at: new Date().toISOString() });
+export async function saveSetup(userId: string, p: { characterName: string; characterType: string; characterSex: 'm' | 'f'; address: string; lat: number; lng: number; placeId?: string; hearthNumber: number }): Promise<string | null> {
+  const prof = await db().from('profiles').upsert({ user_id: userId, character_name: p.characterName, character_type: p.characterType, character_sex: p.characterSex, updated_at: new Date().toISOString() });
   if (prof.error) return prof.error.code === '23505' ? 'That name is taken. Choose another.' : 'The character could not be saved. Try again.';
   const home = await db().from('user_home').upsert({ user_id: userId, address: p.address, lat: p.lat, lng: p.lng, place_id: p.placeId ?? null, hearth_number: p.hearthNumber, skipped: false, updated_at: new Date().toISOString() });
   if (home.error) return home.error.code === '23505' ? `Hearth ${String(p.hearthNumber).padStart(4, '0')} already belongs to someone else. Pick a different number.` : 'The home could not be saved. Try again.';
