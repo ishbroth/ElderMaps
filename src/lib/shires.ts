@@ -96,7 +96,7 @@ const gilded: Kit = {
 };
 const marsh: Kit = {
   home: (x, w, h) => `M${x} ${G - 3}V${G - 3 - h * 0.6}l${w / 2} -${h * 0.5}l${w / 2} ${h * 0.5}V${G - 3}Z` + leg(x + 0.7) + leg(x + w - 1.6),
-  mid: (x, w, h) => dome(x + w / 2, G - 3, w * 0.5) + leg(x + 0.7) + leg(x + w - 1.6) + leg(x + w / 2 - 0.4),
+  mid: (x, w) => dome(x + w / 2, G - 3, w * 0.5) + leg(x + 0.7) + leg(x + w - 1.6) + leg(x + w / 2 - 0.4),
   tall: (x, w, h) => `M${x + w * 0.15} ${G - 3}V${G - 3 - h * 0.7}l${w * 0.35} -${h * 0.3}l${w * 0.35} ${h * 0.3}V${G - 3}Z` + leg(x + w * 0.2) + leg(x + w * 0.7),
   grand: (x, w, h) => `M${x} ${G - 3}V${G - 3 - h * 0.3}h${w}V${G - 3}Z M${x + w * 0.12} ${G - 3 - h * 0.3}V${G - 3 - h * 0.6}h${w * 0.76}V${G - 3 - h * 0.3}Z M${x + w * 0.26} ${G - 3 - h * 0.6}V${G - 3 - h * 0.85}h${w * 0.48}V${G - 3 - h * 0.6}Z` + leg(x + 0.5) + leg(x + w - 1.5) + leg(x + w / 2 - 0.5),
   tower: (x, w, h) => `M${x} ${G - 3}V${G - 3 - h * 0.8}l${w / 2} -${h * 0.25}l${w / 2} ${h * 0.25}V${G - 3}Z` + leg(x + w / 2 - 0.45),
