@@ -52,7 +52,7 @@ function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: 
 export default function AccountModal({ account, onClose, onShop, onBuy }: { account: Account; onClose: () => void; onShop?: () => void; onBuy?: () => void }) {
   const signedIn = !!account.session;
   const needsSetup = signedIn && account.loaded && (!account.profile?.characterName || !account.home?.hearthNumber);
-  const [mode, setMode] = useState<'link' | 'hearth'>('link');
+  const [mode, setMode] = useState<'in' | 'new'>('in');
   const [email, setEmail] = useState('');
   const [digits, setDigits] = useState('');
   const [note, setNote] = useState('');
@@ -98,20 +98,24 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
 
         {!signedIn && (
           <>
-            <h2>ENTER THE REALM</h2>
-            <div className="em-seg" role="group" aria-label="How to sign in">
-              <button type="button" className={mode === 'link' ? 'on' : ''} onClick={() => { setMode('link'); setNote(''); }}>EMAILED LINK</button>
-              <button type="button" className={mode === 'hearth' ? 'on' : ''} onClick={() => { setMode('hearth'); setNote(''); }}>HEARTH NUMBER</button>
-            </div>
+            <h2>{mode === 'in' ? 'ENTER THE REALM' : 'CONSCRIPT'}</h2>
             <label className="em-field">EMAIL<input type="email" value={email} autoComplete="email" inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
-            {mode === 'hearth' && <label className="em-field">HEARTH NUMBER<input value={digits} inputMode="numeric" maxLength={4} pattern="[0-9]*" onChange={(e) => setDigits(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="four digits" /></label>}
-            {mode === 'link' && !sent && <p className="em-fine">New here, or lost your number? A sign-in link will arrive by email. Opening it signs you in and starts the making of your character.</p>}
-            {sent && <p className="em-fine">The link is on its way. Open it on this device.</p>}
+            {mode === 'in' && <label className="em-field">HEARTH NUMBER<input value={digits} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" autoComplete="current-password" onChange={(e) => setDigits(e.target.value.replace(/D/g, '').slice(0, 4))} placeholder="four digits" /></label>}
+            {mode === 'new' && !sent && <p className="em-fine">A link will be sent to this address. Open it on this device to confirm it is yours: you will then make your character and choose your hearth number.</p>}
+            {mode === 'new' && sent && <p className="em-fine">The link is on its way. Open it on this device to finish.</p>}
             {note && <p className="em-note">{note}</p>}
             <div className="em-card-buttons">
-              {mode === 'link'
-                ? <button type="button" className="em-btn" disabled={busy || !/^\S+@\S+\.\S+$/.test(email)} onClick={() => void link()}>{busy ? 'SENDING…' : sent ? 'SEND AGAIN' : 'SEND ME A LINK'}</button>
-                : <button type="button" className="em-btn" disabled={busy || !/^\S+@\S+\.\S+$/.test(email) || digits.length !== 4} onClick={() => void hearth()}>{busy ? 'OPENING…' : 'ENTER'}</button>}
+              {mode === 'in' ? (
+                <>
+                  <button type="button" className="em-btn" disabled={busy || !/^S+@S+.S+$/.test(email) || digits.length !== 4} onClick={() => void hearth()}>{busy ? 'OPENING…' : 'ENTER THE REALM'}</button>
+                  <button type="button" className="em-btn em-btn-ghost" onClick={() => { setMode('new'); setNote(''); setSent(false); }}>CONSCRIPT</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="em-btn" disabled={busy || !/^S+@S+.S+$/.test(email)} onClick={() => void link()}>{busy ? 'SENDING…' : sent ? 'SEND AGAIN' : 'SEND ME THE LINK'}</button>
+                  <button type="button" className="em-btn em-btn-ghost" onClick={() => { setMode('in'); setNote(''); }}>BACK</button>
+                </>
+              )}
             </div>
           </>
         )}

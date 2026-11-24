@@ -25,7 +25,7 @@ export function loadGoogle(): Promise<void> {
   if (loading) return loading;
   loading = new Promise<void>((resolve, reject) => {
     if (!hasMapsKey()) { reject(new Error('NO MAPS KEY: add VITE_GOOGLE_MAPS_API_KEY to .env.local')); return; }
-    if (overDailyLimit()) { reject(new Error('MAP OVERLOAD: DAILY LIMIT REACHED!')); return; }
+    if (overDailyLimit()) { reject(new Error('Your candle has burnt all of its wick for today. View your maps again in the morning, nigh.')); return; }
     const w = window as unknown as Record<string, unknown>;
     w.gm_authFailure = () => reject(new Error('GOOGLE REFUSED THE MAPS KEY'));
     w.__eldermapsReady = () => {
