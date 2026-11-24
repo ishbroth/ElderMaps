@@ -463,6 +463,7 @@ export default function App() {
         const p = progressAlong(t.route, here);
         setTrip({ ...t, step: p.step, toTurn: p.toTurn, remaining: p.remaining, gps: true });
         roadLayers.current.me?.setPosition(here);
+        if (followCam.current) mapRef.current?.panTo(here);
         if (lastHere.current && distanceMeters(lastHere.current, here) > 4) { faceRider(bearingBetween(lastHere.current, here)); lastHere.current = here; } else if (!lastHere.current) lastHere.current = here;
         if (p.remaining < 60) arrive(t.to);
       }
@@ -487,6 +488,9 @@ export default function App() {
   // the rider on the road: its element (turned to face the way it goes) and where it was last, to know which way that is
   const riderEl = useRef<HTMLElement | null>(null);
   const lastHere = useRef<LatLng | null>(null);
+  /** Once the whole road has been shown, the map comes in to street level and follows the rider. */
+  const followCam = useRef(false);
+  const NAV_ZOOM = 17;
   const faceRider = (deg: number) => { riderEl.current?.style.setProperty('--turn', `${deg.toFixed(0)}deg`); };
   const clearRoad = useCallback(() => {
     streets.current?.detach();
@@ -502,6 +506,7 @@ export default function App() {
     const map = mapRef.current;
     setTrip(null);
     tripRef.current = null;
+    followCam.current = false;
     if (map) {
       map.setOptions({ styles: WORLD_STYLES[lookRef.current], maxZoom: MAX_ZOOM, backgroundColor: PALETTE[lookRef.current].backdrop });
       // back to the map the look calls for (the vivid relief with its clouds, or Google's terrain)
@@ -579,6 +584,15 @@ export default function App() {
     tripRef.current = t;
     setTrip(t);
     setFollowing(!!here);
+    // the whole road is shown for a moment, then the map comes in to street level on the rider and follows
+    followCam.current = false;
+    window.setTimeout(() => {
+      const m = mapRef.current;
+      if (!m || !tripRef.current) return;
+      m.panTo(route.path[0] ?? from);
+      m.setZoom(NAV_ZOOM);
+      followCam.current = true;
+    }, 3200);
   };
 
   // the road speaks each new instruction, and again as the turn comes close
@@ -607,6 +621,7 @@ export default function App() {
     faceRider(bearingBetween(stepPath[0], stepPath[Math.min(3, stepPath.length - 1)]));
     roadLayers.current.me?.setPosition(from);
     mapRef.current?.panTo(from);
+    if ((mapRef.current?.getZoom() ?? 0) < NAV_ZOOM) mapRef.current?.setZoom(NAV_ZOOM);
     const rest = t.route.steps.slice(next).reduce((a, s) => a + s.meters, 0);
     setTrip({ ...t, step: next, toTurn: t.route.steps[next].meters, remaining: rest });
   };
