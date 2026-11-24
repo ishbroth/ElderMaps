@@ -126,7 +126,7 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
   const mpp = (156543.03392 * Math.cos((tileLat(y + 0.5, z) * Math.PI) / 180)) / 2 ** z; // metres per pixel here
   const EXAG = 7;
   // how strong the colours are: 1 is the full game-bright palette; lower is calmer. (A middle road between the cold map and the bright one.)
-  const SAT = 0.6;
+  const SAT = 0.54;
   const lx = -0.55, ly = -0.55, lz = 0.65; // the light comes from the upper left
   const ln = Math.hypot(lx, ly, lz);
   const flat = lz / ln;
