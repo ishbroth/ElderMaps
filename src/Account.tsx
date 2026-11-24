@@ -84,7 +84,7 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
   };
   const next1 = () => {
     if (name.trim().length < 2) { setNote('Choose a name of at least two letters.'); return; }
-    if (!/^d{4}$/.test(number)) { setNote('The serf number is four digits.'); return; }
+    if (!/^\d{4}$/.test(number)) { setNote('The serf number is four digits.'); return; }
     setNote(''); setStep(2);
   };
   const finish = async () => {
@@ -116,19 +116,19 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
           <>
             <h2>{mode === 'in' ? 'ENTER THE REALM' : 'CONSCRIPT'}</h2>
             <label className="em-field">EMAIL<input type="email" value={email} autoComplete="email" inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
-            {mode === 'in' && <label className="em-field">SERF NUMBER<input value={digits} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" autoComplete="current-password" onChange={(e) => setDigits(e.target.value.replace(/D/g, '').slice(0, 4))} placeholder="four digits" /></label>}
+            {mode === 'in' && <label className="em-field">SERF NUMBER<input value={digits} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" autoComplete="current-password" onChange={(e) => setDigits(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="four digits" /></label>}
             {mode === 'new' && !sent && <p className="em-fine">A link will be sent to this address. Open it on this device to confirm it is yours: you will then make your character and choose your serf number.</p>}
             {mode === 'new' && sent && <p className="em-fine">The link is on its way. Open it on this device to finish.</p>}
             {note && <p className="em-note">{note}</p>}
             <div className="em-card-buttons">
               {mode === 'in' ? (
                 <>
-                  <button type="button" className="em-btn" disabled={busy || !/^S+@S+.S+$/.test(email) || digits.length !== 4} onClick={() => void hearth()}>{busy ? 'OPENING…' : 'ENTER THE REALM'}</button>
+                  <button type="button" className="em-btn" disabled={busy || !/^\S+@\S+\.\S+$/.test(email) || digits.length !== 4} onClick={() => void hearth()}>{busy ? 'OPENING…' : 'ENTER THE REALM'}</button>
                   <button type="button" className="em-btn em-btn-ghost" onClick={() => { setMode('new'); setNote(''); setSent(false); }}>CONSCRIPT</button>
                 </>
               ) : (
                 <>
-                  <button type="button" className="em-btn" disabled={busy || !/^S+@S+.S+$/.test(email)} onClick={() => void link()}>{busy ? 'SENDING…' : sent ? 'SEND AGAIN' : 'SEND ME THE LINK'}</button>
+                  <button type="button" className="em-btn" disabled={busy || !/^\S+@\S+\.\S+$/.test(email)} onClick={() => void link()}>{busy ? 'SENDING…' : sent ? 'SEND AGAIN' : 'SEND ME THE LINK'}</button>
                   <button type="button" className="em-btn em-btn-ghost" onClick={() => { setMode('in'); setNote(''); }}>BACK</button>
                 </>
               )}
@@ -146,7 +146,7 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
                 <label className="em-field">CHARACTER NAME
                   <span className="em-sigil-search"><input value={name} maxLength={20} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} placeholder="what the realm will call you" /><button type="button" className="em-btn em-btn-ghost" onClick={() => setName(randomCharacterName())}>ROLL</button></span>
                 </label>
-                <label className="em-field">SERF NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" onChange={(e) => setNumber(e.target.value.replace(/D/g, '').slice(0, 4))} placeholder="four digits" /></label>
+                <label className="em-field">SERF NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="four digits" /></label>
                 {note && <p className="em-note">{note}</p>}
                 <div className="em-card-buttons"><button type="button" className="em-btn" onClick={next1}>NEXT</button></div>
               </>
