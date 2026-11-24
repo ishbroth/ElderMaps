@@ -51,7 +51,8 @@ const SEEN_KEY = 'eldermaps:seen';
 const townCount = (zoom: number): number => (zoom < 5 ? 0 : zoom === 5 ? 140 : zoom === 6 ? 520 : 1e9);
 const villageCount = (zoom: number): number => (zoom < 6 ? 0 : zoom === 6 ? 150 : zoom === 7 ? 700 : 1e9);
 /** Which capitals show at each zoom, by the size of the metro: fully zoomed out the big ones of the world (a higher bar in China and India, which have so many), more as you come in. */
-const crestOk = (zoom: number, pop: number, iso2: string): boolean => {
+const crestOk = (zoom: number, pop: number, iso2: string, name = ''): boolean => {
+  if (name === 'Anchorage' && iso2 === 'US') return true;
   const asia = iso2 === 'CN' || iso2 === 'IN';
   if (zoom <= 3) return pop >= (asia ? 10e6 : 4e6);
   if (zoom === 4) return pop >= (asia ? 6e6 : 2.5e6);
@@ -319,7 +320,7 @@ export default function App() {
       let shown = 0;
       for (let i = 0; i < list.length && i < allowed && shown < cap; i++) {
         const [name, lat, lng, pop, , iso2] = list[i];
-        if (!inView(lat, lng) || (kind === 'crest' && !crestOk(zoom, pop, iso2))) continue;
+        if (!inView(lat, lng) || (kind === 'crest' && !crestOk(zoom, pop, iso2, name))) continue;
         const province = world.provinceOfCountry(iso2);
         const pic = kind === 'village' || kind === 'town' ? settlementPic(kind, name, pop, province) : undefined;
         add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,

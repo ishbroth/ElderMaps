@@ -77,7 +77,9 @@ export function loadWorld(): Promise<World> {
       return best.province;
     };
     const cities = { crest: [] as City[], town: [] as City[], village: [] as City[] };
-    for (const c of cityList.sort((a, b) => b[3] - a[3])) cities[c[4]].push(c);
+    // an exception to the metro-size rule: Anchorage is a great city of the far north and wears a shield
+    const SHIELD_EXCEPTIONS = new Set(['Anchorage|US']);
+    for (const c of cityList.sort((a, b) => b[3] - a[3])) cities[SHIELD_EXCEPTIONS.has(c[0] + '|' + c[5]) ? 'crest' : c[4]].push(c);
     return {
       cities, provinceRings: countries.flatMap((c) => c.rings.map((r) => ({ province: c.province, pts: r.pts }))),
       countries, geojson: { type: 'FeatureCollection', features: countries.map((c) => c.feature) }, metros: metros.sort((a, b) => b.pop - a.pop), keys, wild,
