@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { crestSvg, loadCrests } from './lib/crests';
 import { distanceMeters } from './lib/geo';
 import { findPlace } from './lib/google';
+import type { LatLng } from './lib/geo';
 import { loreName } from './lib/lore';
 import { loadWorld, type City, type World } from './lib/world';
 
@@ -34,23 +35,58 @@ export default function SigilPicker({ value, onChange }: { value: SigilChoice | 
   const [query, setQuery] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tips, setTips] = useState<{ place: google.maps.places.PlacePrediction; text: string }[]>([]);
+  const [token, setToken] = useState<google.maps.places.AutocompleteSessionToken | null>(null);
   useEffect(() => { void Promise.all([loadWorld(), loadCrests()]).then(([w]) => setWorld(w)); }, []);
   const cities = world?.cities.crest ?? [];
   const chosen = useMemo(() => cities.find((c) => value && c[0] === value.city && c[5] === value.iso) ?? null, [cities, value]);
   const shown = (c: City): string => (world ? loreName(c[0], world.provinceOfCountry(c[5])) : c[0]);
 
-  const search = async () => {
-    if (!world || query.trim().length < 2) return;
-    setBusy(true); setNote('');
-    const found = await findPlace(query.trim()).catch(() => null);
-    setBusy(false);
-    if (!found) { setNote('No such place was found. Try the town and country.'); return; }
+  // the suggestions drop down as you type (a short wait after the last key, so Google is asked once and not for every letter)
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) { setTips([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const { AutocompleteSuggestion, AutocompleteSessionToken } = (await google.maps.importLibrary('places')) as google.maps.PlacesLibrary;
+        const tok = token ?? new AutocompleteSessionToken();
+        if (!token) setToken(tok);
+        const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: q, sessionToken: tok, includedPrimaryTypes: ['(cities)'] });
+        if (!cancelled) setTips(suggestions.map((x) => x.placePrediction).filter((p): p is google.maps.places.PlacePrediction => !!p).slice(0, 5).map((p) => ({ place: p, text: p.text.text })));
+      } catch { if (!cancelled) setTips([]); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, token]);
+
+  const pickTip = async (p: google.maps.places.PlacePrediction, text: string) => {
+    setBusy(true); setNote(''); setTips([]); setQuery(text);
+    try {
+      const place = p.toPlace();
+      await place.fetchFields({ fields: ['location'] });
+      setToken(null);
+      if (place.location) { choose({ lat: place.location.lat(), lng: place.location.lng() }); return; }
+    } catch { /* falls through */ }
+    setBusy(false); setNote('That place could not be found. Try another.');
+  };
+
+  const choose = (at: LatLng) => {
     let best: City | null = null, bestD = Infinity;
-    for (const c of cities) { const d = distanceMeters(found.center, { lat: c[1], lng: c[2] }); if (d < bestD) { bestD = d; best = c; } }
+    for (const c of cities) { const d = distanceMeters(at, { lat: c[1], lng: c[2] }); if (d < bestD) { bestD = d; best = c; } }
+    setBusy(false);
     if (!best) return;
     onChange({ city: best[0], iso: best[5] });
     setNote(bestD < 40_000 ? `${shown(best)} is your city.` : `The nearest great city is ${shown(best)}, about ${Math.round(bestD / 1000)} km away.`);
     document.getElementById(`sigil-${keyOf(best)}`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  };
+
+  /** Typed in full and sent without picking a suggestion. */
+  const search = async () => {
+    if (!world || query.trim().length < 2) return;
+    setBusy(true); setNote(''); setTips([]);
+    const found = await findPlace(query.trim()).catch(() => null);
+    if (!found) { setBusy(false); setNote('No such place was found. Try the town and country.'); return; }
+    choose(found.center);
   };
 
   return (
@@ -59,6 +95,11 @@ export default function SigilPicker({ value, onChange }: { value: SigilChoice | 
         <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void search(); }} placeholder="Search your city for its sigil" aria-label="Search your city" />
         <button type="button" className="em-btn em-btn-ghost" disabled={busy || !world} onClick={() => void search()}>{busy ? '…' : 'FIND'}</button>
       </div>
+      {tips.length > 0 && (
+        <ul className="em-sigil-tips" role="listbox" aria-label="Suggestions">
+          {tips.map((t) => <li key={t.place.placeId}><button type="button" role="option" aria-selected="false" onClick={() => void pickTip(t.place, t.text)}>{t.text}</button></li>)}
+        </ul>
+      )}
       {note && <p className="em-fine">{note}</p>}
       <div className="em-sigil-strip" role="listbox" aria-label="Sigils">
         {cities.map((c) => (
