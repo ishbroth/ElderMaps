@@ -45,6 +45,8 @@ export interface Account {
   home: Home | null;
   /** The septims held. */
   septims: number;
+  /** Points earned by discovering places (they fill the level bar). */
+  points: number;
   /** The loot in the bag, by kind, and what is carried. */
   loot: Record<string, number>;
   pack: { potions: number; shouts: number; dual: boolean };
@@ -58,6 +60,7 @@ export function useAccount(): Account {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [home, setHome] = useState<Home | null>(null);
   const [balance, setBalance] = useState(0);
+  const [points, setPoints] = useState(0);
   const [loot, setLoot] = useState<Record<string, number>>({});
   const [pack, setPack] = useState({ potions: 0, shouts: 0, dual: false });
 
@@ -72,12 +75,13 @@ export function useAccount(): Account {
     if (!accountsEnabled) return;
     const s = (await db().auth.getSession()).data.session;
     if (!s) { setProfile(null); setHome(null); setBalance(0); setLoot({}); setPack({ potions: 0, shouts: 0, dual: false }); setLoaded(true); return; }
-    const [p, h, c, lb, pk] = await Promise.all([
+    const [p, h, c, lb, pk, ds] = await Promise.all([
       db().from('profiles').select('character_name,character_type,character_sex,sigil_city,sigil_iso').eq('user_id', s.user.id).maybeSingle(),
       db().from('user_home').select('place_id,address,lat,lng,hearth_number,skipped').eq('user_id', s.user.id).maybeSingle(),
       db().from('credits').select('balance').eq('user_id', s.user.id).maybeSingle(),
       db().from('loot_bag').select('loot_id,qty').eq('user_id', s.user.id),
       db().from('pack').select('potions,shouts,dual').eq('user_id', s.user.id).maybeSingle(),
+      db().from('discoveries').select('points').eq('user_id', s.user.id),
     ]);
     const bag: Record<string, number> = {};
     for (const r of (lb.data ?? []) as { loot_id: string; qty: number }[]) bag[r.loot_id] = r.qty;
@@ -86,6 +90,7 @@ export function useAccount(): Account {
     setProfile(p.data ? { characterName: p.data.character_name ?? null, characterType: p.data.character_type ?? null, characterSex: p.data.character_sex === 'f' ? 'f' : p.data.character_sex === 'm' ? 'm' : null, sigilCity: p.data.sigil_city ?? null, sigilIso: p.data.sigil_iso ?? null } : { characterName: null, characterType: null, characterSex: null, sigilCity: null, sigilIso: null });
     setHome(h.data ? { placeId: h.data.place_id ?? undefined, address: h.data.address ?? undefined, lat: h.data.lat ?? undefined, lng: h.data.lng ?? undefined, hearthNumber: h.data.hearth_number ?? undefined, skipped: !!h.data.skipped } : null);
     setBalance((c.data?.balance as number | undefined) ?? 0);
+    setPoints(((ds.data ?? []) as { points: number }[]).reduce((n, r) => n + (r.points ?? 0), 0));
     setLoaded(true);
   }, []);
 
@@ -93,7 +98,7 @@ export function useAccount(): Account {
 
   const signOut = useCallback(async () => { await db().auth.signOut(); setProfile(null); setHome(null); setBalance(0); }, []);
 
-  return { session, email: session?.user.email ?? null, loaded, profile, home, septims: septims(balance), loot, pack, refresh, signOut };
+  return { session, email: session?.user.email ?? null, loaded, profile, home, septims: septims(balance), points, loot, pack, refresh, signOut };
 }
 
 /** Sends the emailed sign-in link. Null when it went; else a message. */
@@ -112,7 +117,7 @@ export async function signInWithHearth(email: string, digits: string): Promise<s
       const { error } = await db().auth.setSession({ access_token: body.access_token, refresh_token: body.refresh_token });
       return error ? 'Signing in did not go through. Try again.' : null;
     }
-    if (body.error === 'locked') return 'Too many wrong tries: this account is locked. Ask for an emailed link, then choose a new serf number.';
+    if (body.error === 'locked') return 'Too many wrong tries: this account is locked. Write to support@eldermaps.com and we will unlock it.';
     if (body.error === 'wrong') return `That email and number do not match.${typeof body.left === 'number' && body.left > 0 ? ` ${body.left} ${body.left === 1 ? 'try' : 'tries'} left.` : ''}`;
     return 'Signing in did not go through. Check your connection and try again.';
   } catch { return 'Signing in did not go through. Check your connection and try again.'; }
@@ -142,4 +147,14 @@ export async function reportDiscovery(userId: string, spot: { id: string; name: 
   void kept;
   const { data, error } = await db().functions.invoke('report-discovery', { body: { placeId: spot.id, lat: spot.lat, lng: spot.lng, userLat: here.lat, userLng: here.lng, ...(metroId ? { metroId, points: spot.kind === 'crest' ? 50 : 30 } : {}) } });
   return error || !data ? null : (data as { added: number; total: number; loot?: Record<string, number> | null });
+}
+
+/** Deletes the account and everything tied to it. The server needs the word DELETE and the serf number. Null when it is gone; else a message. */
+export async function deleteAccount(serf: string): Promise<string | null> {
+  const { data, error } = await db().functions.invoke('delete-account', { body: { confirm: 'DELETE', serf } });
+  if (!error && (data as { ok?: boolean } | null)?.ok) { await db().auth.signOut(); return null; }
+  let reason = 'server';
+  const response = (error as { context?: Response } | null)?.context;
+  if (response) { try { reason = ((await response.json()) as { error?: string }).error ?? 'server'; } catch { /* no body */ } }
+  return reason === 'wrong_serf' ? 'THAT IS NOT YOUR SERF NUMBER.' : 'THE ACCOUNT COULD NOT BE DELETED. TRY AGAIN IN A MOMENT.';
 }

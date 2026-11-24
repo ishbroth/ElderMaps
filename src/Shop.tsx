@@ -9,8 +9,8 @@ const GROUPS: { title: string; classes: string[] }[] = [
   { title: 'MAGIC', classes: ['shock', 'frost', 'fire', 'drain'] },
 ];
 
-/** The forge and the alchemist: what the loot in the bag buys. */
-export default function Shop({ onClose, onBought }: { onClose: () => void; onBought: () => void }) {
+/** The forge and the alchemist: what the loot in the bag buys (the list itself, to sit in a page or a popup). */
+export function ShopBody({ onBought }: { onBought: () => void }) {
   const [state, setState] = useState<ShopState | null>(null);
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
@@ -32,33 +32,42 @@ export default function Shop({ onClose, onBought }: { onClose: () => void; onBou
   );
 
   return (
+    <>
+    {!state && <p className="em-fine">OPENING THE SHOP…</p>}
+    {state && (
+      <>
+        <p className="em-fine">IN YOUR BAG: {Object.entries(state.loot).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${nameOf(k).toUpperCase()}`).join(' · ') || 'NOTHING YET: CLEAR PLACES AND VISIT THEM'}</p>
+        <p className="em-fine">POTIONS {state.pack.potions} · SHOUTS {state.pack.shouts}{state.pack.dual ? ' · BOTH HANDS' : ''}</p>
+        {note && <p className="em-note">{note}</p>}
+        <div className="em-shop-list">
+          {GROUPS.map((g) => (
+            <section key={g.title}>
+              <h3>{g.title}</h3>
+              {g.classes.map((c) => (
+                <div key={c}>
+                  {g.classes.length > 1 && <h4>{CLASS_NAME[c as ItemCls]}</h4>}
+                  <ul>{state.items.filter((i) => i.cls === c).map(row)}</ul>
+                </div>
+              ))}
+            </section>
+          ))}
+          <section><h3>ALCHEMY</h3><ul>{state.items.filter((i) => i.kind === 'potion' || i.kind === 'shout').map(row)}</ul></section>
+          <section><h3>BOTH HANDS</h3><p className="em-fine">Hold magic in one hand and a weapon in the other, or two spells, or two one-handed weapons.</p><ul>{state.items.filter((i) => i.kind === 'dual').map(row)}</ul></section>
+        </div>
+      </>
+    )}
+    </>
+  );
+}
+
+/** The forge and the alchemist as a popup. */
+export default function Shop({ onClose, onBought }: { onClose: () => void; onBought: () => void }) {
+  return (
     <div className="em-scene-back" role="dialog" aria-modal="true" aria-label="The forge and the alchemist" onClick={onClose}>
       <article className="em-scene em-shop" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="em-card-x" onClick={onClose} aria-label="Close">×</button>
         <h2>FORGE & ALCHEMIST</h2>
-        {!state && <p className="em-fine">OPENING THE SHOP…</p>}
-        {state && (
-          <>
-            <p className="em-fine">IN YOUR BAG: {Object.entries(state.loot).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${nameOf(k).toUpperCase()}`).join(' · ') || 'NOTHING YET: CLEAR PLACES AND VISIT THEM'}</p>
-            <p className="em-fine">POTIONS {state.pack.potions} · SHOUTS {state.pack.shouts}{state.pack.dual ? ' · BOTH HANDS' : ''}</p>
-            {note && <p className="em-note">{note}</p>}
-            <div className="em-shop-list">
-              {GROUPS.map((g) => (
-                <section key={g.title}>
-                  <h3>{g.title}</h3>
-                  {g.classes.map((c) => (
-                    <div key={c}>
-                      {g.classes.length > 1 && <h4>{CLASS_NAME[c as ItemCls]}</h4>}
-                      <ul>{state.items.filter((i) => i.cls === c).map(row)}</ul>
-                    </div>
-                  ))}
-                </section>
-              ))}
-              <section><h3>ALCHEMY</h3><ul>{state.items.filter((i) => i.kind === 'potion' || i.kind === 'shout').map(row)}</ul></section>
-              <section><h3>BOTH HANDS</h3><p className="em-fine">Hold magic in one hand and a weapon in the other, or two spells, or two one-handed weapons.</p><ul>{state.items.filter((i) => i.kind === 'dual').map(row)}</ul></section>
-            </div>
-          </>
-        )}
+        <ShopBody onBought={onBought} />
       </article>
     </div>
   );

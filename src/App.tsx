@@ -635,7 +635,7 @@ export default function App() {
             <div className="em-tools">
               <button type="button" onClick={() => setLook(look === 'skyrim' ? 'vivid' : look === 'vivid' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
               {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
-              {accountsEnabled && <button type="button" onClick={() => setAccountOpen(true)} title="Your account">{account.session ? (account.profile?.characterName ?? 'YOU').toUpperCase().slice(0, 12) : 'ENTER'}</button>}
+              {accountsEnabled && !account.session && <button type="button" onClick={() => setAccountOpen(true)} title="Enter the realm">ENTER</button>}
               <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
               {voiceAvailable() && <button type="button" onClick={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }} title="The road's voice">{voiceOn ? '♪ VOICE' : '♪ OFF'}</button>}
             </div>

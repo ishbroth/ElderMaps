@@ -285,3 +285,18 @@ button { font: inherit; }
 .em-sigil-tips button { display: block; width: 100%; text-align: left; padding: 9px 10px; background: transparent; color: var(--sky-ink, #f2f2ee); border: 0; border-bottom: 1px solid var(--sky-line, rgba(201, 194, 176, 0.25)); font: inherit; font-size: 14px; cursor: pointer; }
 .em-sigil-tips li:last-child button { border-bottom: 0; }
 .em-sigil-tips button:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* the inventory tab */
+.em-level { margin: 4px 0 10px; }
+.em-level-head { display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 1.5px; }
+.em-level-bar { height: 8px; margin: 4px 0; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+.em-level-bar div { height: 100%; background: var(--sky-ink, #f2f2ee); }
+.em-record-who { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.em-record-who > div { flex: 1; min-width: 0; }
+.em-record-who small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.em-small { padding: 6px 10px; font-size: 11px; }
+.em-legal a { color: inherit; }
+.em-delete-line { margin: 18px 0 6px; text-align: center; }
+.em-delete-line button { background: transparent; border: 0; color: #c98a7a; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.em-delete { margin: 14px 0; padding: 10px; border: 1px solid #c98a7a; }
+.em-danger { border-color: #c98a7a !important; color: #e8b4a0 !important; }

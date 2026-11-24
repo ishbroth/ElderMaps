@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import type { Spot } from './App';
-import { CHARACTER_TYPES, type Account } from './lib/account';
+import { CHARACTER_TYPES, deleteAccount, type Account } from './lib/account';
+import { levelInfo } from './lib/points';
+import { ShopBody } from './Shop';
+import { Emblem, Quill } from './Sigil';
 import { glyph, glyphForCategory } from './lib/glyphs';
 import { crestSvg } from './lib/crests';
 import { kindTitle } from './lib/lore';
 import { LOOT, REGIONAL_HERBS } from './lib/loot';
 
-type Tab = 'places' | 'record' | 'herald';
+type Tab = 'places' | 'inventory' | 'herald';
 
 interface Props {
   account: Account;
@@ -26,8 +29,36 @@ interface Props {
 const lootName = (id: string): string => LOOT.find((l) => l.id === id)?.name ?? REGIONAL_HERBS.find((h) => h.loot.id === id)?.loot.name ?? id;
 const iconOf = (s: Spot): string => (s.kind === 'crest' ? crestSvg(s.real, s.iso2, true) : glyph(s.pic ?? (s.kind === 'landmark' ? glyphForCategory(s.note) : s.kind), true));
 
+/** The privacy and support pages (shown signed in or not). */
+function Legal() {
+  const base = import.meta.env.BASE_URL;
+  return <p className="em-fine em-legal"><a href={base + 'privacy.html'} target="_blank" rel="noreferrer">Privacy policy</a> · <a href={base + 'support.html'} target="_blank" rel="noreferrer">Support</a></p>;
+}
+
+/** Deleting the account: the word DELETE and the serf number, then everything is gone. */
+function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [word, setWord] = useState('');
+  const [serf, setSerf] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  if (!asking) return <p className="em-delete-line"><button type="button" onClick={() => setAsking(true)}>Delete my account</button></p>;
+  return (
+    <div className="em-delete" role="alertdialog" aria-label="Delete my account">
+      <p><b>Delete your account?</b> Everything is lost for good: your character, level, septims, loot, weapons, the places you have found and your house.</p>
+      <label className="em-field">TYPE DELETE<input value={word} autoComplete="off" onChange={(e) => setWord(e.target.value)} /></label>
+      <label className="em-field">YOUR SERF NUMBER<input value={serf} inputMode="numeric" maxLength={4} onChange={(e) => setSerf(e.target.value.replace(/\D/g, '').slice(0, 4))} /></label>
+      {note && <p className="em-note">{note}</p>}
+      <div className="em-card-buttons">
+        <button type="button" className="em-btn em-danger" disabled={busy || word !== 'DELETE' || serf.length !== 4} onClick={async () => { setBusy(true); const r = await deleteAccount(serf); setBusy(false); if (r) setNote(r); else onDeleted(); }}>{busy ? 'DELETING…' : 'DELETE FOREVER'}</button>
+        <button type="button" className="em-btn em-btn-ghost" disabled={busy} onClick={() => { setAsking(false); setNote(''); }}>CANCEL</button>
+      </div>
+    </div>
+  );
+}
+
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onShop, onBuy, onShareMap }: Props) {
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap }: Props) {
   const [tab, setTab] = useState<Tab>('places');
   const [query, setQuery] = useState('');
   const [only, setOnly] = useState<'all' | 'cleared'>('all');
@@ -37,11 +68,12 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
   }, [found, cleared, query, only]);
   const type = CHARACTER_TYPES.find((c) => c.id === account.profile?.characterType);
   const loot = Object.entries(account.loot).filter(([, n]) => n > 0);
+  const level = levelInfo(account.points);
 
   return (
     <aside className="em-ledger" aria-label="The ledger">
       <div className="em-ledger-tabs" role="tablist">
-        {([['places', 'PLACES'], ['record', 'RECORD'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
+        {([['places', 'PLACES'], ['inventory', 'INVENTORY'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -67,28 +99,32 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
           </>
         )}
 
-        {tab === 'record' && (
+        {tab === 'inventory' && (
           account.session ? (
             <div className="em-record">
-              <div className="em-record-who">
-                {account.profile?.characterType && <img src={`${import.meta.env.BASE_URL}portraits/${account.profile.characterType}${account.profile.characterSex === 'f' ? '-f' : ''}.jpg`} alt="" />}
-                <div><b>{account.profile?.characterName ?? 'TRAVELLER'}</b><small>{type?.name.toUpperCase() ?? ''}</small></div>
+              <div className="em-level">
+                <div className="em-level-head"><b>LEVEL {level.level}</b><span>{level.into} / {level.needed} XP</span></div>
+                <div className="em-level-bar" role="progressbar" aria-valuemin={0} aria-valuemax={level.needed} aria-valuenow={level.into} aria-label={'Progress to level ' + (level.level + 1)}><div style={{ width: Math.min(100, Math.round((level.into / level.needed) * 100)) + '%' }} /></div>
+                <p className="em-fine">{level.toGo} XP to level {level.level + 1}</p>
               </div>
-              <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
-              <dl className="em-record-stats">
-                <div><dt>DISCOVERED</dt><dd>{found.length}</dd></div>
-                <div><dt>CLEARED</dt><dd>{cleared.size}</dd></div>
-                <div><dt>POTIONS</dt><dd>{account.pack.potions}</dd></div>
-                <div><dt>SHOUTS</dt><dd>{account.pack.shouts}</dd></div>
-              </dl>
-              <h4>IN YOUR BAG</h4>
-              <p className="em-fine">{loot.length ? loot.map(([id, n]) => `${n} ${lootName(id).toUpperCase()}`).join(' · ') : 'Nothing yet: clear places, then visit them in person.'}</p>
-              <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button><button type="button" className="em-btn em-btn-ghost" onClick={onBuy}>BUY SEPTIMS</button></div>
+              <div className="em-record-who">
+                <Emblem type={account.profile?.characterType ?? null} sex={account.profile?.characterSex ?? null} city={account.profile?.sigilCity ?? null} iso={account.profile?.sigilIso ?? null} size={40} />
+                <div><b>{account.profile?.characterName ?? 'TRAVELLER'}</b><small>{type?.name.toUpperCase() ?? ''} · {account.email}</small></div>
+                <button type="button" className="em-quill" aria-label="Edit your character" title="Edit" onClick={onAccount}><Quill size={20} /></button>
+                <button type="button" className="em-btn em-btn-ghost em-small" onClick={() => void account.signOut()}>SIGN OUT</button>
+              </div>
               <p className="em-fine">HOME: {account.home?.address ?? 'not set'}</p>
-              <button type="button" className="em-btn em-btn-ghost" onClick={onAccount}>YOUR ACCOUNT</button>
+              <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
+              <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onBuy}>BUY SEPTIMS</button></div>
+              <h4>LOOT</h4>
+              <p className="em-fine">{loot.length ? loot.map(([id, n]) => n + ' ' + lootName(id).toUpperCase()).join(' · ') : 'Nothing yet: clear places, then visit them in person.'}</p>
+              <h4>FORGE & ALCHEMIST</h4>
+              <ShopBody onBought={() => void account.refresh()} />
+              <Legal />
+              <DeleteLine onDeleted={() => void account.refresh()} />
             </div>
           ) : (
-            <div className="em-record"><p className="em-fine">Sign in to keep a record: your character, septims, loot and every place you have found.</p><button type="button" className="em-btn" onClick={onAccount}>ENTER THE REALM</button></div>
+            <div className="em-record"><p className="em-fine">Sign in to keep your inventory: your character, level, septims, loot and every place you have found.</p><button type="button" className="em-btn" onClick={onAccount}>ENTER THE REALM</button><Legal /></div>
           )
         )}
 
@@ -105,6 +141,7 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
               }}>SHARE {selected.name.toUpperCase().slice(0, 24)}</button>
             )}
             <p className="em-fine">A shared link opens the map on the same view. The pictures people glimpse are theirs to share from the picture itself.</p>
+            <Legal />
           </div>
         )}
       </div>
