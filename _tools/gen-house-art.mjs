@@ -21,7 +21,7 @@ if (mode === 'room') {
   parts.push({ inlineData: { mimeType: 'image/png', data: fs.readFileSync(path.join(OUT, 'template.png')).toString('base64') } });
   prompt = `Keep this exact isometric cutaway silhouette (the floor diamond and the two back walls, the magenta stays magenta) and paint it as the inside of a ${what} in ${STYLES[style]}. Realistic high-fantasy video game render, rich detailed textures, soft warm light, painterly realism, no outline. The room is EMPTY: no furniture, no people, no objects on the floor, only the architecture, wall finishes, floor material, windows and doors in the walls. Do not move or resize any edge of the shape.`;
 } else {
-  prompt = `A single piece of furniture: ${what}, in ${STYLES[style]}. Realistic high-fantasy video game render, isometric three-quarter view from above-front-left, rich textures, no outline, centred, on a perfectly flat solid magenta (#FF00FF) background with no floor, no shadow, no text.`;
+  prompt = `A single piece of furniture: ${what}, in ${STYLES[style]}. Realistic high-fantasy video game render, isometric three-quarter view from above-front-left, rich textures, no outline, centred, ONLY the object itself (no hearth, no fire, no architecture): no platform, no pedestal, no rug under it, no floor tile, no walls, no columns or banners that are not part of the furniture, on a perfectly flat solid magenta (#FF00FF) background with no floor, no shadow, no text.`;
 }
 parts.push({ text: prompt });
 const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }) });
