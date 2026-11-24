@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// The app wraps the built website (dist/). Change appId before the first store upload: it cannot be changed afterwards.
+// The app wraps the built website (dist/). The appId is registered on App Store Connect as com.eldermaps.app and cannot be changed.
 const config: CapacitorConfig = {
   appId: 'com.eldermaps.app',
   appName: 'ElderMaps',
