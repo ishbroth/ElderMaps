@@ -146,7 +146,7 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
                 <label className="em-field">CHARACTER NAME
                   <span className="em-sigil-search"><input value={name} maxLength={20} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} placeholder="what the realm will call you" /><button type="button" className="em-btn em-btn-ghost" onClick={() => setName(randomCharacterName())}>ROLL</button></span>
                 </label>
-                <label className="em-field">SERF NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="four digits" /></label>
+                <label className="em-field">SERF NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="four digits" /></label>
                 {note && <p className="em-note">{note}</p>}
                 <div className="em-card-buttons"><button type="button" className="em-btn" onClick={next1}>NEXT</button></div>
               </>
