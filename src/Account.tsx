@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { CHARACTER_TYPES, saveSetup, sendSignInLink, signInWithHearth, type Account } from './lib/account';
-import { findPlace } from './lib/google';
+import { loadWorld } from './lib/world';
+import { randomCharacterName } from './lib/names';
+import SigilPicker, { Emblem, Quill, type SigilChoice } from './Sigil';
+import { db } from './lib/account';
 
 /** The portrait of a character type. (A drawn emblem for now; the painted portraits replace it when they are made: public/portraits/<id>.jpg is used when it exists.) */
 function Portrait({ id, name, sex }: { id: string; name: string; sex: 'm' | 'f' }) {
@@ -51,7 +54,7 @@ function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: 
 /** Signing in, the first-time setup (character, home, hearth number) and the account's own card. */
 export default function AccountModal({ account, onClose, onShop, onBuy }: { account: Account; onClose: () => void; onShop?: () => void; onBuy?: () => void }) {
   const signedIn = !!account.session;
-  const needsSetup = signedIn && account.loaded && (!account.profile?.characterName || !account.home?.hearthNumber);
+  const needsSetup = signedIn && account.loaded && (!account.profile?.characterName || !account.home?.hearthNumber || !account.profile?.sigilCity);
   const [mode, setMode] = useState<'in' | 'new'>('in');
   const [email, setEmail] = useState('');
   const [digits, setDigits] = useState('');
@@ -62,7 +65,9 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
   const [name, setName] = useState(account.profile?.characterName ?? '');
   const [type, setType] = useState(account.profile?.characterType ?? CHARACTER_TYPES[0].id);
   const [sex, setSex] = useState<'m' | 'f'>(account.profile?.characterSex ?? 'm');
-  const [address, setAddress] = useState(account.home?.address ?? '');
+  const [sigil, setSigil] = useState<SigilChoice | null>(account.profile?.sigilCity ? { city: account.profile.sigilCity, iso: account.profile.sigilIso ?? '' } : null);
+  const [step, setStep] = useState<1 | 2 | 3>(account.profile?.characterName && account.home?.hearthNumber !== undefined ? 3 : 1);
+  const [editSigil, setEditSigil] = useState(false);
   const [number, setNumber] = useState(account.home?.hearthNumber !== undefined ? String(account.home.hearthNumber).padStart(4, '0') : '');
 
   const link = async () => {
@@ -77,18 +82,29 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
     setBusy(false);
     if (problem) setNote(problem); else { await account.refresh(); onClose(); }
   };
-  const finish = async () => {
-    if (!account.session) return;
+  const next1 = () => {
     if (name.trim().length < 2) { setNote('Choose a name of at least two letters.'); return; }
-    if (!/^\d{4}$/.test(number)) { setNote('The hearth number is four digits.'); return; }
+    if (!/^d{4}$/.test(number)) { setNote('The serf number is four digits.'); return; }
+    setNote(''); setStep(2);
+  };
+  const finish = async () => {
+    if (!account.session || !sigil) { setNote('Choose a sigil first.'); return; }
     setBusy(true); setNote('');
-    const found = await findPlace(address).catch(() => null);
-    if (!found) { setBusy(false); setNote('That address could not be found. Try the street, town and country.'); return; }
-    const problem = await saveSetup(account.session.user.id, { characterName: name.trim(), characterType: type, characterSex: sex, address: found.name, lat: found.center.lat, lng: found.center.lng, hearthNumber: Number(number) });
+    const w = await loadWorld();
+    const c = w.cities.crest.find((x) => x[0] === sigil.city && x[5] === sigil.iso);
+    const problem = await saveSetup(account.session.user.id, { characterName: name.trim(), characterType: type, characterSex: sex, sigilCity: sigil.city, sigilIso: sigil.iso, address: sigil.city, lat: c?.[1] ?? 0, lng: c?.[2] ?? 0, hearthNumber: Number(number) });
     setBusy(false);
-    if (problem) { setNote(problem); return; }
+    if (problem) { setNote(problem); if (/name/i.test(problem)) setStep(1); return; }
     await account.refresh();
     onClose();
+  };
+  const saveNewSigil = async () => {
+    if (!account.session || !sigil) return;
+    setBusy(true); setNote('');
+    const { error } = await db().from('profiles').update({ sigil_city: sigil.city, sigil_iso: sigil.iso, updated_at: new Date().toISOString() }).eq('user_id', account.session.user.id);
+    setBusy(false);
+    if (error) { setNote('The sigil could not be saved. Try again.'); return; }
+    await account.refresh(); setEditSigil(false);
   };
 
   return (
@@ -100,8 +116,8 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
           <>
             <h2>{mode === 'in' ? 'ENTER THE REALM' : 'CONSCRIPT'}</h2>
             <label className="em-field">EMAIL<input type="email" value={email} autoComplete="email" inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
-            {mode === 'in' && <label className="em-field">HEARTH NUMBER<input value={digits} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" autoComplete="current-password" onChange={(e) => setDigits(e.target.value.replace(/D/g, '').slice(0, 4))} placeholder="four digits" /></label>}
-            {mode === 'new' && !sent && <p className="em-fine">A link will be sent to this address. Open it on this device to confirm it is yours: you will then make your character and choose your hearth number.</p>}
+            {mode === 'in' && <label className="em-field">SERF NUMBER<input value={digits} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" autoComplete="current-password" onChange={(e) => setDigits(e.target.value.replace(/D/g, '').slice(0, 4))} placeholder="four digits" /></label>}
+            {mode === 'new' && !sent && <p className="em-fine">A link will be sent to this address. Open it on this device to confirm it is yours: you will then make your character and choose your serf number.</p>}
             {mode === 'new' && sent && <p className="em-fine">The link is on its way. Open it on this device to finish.</p>}
             {note && <p className="em-note">{note}</p>}
             <div className="em-card-buttons">
@@ -124,22 +140,42 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
 
         {needsSetup && (
           <>
-            <h2>MAKE YOUR CHARACTER</h2>
-            <TypePicker value={type} onChange={setType} sex={sex} onSex={setSex} />
-            <label className="em-field">CHARACTER NAME<input value={name} maxLength={20} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} placeholder="what the realm will call you" /></label>
-            <label className="em-field">YOUR HOME (ADDRESS)<input value={address} autoComplete="street-address" onChange={(e) => setAddress(e.target.value)} placeholder="street, town, country" /></label>
-            <label className="em-field">HEARTH NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="0000" /></label>
-            {note && <p className="em-note">{note}</p>}
-            <div className="em-card-buttons"><button type="button" className="em-btn" disabled={busy} onClick={() => void finish()}>{busy ? 'SAVING…' : 'BEGIN'}</button></div>
+            {step === 1 && (
+              <>
+                <h2>YOUR NAME</h2>
+                <label className="em-field">CHARACTER NAME
+                  <span className="em-sigil-search"><input value={name} maxLength={20} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} placeholder="what the realm will call you" /><button type="button" className="em-btn em-btn-ghost" onClick={() => setName(randomCharacterName())}>ROLL</button></span>
+                </label>
+                <label className="em-field">SERF NUMBER (FOUR DIGITS: YOUR PASSWORD)<input value={number} inputMode="numeric" maxLength={4} pattern="[0-9]*" type="password" onChange={(e) => setNumber(e.target.value.replace(/D/g, '').slice(0, 4))} placeholder="four digits" /></label>
+                {note && <p className="em-note">{note}</p>}
+                <div className="em-card-buttons"><button type="button" className="em-btn" onClick={next1}>NEXT</button></div>
+              </>
+            )}
+            {step === 2 && (
+              <>
+                <h2>MAKE YOUR CHARACTER</h2>
+                <TypePicker value={type} onChange={setType} sex={sex} onSex={setSex} />
+                <div className="em-card-buttons"><button type="button" className="em-btn" onClick={() => setStep(3)}>NEXT</button><button type="button" className="em-btn em-btn-ghost" onClick={() => setStep(1)}>BACK</button></div>
+              </>
+            )}
+            {step === 3 && (
+              <>
+                <h2>CHOOSE YOUR SIGIL</h2>
+                <SigilPicker value={sigil} onChange={setSigil} />
+                {note && <p className="em-note">{note}</p>}
+                <div className="em-card-buttons"><button type="button" className="em-btn" disabled={busy || !sigil} onClick={() => void finish()}>{busy ? 'SAVING…' : 'BEGIN'}</button><button type="button" className="em-btn em-btn-ghost" onClick={() => setStep(2)}>BACK</button></div>
+              </>
+            )}
           </>
         )}
 
         {signedIn && account.loaded && !needsSetup && (
           <>
-            <h2>{account.profile?.characterName}</h2>
+            <h2><Emblem type={account.profile?.characterType ?? null} sex={account.profile?.characterSex ?? null} city={account.profile?.sigilCity ?? null} iso={account.profile?.sigilIso ?? null} size={34} /> {account.profile?.characterName} <button type="button" className="em-quill" aria-label="Change your sigil" title="Change your sigil" onClick={() => { setEditSigil((v) => !v); setNote(''); }}><Quill /></button></h2>
+            {editSigil && (<><SigilPicker value={sigil} onChange={setSigil} />{note && <p className="em-note">{note}</p>}<div className="em-card-buttons"><button type="button" className="em-btn" disabled={busy || !sigil} onClick={() => void saveNewSigil()}>{busy ? 'SAVING…' : 'KEEP THIS SIGIL'}</button></div></>)}
             <TypePicker value={account.profile?.characterType ?? CHARACTER_TYPES[0].id} onChange={() => undefined} sex={account.profile?.characterSex ?? 'm'} />
             <p className="em-fine">{account.email}</p>
-            <p className="em-fine">HOME: {account.home?.address} · HEARTH {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
+            <p className="em-fine">HOME: {account.home?.address} · SERF NUMBER {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
             <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
             <div className="em-card-buttons">{onBuy && <button type="button" className="em-btn" onClick={onBuy}>BUY SEPTIMS</button>}{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
           </>

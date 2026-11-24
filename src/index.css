@@ -262,3 +262,15 @@ button { font: inherit; }
 .em-record-stats div { border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding: 6px 2px; }
 .em-record-stats dt { font-size: 8px; letter-spacing: 1.5px; color: var(--sky-dim, #9aa3a8); }
 .em-record-stats dd { margin: 2px 0 0; font-size: 18px; }
+
+/* the sigil picker and the head-and-shield mark */
+.em-sigil-search { display: flex; gap: 6px; margin: 8px 0 4px; }
+.em-sigil-search input { flex: 1; min-width: 0; padding: 9px 10px; font: inherit; font-size: 16px; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+.em-sigil-strip { display: flex; gap: 8px; overflow-x: auto; padding: 8px 2px; scrollbar-width: thin; }
+.em-sigil-strip button { flex: 0 0 auto; width: 58px; height: 58px; padding: 4px; background: transparent; border: 2px solid transparent; cursor: pointer; }
+.em-sigil-strip button.on { border-color: var(--sky-ink, #f2f2ee); }
+.em-sigil-strip button span, .em-sigil-strip svg { display: block; width: 100%; height: 100%; }
+.em-emblem { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.em-emblem-head { border-radius: 50%; object-fit: cover; object-position: 50% 12%; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+.em-emblem-shield svg { display: block; width: 100%; height: 100%; }
+.em-quill { background: transparent; border: 0; color: inherit; cursor: pointer; padding: 2px; vertical-align: middle; }
