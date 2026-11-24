@@ -92,15 +92,19 @@ function drawWater(g: CanvasRenderingContext2D, x: number, y: number, z: number,
     g.closePath(); g.fill();
     g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1; g.stroke();
   }
-  const maxRank = z < 5 ? 3 : z < 7 ? 5 : 9;
+  const maxRank = z < 4 ? 2 : z < 5 ? 3 : z < 7 ? 5 : 9;
+  // thin and a little see-through when zoomed out, so a river is a fine line along the valley and not a drawn stripe; it only fattens as you come in
+  const fine = Math.min(1.25, Math.max(0.22, (z - 2) / 5));
+  g.globalAlpha = z < 6 ? 0.72 : 0.85;
   g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round';
   for (const r of rivers) {
     if (r.rank > maxRank || !hits(r.box)) continue;
-    g.lineWidth = Math.max(0.8, (r.rank <= 3 ? 2.4 : r.rank <= 6 ? 1.6 : 1.1) * (0.6 + z / 12));
+    g.lineWidth = Math.max(0.45, (r.rank <= 3 ? 1.9 : r.rank <= 6 ? 1.25 : 0.85) * fine);
     g.beginPath();
     for (let i = 0; i < r.pts.length; i += 2) { const X = px(r.pts[i]), Y = toY(r.pts[i + 1]); if (i === 0) g.moveTo(X, Y); else g.lineTo(X, Y); }
     g.stroke();
   }
+  g.globalAlpha = 1;
 }
 
 /** Paints one relief tile. */
@@ -122,7 +126,7 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
   const mpp = (156543.03392 * Math.cos((tileLat(y + 0.5, z) * Math.PI) / 180)) / 2 ** z; // metres per pixel here
   const EXAG = 7;
   // how strong the colours are: 1 is the full game-bright palette; lower is calmer. (A middle road between the cold map and the bright one.)
-  const SAT = 0.66;
+  const SAT = 0.6;
   const lx = -0.55, ly = -0.55, lz = 0.65; // the light comes from the upper left
   const ln = Math.hypot(lx, ly, lz);
   const flat = lz / ln;
