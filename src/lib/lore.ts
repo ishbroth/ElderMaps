@@ -104,6 +104,29 @@ export function loreName(real: string, province: ProvinceId): string {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
+/** What the capital of a land is called there: several forms each, one picked by the city's name. */
+const CAPITAL_TITLE: Record<ProvinceId, string[]> = {
+  skyrim: ['Hold Capital', "Jarl's Seat", 'High Hold'],
+  shivering: ['Realm Seat', 'Court of Two Moods'],
+  solstheim: ['Moot Seat', 'Steading Capital'],
+  atmora: ['Winter Seat', 'Rime Capital'],
+  highrock: ['Principality', 'Regent Capital', "Duke's Seat", "Count's Seat"],
+  cyrodiil: ['Provincial Capital', 'Imperial Seat', 'Palatine City'],
+  hammerfell: ["Sultan's Seat", 'Emirate Capital', "Caliph's Seat"],
+  elsweyr: ['Khanate Capital', 'Warren Seat', 'Sunmane Court'],
+  valenwood: ['Grove Capital', 'Canopy Seat', 'Verdant Court'],
+  orsinium: ['Stronghold Capital', "Chieftain's Hold", 'Warhold'],
+  morrowind: ['Great House Seat', 'Ash Capital', 'Council Seat'],
+  summerset: ['Crystal Court', 'Gilded Capital', 'Sovereign Seat'],
+  blackmarsh: ['Marsh Capital', 'Reed Capital', "Fenwarden's Seat"],
+};
+
+/** The title of a kind of place; the capitals (the shield cities) are named for their land. */
+export function kindTitle(kind: string, province: ProvinceId, name: string): string {
+  if (kind === 'crest') { const forms = CAPITAL_TITLE[province]; return forms[titleHash(name) % forms.length]; }
+  return KIND_TITLE[kind] ?? kind;
+}
+
 /** What a kind of place is called in the games. */
 export const KIND_TITLE: Record<string, string> = {
   crest: 'Capital', keep: 'Lord\'s Keep', landmark: 'Landmark', town: 'Town', village: 'Settlement',

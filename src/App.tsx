@@ -5,7 +5,7 @@ import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
 import { glyph, glyphForCategory } from './lib/glyphs';
 import { settlementPic, wildPic } from './lib/glyphsMore';
 import { crestSvg, loadCrests } from './lib/crests';
-import { KIND_TITLE, PROVINCES, SEAS, loreName, placeLine, type ProvinceId } from './lib/lore';
+import { KIND_TITLE, PROVINCES, SEAS, kindTitle, loreName, placeLine, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
@@ -654,7 +654,7 @@ export default function App() {
             <button type="button" className="em-card-x" onClick={() => setSelected(null)} aria-label="Close">×</button>
             <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: selected.kind === 'crest' ? crestSvg(selected.real, selected.iso2) : glyph(selected.pic ?? (selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind)) }} />
             <h2>{selected.name}</h2>
-            {selected.kind !== 'crest' && <p className="em-card-kind">{KIND_TITLE[selected.kind] ?? selected.kind} · {province.name}</p>}
+            <p className="em-card-kind">{kindTitle(selected.kind, province.id, selected.real)} · {province.name}</p>
             {selected.real !== selected.name && <p className="em-card-real">in the old tongue: {selected.real}</p>}
             {selected.kind === 'crest' && <p className="em-card-note">{selected.note}</p>}
             <p className="em-card-blurb">{placeLine(province.id, regionName)}</p>

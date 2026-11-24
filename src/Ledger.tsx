@@ -3,7 +3,7 @@ import type { Spot } from './App';
 import { CHARACTER_TYPES, type Account } from './lib/account';
 import { glyph, glyphForCategory } from './lib/glyphs';
 import { crestSvg } from './lib/crests';
-import { KIND_TITLE } from './lib/lore';
+import { kindTitle } from './lib/lore';
 import { LOOT, REGIONAL_HERBS } from './lib/loot';
 
 type Tab = 'places' | 'record' | 'herald';
@@ -58,7 +58,7 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
                 <li key={s.id}>
                   <button type="button" onClick={() => onOpenSpot(s)}>
                     <span className="em-ledger-ico" dangerouslySetInnerHTML={{ __html: iconOf(s) }} />
-                    <span className="em-ledger-name"><b>{s.name}</b><small>{KIND_TITLE[s.kind] ?? s.kind}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small></span>
+                    <span className="em-ledger-name"><b>{s.name}</b><small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small></span>
                   </button>
                 </li>
               ))}

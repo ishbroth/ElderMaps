@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
-import { KIND_TITLE, type Province } from './lib/lore';
+import { kindTitle, type Province } from './lib/lore';
 import { GLIMPSE_MESSAGES, requestGlimpse, type Glimpse } from './lib/glimpse';
 import CombatScreen from './CombatScreen';
 import { finishRun, startRun, type RunStart } from './lib/clear';
@@ -71,7 +71,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
           <>
             <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: icon }} />
             <h2>{spot.name}</h2>
-            {spot.kind !== 'crest' && <p className="em-card-kind">{KIND_TITLE[spot.kind] ?? spot.kind}</p>}
+            <p className="em-card-kind">{kindTitle(spot.kind, province.id, spot.real)}</p>
             <div className="em-scene-lore">{lines.map((l, i) => <p key={i}>{l}</p>)}</div>
           </>
         )}

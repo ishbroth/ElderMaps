@@ -83,7 +83,7 @@ button { font: inherit; }
 .em-card h2 { margin: 6px 0 2px; font-family: var(--font-ui); font-weight: 400; font-size: 22px; letter-spacing: 0.14em; text-transform: uppercase; }
 .em-oblivion .em-card h2 { font-family: var(--font-old); font-weight: 700; text-transform: none; letter-spacing: 0.04em; }
 .em-card p { margin: 3px 0; font-size: 13px; line-height: 1.4; }
-.em-card-kind { color: var(--prov, var(--sky-ink)); letter-spacing: 0.22em; text-transform: uppercase; font-size: 11px !important; }
+.em-card-kind { color: var(--prov, var(--sky-ink)); letter-spacing: 0.22em; text-transform: uppercase; font-size: 9px !important; font-weight: 700; }
 .em-card-real { color: var(--sky-dim); font-style: italic; }
 .em-card-blurb { color: var(--sky-dim); }
 .em-card-icon { width: 34px; height: 34px; color: var(--prov, var(--sky-ink)); }
