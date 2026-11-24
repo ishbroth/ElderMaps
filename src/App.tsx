@@ -270,9 +270,8 @@ export default function App() {
         if (cloudsOn) map.overlayMapTypes.push(vividRef.current.clouds);
       } else map.setMapTypeId('terrain');
     }
-    map.data.setStyle(() => (look === 'vivid' && !tripRef.current
-      ? { visible: true, clickable: false, fillOpacity: 0, strokeColor: '#ffffff', strokeOpacity: 0.3, strokeWeight: 1 }
-      : { visible: false, clickable: false }));
+    // no country outlines on the vivid map (the parchment looks draw their own borders)
+    map.data.setStyle(() => ({ visible: false, clickable: false }));
   }, [look, ready, world, cloudsOn]);
 
   // ---- what is on the map at this view ----
@@ -511,7 +510,7 @@ export default function App() {
         map.setMapTypeId('vivid');
         map.overlayMapTypes.clear();
         if (cloudsRef.current) map.overlayMapTypes.push(vividRef.current.clouds);
-        map.data.setStyle(() => ({ visible: true, clickable: false, fillOpacity: 0, strokeColor: '#ffffff', strokeOpacity: 0.3, strokeWeight: 1 }));
+        map.data.setStyle(() => ({ visible: false, clickable: false }));
       } else map.setMapTypeId('terrain');
       if (savedView.current) { map.setCenter(savedView.current.center); map.setZoom(Math.min(MAX_ZOOM, savedView.current.zoom)); }
     }
