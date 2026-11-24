@@ -654,7 +654,7 @@ export default function App() {
             <button type="button" className="em-card-x" onClick={() => setSelected(null)} aria-label="Close">×</button>
             <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: selected.kind === 'crest' ? crestSvg(selected.real, selected.iso2) : glyph(selected.pic ?? (selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind)) }} />
             <h2>{selected.name}</h2>
-            <p className="em-card-kind">{KIND_TITLE[selected.kind] ?? selected.kind} · {province.name}</p>
+            {selected.kind !== 'crest' && <p className="em-card-kind">{KIND_TITLE[selected.kind] ?? selected.kind} · {province.name}</p>}
             {selected.real !== selected.name && <p className="em-card-real">in the old tongue: {selected.real}</p>}
             {selected.kind === 'crest' && <p className="em-card-note">{selected.note}</p>}
             <p className="em-card-blurb">{placeLine(province.id, regionName)}</p>

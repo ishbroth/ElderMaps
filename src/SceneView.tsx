@@ -71,7 +71,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
           <>
             <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: icon }} />
             <h2>{spot.name}</h2>
-            <p className="em-card-kind">{KIND_TITLE[spot.kind] ?? spot.kind}</p>
+            {spot.kind !== 'crest' && <p className="em-card-kind">{KIND_TITLE[spot.kind] ?? spot.kind}</p>}
             <div className="em-scene-lore">{lines.map((l, i) => <p key={i}>{l}</p>)}</div>
           </>
         )}
