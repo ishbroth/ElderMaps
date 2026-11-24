@@ -8,10 +8,24 @@ export const hasMapsKey = (): boolean => !!KEY && KEY.trim().length > 10;
 
 let loading: Promise<void> | null = null;
 
+/** A soft daily limit on map loads for this device (each load is billed by Google). Clearing the browser's storage gets round it: it is a courtesy limit, not a lock. */
+const DAILY_LOADS = 30;
+function overDailyLimit(): boolean {
+  try {
+    const day = new Date().toLocaleDateString('en-CA');
+    const [d, n] = (localStorage.getItem('em-map-loads') ?? '').split(':');
+    const count = d === day ? Number(n) || 0 : 0;
+    if (count >= DAILY_LOADS) return true;
+    localStorage.setItem('em-map-loads', day + ':' + (count + 1));
+  } catch { /* storage blocked: no limit */ }
+  return false;
+}
+
 export function loadGoogle(): Promise<void> {
   if (loading) return loading;
   loading = new Promise<void>((resolve, reject) => {
     if (!hasMapsKey()) { reject(new Error('NO MAPS KEY: add VITE_GOOGLE_MAPS_API_KEY to .env.local')); return; }
+    if (overDailyLimit()) { reject(new Error('THE MAP HAS BEEN OPENED A LOT TODAY ON THIS DEVICE: COME BACK TOMORROW')); return; }
     const w = window as unknown as Record<string, unknown>;
     w.gm_authFailure = () => reject(new Error('GOOGLE REFUSED THE MAPS KEY'));
     w.__eldermapsReady = () => {
