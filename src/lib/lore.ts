@@ -131,14 +131,31 @@ export const EPITHET: Record<ProvinceId, string> = {
   morrowind: 'the Ashen Lands', summerset: 'the Crystal Isle', shivering: 'the Mad Isles', cyrodiil: 'the Imperial Heartland', blackmarsh: 'the Drowned Marsh', solstheim: 'the Ash and Ice Isle', atmora: 'the Frozen Homeland',
 };
 
-/** What a state or province of the real world is called inside each of ours: "Dominion of Ohio". {x} is the real name. */
-export const REGION_TITLE: Record<ProvinceId, string> = {
-  skyrim: 'Hold of {x}', highrock: 'Duchy of {x}', hammerfell: 'Emirate of {x}', orsinium: 'Clanlands of {x}', elsweyr: 'Reach of {x}', valenwood: 'Canopy of {x}',
-  morrowind: 'Houselands of {x}', summerset: 'Court of {x}', shivering: 'Fancy of {x}', cyrodiil: 'Dominion of {x}', blackmarsh: 'Fen of {x}', solstheim: 'Steading of {x}', atmora: 'Rime of {x}',
+/**
+ * What a state or province of the real world is called inside each of ours: several forms for each region, so its states are not all the same kind of place ("Dominion of Ohio", "The Michigan
+ * Marches", "Barony of Texas"). The form is picked from the state's own name, so a state is always the same thing. {x} is the real name.
+ */
+export const REGION_TITLES: Record<ProvinceId, string[]> = {
+  skyrim: ['Hold of {x}', '{x} Steading', 'Jarldom of {x}', 'The {x} Fells', 'Reach of {x}', '{x} Vale', 'Thanedom of {x}'],
+  highrock: ['Duchy of {x}', 'Barony of {x}', 'County of {x}', 'The {x} Marches', 'Earldom of {x}', '{x} Shire', 'Principality of {x}'],
+  hammerfell: ['Emirate of {x}', 'Sultanate of {x}', '{x} Oasis', 'The {x} Sands', 'Caliphate of {x}', '{x} Dunes', 'Protectorate of {x}'],
+  orsinium: ['Clanlands of {x}', '{x} Stronghold', 'Warhold of {x}', 'The {x} Crags', 'Chiefdom of {x}', '{x} Iron March', 'Tuskhold of {x}'],
+  elsweyr: ['Reach of {x}', 'Moonfields of {x}', 'The {x} Plains', 'Warren of {x}', '{x} Savanna', 'Caravanate of {x}', 'Pride of {x}'],
+  valenwood: ['Canopy of {x}', 'Grove of {x}', 'The {x} Wilds', 'Heartwood of {x}', '{x} Glade', 'Bough of {x}', 'Woodland of {x}'],
+  morrowind: ['Houselands of {x}', 'The {x} Ashlands', 'Stronghold of {x}', '{x} Caldera', 'Fief of {x}', 'Cinder-march of {x}', 'Council Seat of {x}'],
+  summerset: ['Court of {x}', 'Spire of {x}', 'The {x} Gardens', 'Isle of {x}', 'Crystal March of {x}', 'Conclave of {x}', 'Gilded Reach of {x}'],
+  shivering: ['Fancy of {x}', 'The {x} Folly', 'Madness of {x}', '{x} Whimsy', 'Realm of {x}', 'Dream of {x}', 'The Curious {x}'],
+  cyrodiil: ['Dominion of {x}', 'County of {x}', 'The {x} Marches', 'Palatinate of {x}', 'Princedom of {x}', '{x} Reach', 'Grand Duchy of {x}', 'Protectorate of {x}', 'Viscounty of {x}', 'Province of {x}'],
+  blackmarsh: ['Fen of {x}', 'Mire of {x}', 'The {x} Bayou', 'Hist Grove of {x}', '{x} Backwater', 'Delta of {x}', 'The Drowned {x}'],
+  solstheim: ['Steading of {x}', 'The {x} Strand', 'Holdfast of {x}', '{x} Cairn', 'Shore of {x}', 'Moot of {x}', 'Rimeland of {x}'],
+  atmora: ['Rime of {x}', 'The {x} Wastes', 'Cairn of {x}', 'Old {x}', 'Winterhold of {x}', 'Barrow of {x}', 'Glacier of {x}'],
 };
+
+const titleHash = (t: string): number => { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
 /** The line on a place's card: "Dominion of Ohio, Aurelia, the Imperial Heartland" (the first part only when the state or province is known). */
 export function placeLine(province: ProvinceId, region?: string | null): string {
   const p = PROVINCES[province];
-  return [region ? REGION_TITLE[province].split('{x}').join(region) : '', p.name, EPITHET[province]].filter(Boolean).join(', ');
+  const forms = REGION_TITLES[province];
+  return [region ? forms[titleHash(region) % forms.length].split('{x}').join(region) : '', p.name, EPITHET[province]].filter(Boolean).join(', ');
 }
