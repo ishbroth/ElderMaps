@@ -193,12 +193,27 @@ async function paintClouds(canvas: HTMLCanvasElement, x: number, y: number, z: n
   const out = g.createImageData(256, 256);
   const lat = tileLat(y + 0.5, z);
   const polar = Math.abs(lat) > 66 ? 0.15 : Math.abs(lat) > 52 ? 0.45 : 1; // snow and ice are white too: toward the poles most of it is left out
+  let alpha = new Float32Array(65536);
   for (let i = 0; i < 65536; i++) {
     const r = px[i * 4], gr = px[i * 4 + 1], b = px[i * 4 + 2];
     const min = Math.min(r, gr, b), max = Math.max(r, gr, b);
-    const white = smooth(198, 248, min) * (1 - smooth(26, 60, max - min));
-    out.data[i * 4] = 248; out.data[i * 4 + 1] = 250; out.data[i * 4 + 2] = 255; out.data[i * 4 + 3] = Math.round(white * 150 * polar);
+    alpha[i] = smooth(198, 248, min) * (1 - smooth(26, 60, max - min)) * 150 * polar;
   }
+  // the satellite picture is stitched from orbit passes taken at different times, so clouds change abruptly along straight seams: a soft blur turns each seam from a ruled line into a gentle fade
+  const rad = z < 6 ? 5 : z < 8 ? 3 : 2;
+  for (let pass = 0; pass < 2; pass++) {
+    const tmp = new Float32Array(65536);
+    const w = 2 * rad + 1;
+    for (let y2 = 0; y2 < 256; y2++) {
+      for (let x2 = 0; x2 < 256; x2++) {
+        let sum = 0;
+        for (let k = -rad; k <= rad; k++) { const xx = Math.min(255, Math.max(0, pass === 0 ? x2 + k : x2)), yy = Math.min(255, Math.max(0, pass === 0 ? y2 : y2 + k)); sum += alpha[yy * 256 + xx]; }
+        tmp[y2 * 256 + x2] = sum / w;
+      }
+    }
+    alpha = tmp;
+  }
+  for (let i = 0; i < 65536; i++) { out.data[i * 4] = 248; out.data[i * 4 + 1] = 250; out.data[i * 4 + 2] = 255; out.data[i * 4 + 3] = Math.round(alpha[i]); }
   g.putImageData(out, 0, 0);
 }
 
