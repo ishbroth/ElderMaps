@@ -321,7 +321,7 @@ export default function App() {
         const [name, lat, lng, pop, , iso2] = list[i];
         if (!inView(lat, lng) || (kind === 'crest' && !crestOk(zoom, pop, iso2))) continue;
         const province = world.provinceOfCountry(iso2);
-        const pic = kind === 'village' || kind === 'town' ? settlementPic(kind, name, pop) : undefined;
+        const pic = kind === 'village' || kind === 'town' ? settlementPic(kind, name, pop, province) : undefined;
         add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,
           note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 7);
         shown++;

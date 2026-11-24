@@ -23,7 +23,7 @@ export function spotById(world: World, id: string): Spot | null {
       const c = world.cities[tier].find((x) => x[0] === name && Math.abs(x[1] - lat) < 0.01);
       if (c) {
         const province = world.provinceOfCountry(c[5]);
-        return { id, kind: tier, real: c[0], name: loreName(c[0], province), province, lat: c[1], lng: c[2], fame: c[3], pic: tier === 'crest' ? undefined : settlementPic(tier, c[0], c[3]), iso2: c[5], note: tier === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(c[3] / 1000).toLocaleString('en-US')} thousand souls` };
+        return { id, kind: tier, real: c[0], name: loreName(c[0], province), province, lat: c[1], lng: c[2], fame: c[3], pic: tier === 'crest' ? undefined : settlementPic(tier, c[0], c[3], province), iso2: c[5], note: tier === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(c[3] / 1000).toLocaleString('en-US')} thousand souls` };
       }
     }
     return null;

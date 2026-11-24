@@ -2,6 +2,9 @@
 // towers, shrines, groves, mills and manors, and the building marks for towns and cities: a lone cottage, chapel, barn or inn for the smallest, and for the bigger ones a cluster
 // of little buildings, the bigger the city the more of them (and a steeple and a tower once it is large). All original drawings on the 24-point grid.
 
+import { SHIRES, shirePic, singleShire } from './shires';
+import type { ProvinceId } from './lore';
+
 export type Part = { d: string; line?: number };
 const fill = (d: string): Part => ({ d });
 const line = (d: string, w = 1.8): Part => ({ d, line: w });
@@ -73,18 +76,19 @@ function cluster(n: number): Part[] {
   return parts;
 }
 for (let n = 2; n <= 7; n++) MORE[`cluster${n}`] = cluster(n);
+Object.assign(MORE, SHIRES);
 
 const hashOf = (text: string): number => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const pickBy = <T,>(list: T[], seed: string): T => list[hashOf(seed) % list.length];
 
 /** The mark of a city that is not a capital: the bigger it is the more buildings. (`kind` is 'town' for the mid-size metros, 'village' for the smaller cities.) */
-export function settlementPic(kind: 'town' | 'village', name: string, pop: number): string {
-  if (kind === 'town') return `cluster${pop < 320_000 ? 4 : pop < 480_000 ? 5 : pop < 750_000 ? 6 : 7}`;
-  if (pop >= 140_000) return 'cluster4';
-  if (pop >= 80_000) return 'cluster3';
-  if (pop >= 45_000) return pickBy(['cluster3', 'cluster2', 'chapelvillage'], name);
-  // the smallest: one building, of a kind that varies from place to place
-  return pickBy(['cottage', 'chapelvillage', 'barn', 'inn', 'farm', 'mill', 'windmill', 'granary', 'cottage', 'chapelvillage', 'mine'], name);
+export function settlementPic(kind: 'town' | 'village', name: string, pop: number, province: ProvinceId = 'cyrodiil'): string {
+  if (kind === 'town') return shirePic(province, pop < 480_000 ? 'M' : 'L', name);
+  if (pop >= 140_000) return shirePic(province, 'M', name);
+  if (pop >= 80_000) return shirePic(province, 'S', name);
+  if (pop >= 45_000) return pickBy([shirePic(province, 'S', name), singleShire(province), 'chapelvillage'], name);
+  // the smallest: one building, of a kind that varies from place to place (often one of the land's own)
+  return pickBy([singleShire(province), 'cottage', 'chapelvillage', singleShire(province), 'barn', 'inn', 'farm', 'mill', 'windmill', 'granary', 'mine'], name);
 }
 
 /** A place in the countryside gets one of several marks of its kind (or one that fits its name: an abbey is a broken chapel, a castle a broken keep). */
