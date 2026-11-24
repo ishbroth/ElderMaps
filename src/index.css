@@ -229,14 +229,19 @@ button { font: inherit; }
 
 .em-packs { display: grid; gap: 8px; margin: 12px 0 4px; }
 
-/* the ledger: under the map (upright) or beside it (sideways) */
-.em-app { display: flex; flex-direction: column; }
-.em-stage { position: relative; flex: 1 1 auto; min-height: 0; inset: auto; }
-.em-ledger { flex: 0 0 42%; min-height: 0; display: flex; flex-direction: column; background: var(--sky-panel, rgba(12, 16, 20, 0.96)); color: var(--sky-ink, #f2f2ee); border-top: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: env(safe-area-inset-bottom); }
+/* the ledger: under the map (upright) or beside it (sideways). Upright, the map fills the screen but for the top of the ledger (the search and the tabs); scroll the page to bring the rest up. */
+.em-app { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+.em-stage { position: relative; flex: 0 0 calc(100dvh - 142px - env(safe-area-inset-bottom)); min-height: 360px; inset: auto; }
+.em-ledger { flex: 0 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--sky-panel, rgba(12, 16, 20, 0.96)); color: var(--sky-ink, #f2f2ee); border-top: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: env(safe-area-inset-bottom); }
 @media (orientation: landscape) and (min-width: 700px) {
-  .em-app { flex-direction: row; }
-  .em-ledger { flex: 0 0 min(380px, 38%); border-top: none; border-left: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: 0; }
+  .em-app { flex-direction: row; overflow: hidden; }
+  .em-stage { flex: 1 1 auto; min-height: 0; }
+  .em-ledger { flex: 0 0 min(380px, 38%); height: auto; min-height: 0; border-top: none; border-left: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: 0; }
 }
+.em-ledger-search { display: flex; flex: 0 0 auto; margin: 8px 10px 4px; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+.em-ledger-search input { flex: 1; min-width: 0; padding: 10px 12px; background: transparent; color: inherit; border: none; outline: none; font-family: var(--font-ui); font-size: 16px; letter-spacing: 0.06em; }
+.em-ledger-search input::placeholder { color: var(--sky-dim, #9aa3a8); }
+.em-ledger-search button { padding: 0 16px; background: transparent; color: inherit; border: none; border-left: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); cursor: pointer; font-size: 20px; }
 .em-ledger-tabs { display: flex; flex: 0 0 auto; border-bottom: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
 .em-ledger-tabs button { font-family: inherit; flex: 1; padding: 11px 6px; background: transparent; color: var(--sky-dim, #9aa3a8); border: none; border-bottom: 2px solid transparent; font-size: 12px; letter-spacing: 3px; cursor: pointer; }
 .em-ledger-tabs button.on { color: var(--sky-ink, #f2f2ee); border-bottom-color: var(--sky-ink, #f2f2ee); }
@@ -300,3 +305,8 @@ button { font: inherit; }
 .em-delete-line button { background: transparent; border: 0; color: #c98a7a; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 .em-delete { margin: 14px 0; padding: 10px; border: 1px solid #c98a7a; }
 .em-danger { border-color: #c98a7a !important; color: #e8b4a0 !important; }
+
+@media (max-width: 520px) {
+  .em-tools { gap: 5px; flex-wrap: nowrap; max-width: 100%; }
+  .em-tools button { padding: 8px 7px; font-size: 10.5px; letter-spacing: 0.1em; white-space: nowrap; flex: 1 1 auto; }
+}

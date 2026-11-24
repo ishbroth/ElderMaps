@@ -24,6 +24,10 @@ interface Props {
   onBuy: () => void;
   /** Shares a link to where the map is now. */
   onShareMap: () => void;
+  /** The search for a city, a keep or a waterfall (it sits above the tabs, off the map). */
+  query: string;
+  onQuery: (q: string) => void;
+  onSearch: (e: React.FormEvent) => void;
 }
 
 const lootName = (id: string): string => LOOT.find((l) => l.id === id)?.name ?? REGIONAL_HERBS.find((h) => h.loot.id === id)?.loot.name ?? id;
@@ -58,7 +62,7 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 }
 
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap }: Props) {
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch }: Props) {
   const [tab, setTab] = useState<Tab>('places');
   const [query, setQuery] = useState('');
   const [only, setOnly] = useState<'all' | 'cleared'>('all');
@@ -72,6 +76,10 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
 
   return (
     <aside className="em-ledger" aria-label="The ledger">
+      <form className="em-ledger-search" onSubmit={onSearch}>
+        <input value={placeQuery} onChange={(e) => onQuery(e.target.value)} placeholder="Seek a city, a keep, a waterfall…" aria-label="Search for a place" />
+        <button type="submit" aria-label="Search">⌕</button>
+      </form>
       <div className="em-ledger-tabs" role="tablist">
         {([['places', 'PLACES'], ['inventory', 'INVENTORY'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>

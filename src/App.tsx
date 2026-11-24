@@ -628,10 +628,6 @@ export default function App() {
         {!trip && (
           <header className="em-head">
             <div className="em-title"><h1>ELDERMAPS</h1><small>the world as an age-old realm</small></div>
-            <form className="em-search" onSubmit={(e) => void search(e)}>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Seek a city, a keep, a waterfall…" aria-label="Search for a place" />
-              <button type="submit" aria-label="Search">⌕</button>
-            </form>
             <div className="em-tools">
               <button type="button" onClick={() => setLook(look === 'skyrim' ? 'vivid' : look === 'vivid' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
               {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
@@ -704,7 +700,7 @@ export default function App() {
       </div>
       {!trip && (
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
-          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} />
+          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)} />
       )}
     </div>
   );
