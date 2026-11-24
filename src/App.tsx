@@ -645,7 +645,7 @@ export default function App() {
         {!trip && <div className="em-compass" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 3 29 24 24 45 19 24Z" fill="currentColor" /><path d="M3 24 24 19 45 24 24 29Z" fill="currentColor" opacity="0.5" /><text x="24" y="14" textAnchor="middle" fontSize="9" fill="#000">N</text></svg></div>}
         {!trip && <div className="em-count">{seenCount} PLACES DISCOVERED{hint ? ` · ${hint}` : ''}</div>}
 
-        {!ready && !problem && <div className="em-loading">UNROLLING THE MAP…</div>}
+        {!ready && !problem && <div className="em-loading">UNFURLING THE MAP…</div>}
         {problem && <div className="em-loading em-problem">{problem}</div>}
         {toast && <div className="em-toast" role="status">{toast}</div>}
 
