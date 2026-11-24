@@ -48,19 +48,27 @@ export const MORE: Record<string, Part[]> = {
   granary: [fill('M5 21.5V10.4a7 7 0 0 1 14 0v11.1Zm4-0v-4h6v4Z'), line('M12 3.4V1.8', 1.3)],
 };
 
-/** The cluster for a town or city: the more people, the more little buildings, and a steeple and a tower in the larger ones. n runs from 2 to 7. */
+/** Old-world buildings for the clusters: a steep timber cottage with a chimney, a church with a spired tower, a cathedral (two spired towers and a pointed nave), a round tower with a conical roof, a battlemented rampart. */
+const cot = (x: number, w: number, h: number, p: number): string => house(x, w, h, p) + `M${x + w * 0.66} ${21.5 - h - p * 0.55}v-${p * 0.55 + 1}h1.3v${p * 0.55 + 1}Z`;
+const cathedral = (x: number, w: number, h: number): string => {
+  const tw = w * 0.24, yt = 21.5 - h * 0.62, yn = 21.5 - h * 0.4, ya = yn - h * 0.16, top = 21.5 - h;
+  return `M${x} 21.5V${yt}L${x + tw / 2} ${top}L${x + tw} ${yt}V${yn}L${x + w / 2} ${ya}L${x + w - tw} ${yn}V${yt}L${x + w - tw / 2} ${top}L${x + w} ${yt}V21.5Z`;
+};
+const roundTower = (x: number, w: number, h: number, p: number): string => `M${x} 21.5V${21.5 - h}H${x + w}V21.5ZM${x - 0.5} ${21.5 - h}L${x + w / 2} ${21.5 - h - p}L${x + w + 0.5} ${21.5 - h}Z`;
+
+/** The cluster for a town or city: the more people, the more of an old shire it is: cottages and a church, then a cathedral, round towers and ramparts. n runs from 2 to 7. */
 function cluster(n: number): Part[] {
-  // each building: [kind, x, w, h, peak]; the ground line is y 21.5
+  // each building: [kind (c cottage, s church, g cathedral, r round tower, w rampart), x, w, h, peak]; the ground line is y 21.5
   const sets: Record<number, [string, number, number, number, number][]> = {
-    2: [['h', 2.4, 8.4, 6, 4.4], ['h', 11.8, 9.6, 8, 4.6]],
-    3: [['h', 1.8, 6.4, 5, 3.6], ['s', 8.2, 7.2, 9.4, 4.8], ['h', 15.6, 6.6, 6.4, 3.8]],
-    4: [['h', 1.4, 5.6, 5, 3.2], ['s', 7, 6.4, 9.6, 4.6], ['h', 13.4, 5.2, 6.6, 3.4], ['h', 18.6, 4.4, 4.4, 2.8]],
-    5: [['h', 1.2, 4.8, 4.6, 3], ['s', 6, 5.8, 10, 4.4], ['h', 11.8, 4.6, 6.4, 3.2], ['k', 16.4, 4.2, 8, 0], ['h', 20.6, 2.8, 3.8, 2.2]],
-    6: [['h', 1, 4.2, 4.4, 2.8], ['s', 5.2, 5.2, 10, 4.2], ['k', 10.4, 4.2, 11.4, 0], ['h', 14.6, 4.4, 6.2, 3], ['s', 19, 4, 8, 3.4], ['h', 8.2, 2.6, 3.4, 2]],
-    7: [['h', 0.8, 3.8, 4.4, 2.6], ['s', 4.6, 4.6, 9.8, 4], ['k', 9.2, 5.6, 13, 0], ['h', 14.8, 3.6, 6.4, 2.8], ['s', 18.4, 3.8, 8.4, 3.2], ['h', 3.4, 2.4, 3, 1.8], ['h', 15.6, 2.4, 3.2, 1.8]],
+    2: [['c', 2, 8.4, 5, 4.6], ['s', 12, 5.2, 9, 6.6], ['c', 17.6, 4.6, 3.8, 3]],
+    3: [['c', 1.2, 6.4, 5, 4.2], ['s', 8, 5.2, 10, 6.8], ['c', 14, 8, 6, 4.6]],
+    4: [['c', 1, 5.6, 4.6, 3.8], ['s', 6.8, 5, 10, 6.8], ['c', 12.4, 5.4, 6, 4.2], ['r', 18.4, 4, 7, 3.6]],
+    5: [['c', 0.8, 4.6, 4.4, 3.6], ['g', 5.4, 8.8, 13, 0], ['r', 14.6, 3.8, 8, 4], ['w', 18.4, 5.2, 5, 0]],
+    6: [['c', 0.6, 4, 4, 3.4], ['g', 4.6, 9.4, 14.5, 0], ['r', 14.4, 3.6, 9, 4.2], ['w', 17.8, 5.6, 5.4, 0]],
+    7: [['w', 0.6, 6, 6, 0], ['r', 5.6, 3.4, 10, 4], ['g', 9.6, 9.6, 15.5, 0], ['r', 19.8, 3.4, 10, 4]],
   };
   const parts: Part[] = [];
-  for (const [t, x, w, h, p] of sets[Math.max(2, Math.min(7, n))]) parts.push(fill(t === 'h' ? house(x, w, h, p) : t === 's' ? spire(x, w, h, p) : keepBlock(x, w, h)));
+  for (const [t, x, w, h, p] of sets[Math.max(2, Math.min(7, n))]) parts.push(fill(t === 'c' ? cot(x, w, h, p) : t === 's' ? spire(x, w, h, p) : t === 'g' ? cathedral(x, w, h) : t === 'r' ? roundTower(x, w, h, p) : keepBlock(x, w, h)));
   parts.push(fill('M0.8 21.5h22.4v1H0.8Z'));
   return parts;
 }
