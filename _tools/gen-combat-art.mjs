@@ -29,6 +29,7 @@ const ENEMIES = {
   brassspider: SHEET('an ancient automaton spider made of tarnished brass and bronze: segmented metal legs, glowing amber core, gears showing, the size of a large dog', WALK),
   brasssphere: SHEET('an ancient automaton sphere made of tarnished brass: a rolling metal ball that unfolds into a bladed construct with spinning blades, glowing amber core', ROLL),
   marshcrab: SHEET('a giant marsh crab the size of a dog: a mottled brown-green shell, two big snapping claws, stalk eyes, wet muck on it', WALK),
+  rathide: SHEET('(the background must be perfectly flat pure magenta #FF00FF everywhere, with no ground, no gradient and no shadow) a rathide: a huge dirty rat the size of a hound, matted grey-brown fur, a long scaly tail, big yellow chisel teeth, red beady eyes and pink clawed hands, hunched and snarling', WALK),
   troll: SHEET('a hulking cave troll: a hunched, long-armed brute with pale grey-white shaggy fur, a bony face with four tusks, heavy knuckles, a spiked club', WALK),
   sabretiger: SHEET('a huge sabre-toothed tiger: a massive striped cat with long curved fangs, powerful shoulders, snarling, the size of a horse', WALK),
   mammoth: SHEET('a woolly mammoth of the north: an enormous shaggy brown elephant with long curved tusks and a thick coat, with a giant club-wielding herder not shown, just the mammoth charging', WALK),

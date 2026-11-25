@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Account } from './lib/account';
 import { db } from './lib/account';
 import {
-  COLS, LEVELS, ROOM_DEFS, ROWS, applyBuild, applyDemolish, applyFurnish, applyPlace, buildRecipe, checkIn, newVault, slotOf, INSTRUMENTS, INSTRUMENT_NAMES, furnishRecipe, furnitureOf, hasDecon, isDoorCell, normalize, roomAt, roomDef, slotsOf, stairOptions, whyNotBuild, whyNotDemolish,
+  COLS, LEVELS, ROOM_DEFS, ROWS, applyBuild, applyDemolish, applyFurnish, applyPlace, buildRecipe, checkIn, hasWayDown, hasWayUp, newVault, slotOf, INSTRUMENTS, INSTRUMENT_NAMES, furnishRecipe, furnitureOf, hasDecon, isDoorCell, normalize, roomAt, roomDef, slotsOf, stairOptions, whyNotBuild, whyNotDemolish,
   type Face, type LootBag, type RoomType, type StairDir, type StairShape, type VaultHome, type VaultRoom,
 } from './lib/house';
 import { LOOT } from './lib/loot';
@@ -38,7 +38,6 @@ const WIDTH: Record<string, number> = {
 const SMALL = new Set(['entry', 'stairs', 'hallway', 'laundry', 'bathroom']);
 const SHORT: Record<string, string> = { entry: 'GATE', stairs: 'STAIR', hallway: 'HALL', garden: 'GARD', study: 'STUDY', living: 'GREAT', dining: 'FEAST', kitchen: 'KITCH', bedroom: 'BED', laundry: 'WASH', bathroom: 'BATH', entertainment: 'BARD', game: 'TAVERN', workshop: 'FORGE' };
 const TINT: Record<string, string> = { entry: '#c9a45c', stairs: '#6c7480', hallway: '#4a5058', garden: '#4f7a45', study: '#7a5a8a', living: '#9a6a3a', dining: '#8a4a3a', kitchen: '#a08a4a', bedroom: '#4a6a8a', laundry: '#4a8a8a', bathroom: '#5a8aa0', entertainment: '#a05a7a', game: '#7a7a3a', workshop: '#8a4a2a' };
-const NORTHERN = new Set(['NO', 'SE', 'FI', 'DK', 'IS', 'RU', 'EE', 'LV', 'LT', 'CA', 'GL', 'FO']);
 
 const lootName = (id: string): string => LOOT.find((l) => l.id === id)?.name ?? id;
 const describe = (bag: LootBag): string => Object.entries(bag).filter(([, n]) => (n ?? 0) > 0).map(([k, n]) => `${n} ${lootName(k)}`).join(', ');
@@ -60,7 +59,7 @@ export default function House({ account, onClose, local }: { account: Account; o
   const [roomIdx, setRoomIdx] = useState<number | null>(null);
   const [style, setStyle] = useState<Style>(() => {
     const saved = localStorage.getItem('eldermaps:housestyle');
-    return saved === 'nordic' || saved === 'imperial' ? saved : NORTHERN.has(account.profile?.sigilIso ?? '') ? 'nordic' : 'imperial';
+    return saved === 'imperial' ? 'imperial' : 'nordic'; // the northern style to begin with
   });
   const chooseStyle = (s: Style) => { setStyle(s); try { localStorage.setItem('eldermaps:housestyle', s); } catch { /* fine */ } };
 
@@ -96,6 +95,9 @@ export default function House({ account, onClose, local }: { account: Account; o
     return ok;
   };
 
+  // the house opens inside its entrance hall
+  const opened = useRef(false);
+  useEffect(() => { if (vault && !opened.current) { opened.current = true; const i = vault.rooms.findIndex((r) => r.type === 'entry'); if (i >= 0) setRoomIdx(i); } }, [vault]);
   if (!vault) {
     return (
       <div className="em-house" role="dialog" aria-modal="true" aria-label="Your house">
@@ -114,7 +116,7 @@ export default function House({ account, onClose, local }: { account: Account; o
           <button type="button" className={style === 'nordic' ? 'on' : ''} onClick={() => chooseStyle('nordic')}>NORDIC</button>
           <button type="button" className={style === 'imperial' ? 'on' : ''} onClick={() => chooseStyle('imperial')}>IMPERIAL</button>
         </div>
-        <button type="button" className="em-card-x" onClick={() => (room ? setRoomIdx(null) : onClose())} aria-label={room ? 'Back to the floorplan' : 'Close'}>{room ? '‹' : '×'}</button>
+        <button type="button" className="em-card-x" onClick={() => (room ? setRoomIdx(null) : onClose())} aria-label={room ? 'Back to the floorplan' : 'Close'} title={room ? 'The floorplan: add rooms' : 'Close'}>{room ? 'FLOORPLAN ›' : '×'}</button>
       </header>
       <p className="em-fine em-house-loot">IN YOUR BAG: {describe(account.loot as LootBag) || 'NOTHING YET: CLEAR PLACES AND VISIT THEM IN PERSON'}</p>
       {note && <p className="em-note em-house-note">{note}</p>}
@@ -135,13 +137,18 @@ function Floorplan({ vault, level, setLevel, cell, setCell, loot, busy, act, ope
   loot: Record<string, number>; busy: boolean; act: (b: Record<string, unknown>) => Promise<boolean>; openRoom: (i: number) => void;
 }) {
   const decon = hasDecon(vault);
+  // an arrow shows only where a stairwell leads: up to the next floor, or back down (a floor whose stairwell was torn down is left)
+  const canUp = hasWayDown(vault, level);
+  const canDown = level > 0 && hasWayUp(vault, level);
+  useEffect(() => { if (level > 0 && !hasWayUp(vault, level)) setLevel(0); }, [vault, level, setLevel]);
   const entryIdx = vault.rooms.findIndex((r) => r.type === 'entry');
   const buildable = useMemo(() => {
     const set = new Set<string>();
-    if (!decon) return set;
+    // (before the Hearthstone is lit, the places that WOULD take a room are still shown: the sheet says why nothing can be built yet)
+    const probe = decon ? vault : { ...vault, legacy: true };
     for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) {
       if (roomAt(vault, level, col, row) || isDoorCell(vault, level, col, row)) continue;
-      if (ROOM_DEFS.some((d) => d.buildable !== false && whyNotBuild(vault, d.id, level, col, row) === null)) set.add(`${col},${row}`);
+      if (ROOM_DEFS.some((d) => d.buildable !== false && whyNotBuild(probe, d.id, level, col, row) === null)) set.add(`${col},${row}`);
     }
     return set;
   }, [vault, level, decon]);
@@ -155,7 +162,8 @@ function Floorplan({ vault, level, setLevel, cell, setCell, loot, busy, act, ope
         const idx = vault.rooms.indexOf(r);
         cells.push(
           <button key={`${col},${row}`} type="button" className="em-cell em-cell-room" style={{ gridColumn: `${col + 1} / span ${slotsOf(r)}`, gridRow: row + 1, background: TINT[r.type] ?? '#555' }} onClick={() => openRoom(idx)} title={roomDef(r.type).name}>
-            <b>{SHORT[r.type] ?? r.type.slice(0, 4).toUpperCase()}</b>
+            {r.type !== 'entry' && <b>{SHORT[r.type] ?? r.type.slice(0, 4).toUpperCase()}</b>}
+            {r.type === 'entry' && <b className="em-door" aria-label="Entrance hall">▭</b>}
             {r.type !== 'stairs' && r.type !== 'hallway' && <small>{r.furniture.length}/{r.type === 'entry' ? furnitureOf(r.type).length : furnitureOf(r.type).length}</small>}
           </button>,
         );
@@ -167,25 +175,21 @@ function Floorplan({ vault, level, setLevel, cell, setCell, loot, busy, act, ope
 
   return (
     <div className="em-house-body">
-      {!decon && (
-        <div className="em-house-banner">
-          <b>THE HEARTHSTONE IS NOT LIT.</b> The house will not let you build until it is: open the entrance hall and make the Hearthstone.
-          {entryIdx >= 0 && <button type="button" className="em-btn" onClick={() => openRoom(entryIdx)}>OPEN THE ENTRANCE HALL</button>}
+      {(canUp || canDown || level > 0) && (
+        <div className="em-floorbar" role="group" aria-label="Floors">
+          {canDown ? <button type="button" className="em-lv" onClick={() => { setLevel(level - 1); setCell(null); }} aria-label="Down one floor">▼</button> : <span className="em-lv-gap" />}
+          <span>{level === 0 ? 'GROUND FLOOR' : `FLOOR ${level}`}<i>OF {LEVELS}</i></span>
+          {canUp ? <button type="button" className="em-lv" onClick={() => { setLevel(level + 1); setCell(null); }} aria-label="Up one floor">▲</button> : <span className="em-lv-gap" />}
         </div>
       )}
-      <div className="em-levels" role="tablist" aria-label="Levels">
-        {Array.from({ length: LEVELS }, (_, i) => LEVELS - 1 - i).map((l) => (
-          <button key={l} type="button" role="tab" aria-selected={level === l} className={level === l ? 'on' : ''} onClick={() => { setLevel(l); setCell(null); }}>{l === 0 ? 'GROUND' : `FLOOR ${l}`}<small>{vault.rooms.filter((r) => r.level === l).length}</small></button>
-        ))}
-      </div>
       <div className="em-plan" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)`, gridTemplateRows: `repeat(${ROWS}, 1fr)` }}>{cells}</div>
-      <p className="em-fine">Tap a room to go in. Tap a + to build next to what you have. The ground floor is at the bottom of the list: build upward from it with a stairwell.</p>
-      {cell && <BuildSheet vault={vault} level={level} cell={cell} loot={loot} busy={busy} act={act} done={() => setCell(null)} />}
+      <p className="em-fine">Tap a room to go in. Tap a + to build next to what you have. Build a stairwell to go up: an arrow appears once there is one.</p>
+      {cell && <BuildSheet vault={vault} level={level} cell={cell} loot={loot} busy={busy} act={act} done={() => setCell(null)} toHearth={entryIdx >= 0 ? () => openRoom(entryIdx) : undefined} />}
     </div>
   );
 }
 
-function BuildSheet({ vault, level, cell, loot, busy, act, done }: { vault: VaultHome; level: number; cell: { col: number; row: number }; loot: Record<string, number>; busy: boolean; act: (b: Record<string, unknown>) => Promise<boolean>; done: () => void }) {
+function BuildSheet({ vault, level, cell, loot, busy, act, done, toHearth }: { toHearth?: () => void; vault: VaultHome; level: number; cell: { col: number; row: number }; loot: Record<string, number>; busy: boolean; act: (b: Record<string, unknown>) => Promise<boolean>; done: () => void }) {
   const [dir, setDir] = useState<StairDir>(level + 1 < LEVELS ? 'down' : 'up');
   const [shape, setShape] = useState<StairShape>('straight');
   const [side, setSide] = useState<Face | null>(null);
@@ -196,6 +200,12 @@ function BuildSheet({ vault, level, cell, loot, busy, act, done }: { vault: Vaul
     <div className="em-sheet" role="dialog" aria-label="Build a room">
       <button type="button" className="em-card-x" onClick={done} aria-label="Close">×</button>
       <h3>BUILD HERE</h3>
+      {!hasDecon(vault) && (
+        <div className="em-house-banner">
+          <b>THE HEARTHSTONE IS NOT LIT.</b> The house will not let you build until it is: make the Hearthstone in the entrance hall first.
+          {toHearth && <button type="button" className="em-btn" onClick={toHearth}>GO TO THE ENTRANCE HALL</button>}
+        </div>
+      )}
       <ul className="em-build-list">
         {ROOM_DEFS.filter((d) => d.buildable !== false).map((d) => {
           const stairs = d.id === 'stairs';

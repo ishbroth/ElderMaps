@@ -1,6 +1,6 @@
 // What lives in the places of the realm, and what the traveller fights with. The ids are working names; `name` is what people read, and it is our own (nothing from the games on screen).
 
-export type EnemyId = 'skeleton' | 'wight' | 'bandit' | 'banditmaned' | 'banditscale' | 'brassspider' | 'brasssphere' | 'marshcrab' | 'troll' | 'sabretiger' | 'mammoth' | 'giant' | 'vampire' | 'sorcerer';
+export type EnemyId = 'skeleton' | 'wight' | 'bandit' | 'banditmaned' | 'banditscale' | 'brassspider' | 'brasssphere' | 'marshcrab' | 'rathide' | 'troll' | 'sabretiger' | 'mammoth' | 'giant' | 'vampire' | 'sorcerer';
 export type BossId = 'gjenganger' | 'colossus' | 'dragon' | 'vampirelord' | 'giantchief';
 
 export interface EnemyType {
@@ -31,6 +31,7 @@ export const ENEMIES: Record<EnemyId, EnemyType> = {
   banditmaned: { id: 'banditmaned', name: 'Maned Raider', plural: 'maned raiders', hp: Math.round(34 * S), speed: 0.075, every: 1.3, size: 1, now: 'Maned raiders prowl it, quick and silent, with curved knives.' },
   banditscale: { id: 'banditscale', name: 'Scalekin Raider', plural: 'scalekin raiders', hp: Math.round(36 * S), speed: 0.065, every: 1.4, size: 1, now: 'Scalekin raiders hold it, hissing from the shadows with bone spears.' },
   brassspider: { id: 'brassspider', name: 'Brasspider', plural: 'brasspiders', hp: Math.round(40 * S), speed: 0.1, every: 1.1, size: 0.6, now: 'Brasspiders, clockwork and old, skitter out of the walls.' },
+  rathide: { id: 'rathide', name: 'Rathide', plural: 'rathides', hp: Math.round(24 * S), speed: 0.09, every: 1.1, size: 0.55, now: 'Rathides, rats the size of hounds, swarm out of the dark and the drains.' },
   marshcrab: { id: 'marshcrab', name: 'Marsh Crab', plural: 'marsh crabs', hp: Math.round(45 * S), speed: 0.07, every: 1.2, size: 0.7, now: 'Marsh crabs have crept up out of the water and nest among the stones.' },
   wight: { id: 'wight', name: 'Barrow Wight', plural: 'barrow wights', hp: Math.round(70 * S), speed: 0.05, every: 1.5, size: 1.1, now: 'Barrow wights, bound by old oaths, have not left their posts.' },
   brasssphere: { id: 'brasssphere', name: 'Brassphere', plural: 'brasspheres', hp: Math.round(90 * S), speed: 0.07, every: 1.2, size: 0.9, now: 'Brasspheres roll the halls and unfold into whirling blades.' },
@@ -117,12 +118,12 @@ const COLD = new Set(['skyrim', 'atmora', 'solstheim']);
 function poolFor(kind: string, worth: number, province: string): EnemyId[] {
   const raider: EnemyId = province === 'elsweyr' || province === 'hammerfell' ? 'banditmaned' : province === 'blackmarsh' || province === 'valenwood' ? 'banditscale' : 'bandit';
   const pool: EnemyId[] = [];
-  if (kind === 'cave') pool.push('skeleton', 'wight', 'brassspider', 'marshcrab');
-  else if (kind === 'ruin' || kind === 'stones') pool.push('skeleton', 'wight', 'brassspider', raider);
+  if (kind === 'cave') pool.push('skeleton', 'wight', 'brassspider', 'marshcrab', 'rathide', 'rathide');
+  else if (kind === 'ruin' || kind === 'stones') pool.push('skeleton', 'wight', 'brassspider', raider, 'rathide');
   else if (kind === 'waterfall' || kind === 'spring' || kind === 'lighthouse') pool.push('marshcrab', raider, 'sabretiger');
   else if (kind === 'peak' || kind === 'glacier' || kind === 'pass' || kind === 'volcano' || kind === 'grove') pool.push('sabretiger', raider, 'skeleton');
   else if (kind === 'fort' || kind === 'camp') pool.push(raider, 'skeleton', 'sorcerer');
-  else pool.push(raider, 'skeleton', 'brassspider'); // cities, towns, mills, manors, landmarks
+  else pool.push(raider, 'skeleton', 'brassspider', 'rathide'); // cities, towns, mills, manors, landmarks
   if (worth >= 15 && (kind === 'keep' || kind === 'tower' || kind === 'shrine' || kind === 'fort' || kind === 'crest' || kind === 'town')) pool.push('vampire', 'sorcerer');
   if (worth >= 20 && (kind === 'ruin' || kind === 'cave') && (province === 'morrowind' || province === 'orsinium' || province === 'skyrim')) pool.push('brasssphere');
   if (worth >= 20 && (kind === 'peak' || kind === 'glacier' || kind === 'pass' || kind === 'grove')) pool.push('troll');

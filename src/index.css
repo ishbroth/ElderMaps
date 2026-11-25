@@ -397,3 +397,10 @@ button { font: inherit; }
 
 .em-origin { text-align: left; margin: 2px 0; }
 .em-origin b { letter-spacing: 0.2em; margin-right: 8px; font-weight: 500; }
+
+.em-floorbar { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 4px 0 10px; font-size: 12px; letter-spacing: 0.2em; }
+.em-floorbar i { margin-left: 8px; font-style: normal; color: var(--sky-dim, #9aa3a8); }
+.em-lv, .em-lv-gap { width: 44px; height: 38px; }
+.em-lv { background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.6)); font-size: 18px; cursor: pointer; }
+.em-house-head .em-card-x { width: auto; padding: 0 10px; font-size: 11px; letter-spacing: 0.15em; }
+.em-door { font-size: 18px; font-weight: 400 !important; }
