@@ -217,7 +217,7 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
         const el = Math.max(e, 1);
         // the mountains are made taller than they are: the steeper and higher, the more the heights count
         const boost = EXAG * (1 + el / 1500);
-        const dzdx = ((Math.max(x1, 0) - Math.max(x0, 0)) / (2 * mpp)) * boost, dzdy = ((Math.max(y1, 0) - Math.max(y0, 0)) / (2 * mpp)) * boost;
+        const dzdx = ((Math.max(x1, 0) - Math.max(x0, 0)) / (Math.max(1, Math.min(255, px + 1) - Math.max(0, px - 1)) * mpp)) * boost, dzdy = ((Math.max(y1, 0) - Math.max(y0, 0)) / (Math.max(1, Math.min(255, py + 1) - Math.max(0, py - 1)) * mpp)) * boost; // (at a tile's edge the slope is taken over the one side that exists, so no line shows along the seam)
         const nl = Math.hypot(dzdx, dzdy, 1);
         const lit = ((-dzdx * lx - dzdy * ly + lz) / (nl * ln));
         const shade = 0.5 + (lit - flat) * 3.4; // contrast: flat ground is about 0.5
@@ -289,6 +289,8 @@ export function createVivid(provinceAt: (lat: number, lng: number) => ProvinceId
   const size = new google.maps.Size(256, 256);
   const tile = (paint: (c: HTMLCanvasElement, x: number, y: number, z: number) => Promise<void>) => (coord: google.maps.Point, zoom: number, doc: Document) => {
     const c = doc.createElement('canvas'); c.width = 256; c.height = 256;
+    // a pixel bigger than its place, so on screens that scale the map by a fraction the tiles overlap a hair and no dark hairline shows between them
+    c.style.width = '257px'; c.style.height = '257px';
     const n = 2 ** zoom;
     if (coord.y >= 0 && coord.y < n) void paint(c, ((coord.x % n) + n) % n, coord.y, zoom);
     return c;

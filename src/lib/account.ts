@@ -128,7 +128,7 @@ export async function signInWithHearth(email: string, digits: string): Promise<s
 export async function saveSetup(userId: string, p: { characterName: string; characterType: string; characterSex: 'm' | 'f'; sigilCity: string; sigilIso: string; address: string; lat: number; lng: number; placeId?: string; hearthNumber: number }): Promise<string | null> {
   const prof = await db().from('profiles').upsert({ user_id: userId, character_name: p.characterName, character_type: p.characterType, character_sex: p.characterSex, sigil_city: p.sigilCity, sigil_iso: p.sigilIso, updated_at: new Date().toISOString() });
   if (prof.error) return prof.error.code === '23505' ? 'That name is taken. Choose another.' : 'The character could not be saved. Try again.';
-  const home = await db().from('user_home').upsert({ user_id: userId, address: p.address, lat: p.lat, lng: p.lng, place_id: p.placeId ?? null, hearth_number: p.hearthNumber, skipped: false, updated_at: new Date().toISOString() });
+  const home = await db().from('user_home').upsert({ user_id: userId, address: null, lat: null, lng: null, place_id: p.placeId ?? null, hearth_number: p.hearthNumber, skipped: false, updated_at: new Date().toISOString() });
   if (home.error) return home.error.code === '23505' ? `Serf number ${String(p.hearthNumber).padStart(4, '0')} already belongs to someone else. Pick a different number.` : 'The home could not be saved. Try again.';
   const { error } = await db().functions.invoke('set-hearth-password', { body: {} });
   return error ? 'Saved, but the number could not be set as your password. Open the account again to retry.' : null;

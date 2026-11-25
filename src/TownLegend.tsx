@@ -78,6 +78,7 @@ export default function TownLegend({ metro, province, world, signedIn, septims, 
       center: { lat: metro.lat, lng: metro.lng }, zoom: Math.min(13, minZoom + 2), minZoom, maxZoom: 18, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false,
       restriction: { latLngBounds: bounds, strictBounds: false }, styles: [...localStyleFor(province), { elementType: 'labels', stylers: [{ visibility: 'off' }] }], backgroundColor: kit.ground, mapTypeId: 'roadmap', keyboardShortcuts: false,
     });
+    if (import.meta.env.DEV) (window as unknown as { __legendMap?: google.maps.Map }).__legendMap = map; // for taking screenshots
     streets = createStreetLayer(map, kit, roadKitName(province));
     if (import.meta.env.DEV) (window as unknown as { __legend?: google.maps.Map }).__legend = map;
     const near = (lat: number, lng: number) => Math.hypot((lat - metro.lat) * 111.32, (lng - metro.lng) * 111.32 * Math.cos((metro.lat * Math.PI) / 180)) <= metro.radiusKm * 1.05;

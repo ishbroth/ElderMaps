@@ -605,6 +605,8 @@ export default function App() {
     }, 3200);
   };
 
+  if (import.meta.env.DEV) (window as unknown as { __travel?: typeof startTravel }).__travel = startTravel; // for taking screenshots
+
   // the road speaks each new instruction, and again as the turn comes close
   useEffect(() => {
     if (!trip) return;
@@ -654,15 +656,18 @@ export default function App() {
           <header className="em-head">
             <div className="em-title"><h1>ELDERMAPS</h1><small>the world as an age-old realm</small></div>
             <div className="em-tools">
-              <button type="button" onClick={() => setLook(look === 'vivid' ? 'oblivion' : 'vivid')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
               {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
+              <div className="em-look-switch" role="group" aria-label="Look of the map">
+                <button type="button" className={look === 'vivid' ? 'on' : ''} aria-pressed={look === 'vivid'} onClick={() => setLook('vivid')}>DRAGONVIEW</button>
+                <button type="button" className={look === 'oblivion' ? 'on' : ''} aria-pressed={look === 'oblivion'} onClick={() => setLook('oblivion')}>PARCHMENT</button>
+              </div>
               {accountsEnabled && !account.session && <button type="button" onClick={() => setAccountOpen(true)} title="Enter the realm">ENTER</button>}
             </div>
           </header>
         )}
 
         {!trip && (
-          <button type="button" className={'em-me' + (following ? ' on' : '')} onClick={() => void locate()} title="Find where you stand and discover what is near" aria-label="Find where you stand">
+          <button type="button" className={'em-locate' + (following ? ' on' : '')} onClick={() => void locate()} title="Find where you stand and discover what is near" aria-label="Find where you stand">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 18.6 20 12 16.2 5.4 20Z" fill="currentColor" /></svg><span>ME</span>
           </button>
         )}
@@ -702,7 +707,7 @@ export default function App() {
         )}
 
         {import.meta.env.DEV && new URLSearchParams(window.location.search).has('combattest') && (
-          <CombatScreen title="Test" imageUrl="/_test.png" plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
+          <CombatScreen title="Test" imageUrl={new URLSearchParams(window.location.search).get("img") || "/_test.png"} plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} onBuy={() => { setAccountOpen(false); setBuyOpen(true); }} />}

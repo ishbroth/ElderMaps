@@ -151,7 +151,8 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
                 <button type="button" className="em-quill" aria-label="Edit your character" title="Edit" onClick={onAccount}><Quill size={20} /></button>
                 <button type="button" className="em-btn em-btn-ghost em-small" onClick={() => void account.signOut()}>SIGN OUT</button>
               </div>
-              <p className="em-fine">HOME: {account.home?.address ?? 'not set'}</p>
+              <p className="em-fine em-origin"><b>ORIGIN</b> {account.profile?.sigilCity ?? 'not chosen'}</p>
+              <p className="em-fine em-origin"><b>DOMICILE</b> {account.home?.address ?? 'none yet: glimpse the place you live and make it your hearth'}</p>
               <p className="em-septims"><Coin size={20} /> {account.septims.toLocaleString('en-US')}</p>
               <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onBuy}>EXCHANGE TENDER</button></div>
               <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onHouse}>YOUR HOUSE</button></div>

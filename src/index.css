@@ -194,7 +194,7 @@ button { font: inherit; }
 .em-glimpsed .em-ico { filter: drop-shadow(0 0 5px rgba(255, 220, 140, 0.95)); }
 
 /* the combat game */
-.em-combat { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; background: #0b0d10; color: var(--sky-ink, #f2f2ee); }
+.em-combat { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; background: #0b0d10; color: var(--sky-ink, #f2f2ee); }
 .em-combat-msg { margin: auto; text-align: center; letter-spacing: 3px; display: grid; gap: 14px; }
 .em-combat-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(12, 16, 20, 0.92); font-size: 12px; letter-spacing: 2px; }
 .em-combat-name { flex: 0 1 auto; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -323,10 +323,10 @@ button { font: inherit; }
 .em-try-row button { flex: 0 0 auto; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); font-family: inherit; font-size: 12px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
 
 /* the ME locator sits on the map above the zoom buttons */
-.em-me { position: absolute; z-index: 6; right: max(27px, calc(env(safe-area-inset-right) + 17px)); bottom: 131px; width: 46px; height: 46px; display: grid; place-items: center; gap: 0; padding: 4px 0 2px; background: rgba(12, 16, 20, 0.94); color: var(--sky-ink, #f2f2ee); border: 1px solid rgba(201, 194, 176, 0.7); cursor: pointer; font-family: inherit; }
-.em-me svg { width: 20px; height: 20px; }
-.em-me span { font-size: 9px; letter-spacing: 0.18em; line-height: 1; }
-.em-me.on { color: #0c1014; background: var(--sky-ink, #f2f2ee); }
+.em-locate { position: absolute; z-index: 6; right: max(27px, calc(env(safe-area-inset-right) + 17px)); bottom: 156px; width: 46px; height: 46px; display: grid; place-items: center; gap: 0; padding: 4px 0 2px; background: rgba(12, 16, 20, 0.94); color: var(--sky-ink, #f2f2ee); border: 1px solid rgba(201, 194, 176, 0.7); cursor: pointer; font-family: inherit; }
+.em-locate svg { width: 20px; height: 20px; }
+.em-locate span { font-size: 9px; letter-spacing: 0.18em; line-height: 1; }
+.em-locate.on { color: #0c1014; background: var(--sky-ink, #f2f2ee); }
 
 /* the house */
 .em-house { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: #0b0d10; color: var(--sky-ink, #f2f2ee); overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
@@ -386,3 +386,14 @@ button { font: inherit; }
 
 .em-coin { display: inline-block; vertical-align: -0.2em; }
 .em-septims { display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* on the road the ledger is gone: the map fills the whole screen (and does not change size when the road starts) */
+.em-road .em-stage { flex: 1 1 auto; min-height: 0; }
+
+.em-look-switch { display: flex; border: 1px solid var(--sky-line); background: var(--sky-panel); }
+.em-look-switch button { padding: 8px 12px; background: transparent; color: var(--sky-dim); border: 0; cursor: pointer; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-family: inherit; }
+.em-look-switch button.on { background: var(--sky-ink); color: #0c1014; }
+@media (max-width: 520px) { .em-look-switch button { padding: 8px 7px; font-size: 10.5px; letter-spacing: 0.1em; } }
+
+.em-origin { text-align: left; margin: 2px 0; }
+.em-origin b { letter-spacing: 0.2em; margin-right: 8px; font-weight: 500; }

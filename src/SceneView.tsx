@@ -43,7 +43,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
     setProblem(''); setState('working');
     // it can take a minute the first time anyone looks at a place: asking again is free
     for (let attempt = 0; attempt < 40 && alive.current; attempt++) {
-      const r = await requestGlimpse({ id: spot.id, name: spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: province.id });
+      const r = await requestGlimpse({ id: spot.id, name: spot.real || spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: province.id });
       if (!alive.current) return;
       if (r.kind === 'ready') { setGlimpse(r.glimpse); setState('ready'); if (r.glimpse.charged) onSpent(); return; }
       if (r.kind === 'error') { setProblem(GLIMPSE_MESSAGES[r.reason] ?? GLIMPSE_MESSAGES.failed); setState('idle'); return; }
