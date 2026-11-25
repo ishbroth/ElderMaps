@@ -150,7 +150,14 @@ async function openverse(name: string, headers: Headers): Promise<PhotoHit | nul
 }
 
 /** The best freely licensed photo of a place, or null. Each source that fails or has nothing hands over to the next. */
+/** Cities whose automatic picture was not a good one: the photograph to use instead (a Commons file; all of them freely licensed). */
+const PHOTO_PICKS: Record<string, string> = {
+  miami: 'Miami - Skyline from Harbor.jpg',
+};
+
 export async function findPhotoFor(q: PhotoQuery, headers: Headers = {}): Promise<PhotoHit | null> {
+  const pick = PHOTO_PICKS[q.name.trim().toLowerCase()];
+  if (pick && (q.lat === undefined || (Math.abs(q.lat - 25.77) < 0.5 && Math.abs((q.lng ?? -80.2) + 80.2) < 0.5))) { try { const hit = await commonsFile(pick, 'wikidata', headers); if (hit) return hit; } catch { /* the ordinary search follows */ } }
   let lat = q.lat;
   let lng = q.lng;
   let failed = false;

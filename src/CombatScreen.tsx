@@ -204,15 +204,18 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: CombatAssets, W: number, H: number) {
   const sprites = art.enemies[e.type.art ?? e.type.id];
   const h = g.heightOf(e) * H;
+  const bite = e.sky ? e.sky.bite : 0;
+  const biteK = bite > 0 ? Math.sin(Math.min(1, bite) * Math.PI * 0.5) : 0;
   let frame = Math.floor(e.gait * 2) % 2;
   if (e.state === 'striking' || e.sky?.attacking) frame = 2; else if (e.state === 'dying') frame = 3;
   const img = sprites?.frames[frame];
   // every pose is drawn at the same scale (the one that makes the first pose h tall), so a lunge is bigger and a corpse lower, and a flapping wing keeps its size
   const base = sprites?.frames[0];
-  const sc = img && base ? h / base.naturalHeight : 1;
+  const sc = (img && base ? h / base.naturalHeight : 1) * (1 + 1.5 * biteK);
   const w = img ? img.naturalWidth * sc : h * 0.45;
   const dh = img ? img.naturalHeight * sc : h;
-  const x = e.u * W, y = (e.v - e.lift) * H;
+  const snap = bite > 0.9 ? 1 : 0;
+  const x = (e.u + (0.5 - e.u) * biteK * 0.8) * W, y = (e.v - e.lift) * H + biteK * H * 0.2;
   // its shadow stays on the ground
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x, e.v * H, w * 0.4, h * 0.06, 0, 0, Math.PI * 2); ctx.fill();
   ctx.save();
@@ -220,7 +223,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: Combat
   else if (e.state === 'leaving') ctx.globalAlpha = Math.max(0, 1 - e.t / 1.1);
   if (e.hurt > 0 && Math.floor(e.hurt * 40) % 2 === 0) ctx.globalAlpha *= 0.65;
   const lean = e.state === 'walking' ? Math.sin(e.gait * Math.PI) * 0.03 : 0;
-  ctx.translate(x, y); ctx.rotate(lean);
+  ctx.translate(x + (snap ? (Math.random() - 0.5) * 10 : 0), y); ctx.rotate(lean + (biteK > 0 ? Math.sin(biteK * 14) * 0.03 : 0));
   if (img) ctx.drawImage(img, -w / 2, -dh, w, dh);
   else { ctx.fillStyle = e.boss ? '#5a2a2a' : '#2a2f36'; ctx.fillRect(-w / 2, -h, w, h); }
   if (e.chill > 0) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(140,200,255,0.35)'; ctx.fillRect(-w / 2, -h, w, h); }
@@ -267,17 +270,23 @@ function drawEffect(ctx: CanvasRenderingContext2D, f: Effect, W: number, H: numb
 }
 
 function drawHands(ctx: CanvasRenderingContext2D, g: Game, art: CombatAssets, W: number, H: number) {
+  const pair = g.slots.length > 1;
   g.slots.forEach((s, i) => {
     const img = art.weapons[s.weapon.art];
-    const two = g.slots.length > 1;
-    const baseX = two ? (i === 0 ? W * 0.72 : W * 0.28) : W * 0.5;
-    const w = (two ? 0.34 : 0.46) * W;
+    // a one-handed weapon or a spell is a single right hand (the first), off to the right; the second hand (the left, turned round) appears only with both hands bought.
+    // Two-handed weapons and the bow hold in the middle with both hands in the picture.
+    const bothInPicture = s.weapon.cls === 'twohand' || s.weapon.cls === 'bow';
+    const left = pair && i === 1;
+    const baseX = bothInPicture ? W * 0.5 : pair ? (left ? W * 0.27 : W * 0.73) : W * 0.7;
+    const w = (bothInPicture ? 0.36 : pair ? 0.25 : 0.27) * W;
     const h = img ? w * (img.naturalHeight / img.naturalWidth) : w * 0.9;
     // pulled back while charging, then a quick swing through
     let rot = -0.08 * s.charge, dy = 0.12 * h * s.charge, dx = 0;
     if (s.swing > 0) { const k = s.swing; const a = Math.sin(k * Math.PI); rot = (s.weapon.melee ? -0.7 : -0.12) * a * (1 - k * 0.2); dy = -0.1 * h * a; dx = s.weapon.melee ? -0.1 * w * a : 0; }
     ctx.save();
-    ctx.translate(baseX + dx, H + dy); ctx.rotate(rot);
+    // lower on the screen: the forearms rise from the bottom edge, with the hand and weapon in the lower part of the picture
+    ctx.translate(baseX + (left ? -dx : dx), H + 0.03 * h + dy); ctx.rotate(left ? -rot : rot);
+    if (left && !bothInPicture) ctx.scale(-1, 1);
     if (img) ctx.drawImage(img, -w / 2, -h * 0.92, w, h);
     else { ctx.fillStyle = isSpell(s.weapon.cls) ? SPELL_COLOR[s.weapon.cls] : '#aaa'; ctx.fillRect(-w * 0.1, -h * 0.9, w * 0.2, h * 0.9); }
     ctx.restore();

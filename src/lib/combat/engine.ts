@@ -49,7 +49,7 @@ export interface Enemy {
   gait: number;
   lift: number;
   /** A dragon in the sky of a city picture: circling far off, swooping in close and pausing to strike, then back up. */
-  sky?: { mode: 'circle' | 'swoop' | 'hover' | 'retreat'; t: number; next: number; baseV: number; hit: number; attacking: boolean };
+  sky?: { mode: 'circle' | 'swoop' | 'hover' | 'retreat'; t: number; next: number; baseV: number; hit: number; attacking: boolean; /** 0 to 1: how far the head has come out of the picture at the player (the bite). */ bite: number };
 }
 
 export interface Effect {
@@ -295,7 +295,7 @@ export class Game {
   private spawn(type: EnemyType, boss: boolean) {
     if (this.dragonSky && type.id === 'dragon') {
       const v = Math.max(0.12, Math.min(0.5, this.dragonSky.v * 0.5));
-      this.enemies.push({ id: this.nextId++, type, boss: true, u0: 0.5, v0: v, toU: 0.5, u: 0.5, v, p: 0.12, travel: 1, hp: Math.round(type.hp * 1.4 * this.strength), maxHp: Math.round(type.hp * 1.4 * this.strength), state: 'walking', t: 0, hurt: 0, phase: 0, exit: 1, chill: 0, gait: 0, lift: 0, sky: { mode: 'circle', t: 0, next: 10 + this.random() * 6, baseV: v, hit: 0, attacking: false } });
+      this.enemies.push({ id: this.nextId++, type, boss: true, u0: 0.5, v0: v, toU: 0.5, u: 0.5, v, p: 0.12, travel: 1, hp: Math.round(type.hp * 1.4 * this.strength), maxHp: Math.round(type.hp * 1.4 * this.strength), state: 'walking', t: 0, hurt: 0, phase: 0, exit: 1, chill: 0, gait: 0, lift: 0, sky: { mode: 'circle', t: 0, next: 10 + this.random() * 6, baseV: v, hit: 0, attacking: false, bite: 0 } });
       return;
     }
     const pts = this.spawns.points;
@@ -326,13 +326,15 @@ export class Game {
       e.p = 0.86; e.u = 0.5 + 0.06 * Math.sin(s.t * 1.6); e.v = 0.84 + 0.01 * Math.sin(s.t * 3);
       const cycle = e.type.every;
       const phase = s.t - s.hit * cycle;
-      s.attacking = phase > cycle - 0.45;
+      s.attacking = phase > cycle - 0.7;
+      // the head comes out of the picture at the player, and snaps shut at the moment of the bite
+      s.bite = s.attacking ? Math.min(1, (phase - (cycle - 0.7)) / 0.62) : Math.max(0, s.bite - dt * 2.6);
       if (phase >= cycle) {
         const [lo, hi] = STRIKE_SHARE.strong;
         this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++; this.onBuzz?.('hurt');
         if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
       }
-      if (s.t >= 5.5) { s.mode = 'retreat'; s.t = 0; s.attacking = false; }
+      if (s.t >= 5.5) { s.mode = 'retreat'; s.t = 0; s.attacking = false; s.bite = 0; }
     } else {
       e.p = Math.max(0.12, e.p - dt / 2.2);
       e.v = s.baseV + (0.84 - s.baseV) * ((e.p - 0.12) / 0.74); e.u += (0.5 + 0.34 * Math.sin(s.t) - e.u) * Math.min(1, dt);

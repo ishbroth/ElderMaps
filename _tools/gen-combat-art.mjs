@@ -43,11 +43,12 @@ const ENEMIES = {
 };
 
 const HANDS = (what) => `${STYLE} A first-person video game view of the player's gloved hands holding ${what}, seen from behind and slightly above, the weapon pointing away from the camera and up, centred, cropped at the forearms, on a perfectly flat solid magenta (#FF00FF) background with no floor and no shadow, no text.`;
+const HAND1 = (what) => `${STYLE} A first-person video game view of the player's SINGLE right gloved hand and forearm holding ${what}, seen from behind and slightly above, the weapon pointing away from the camera and up, the arm coming up from the bottom right, only ONE hand and ONE arm in the picture, centred, cropped at the forearm, on a perfectly flat solid magenta (#FF00FF) background with no floor and no shadow, no text.`;
 const WEAPONS = {
-  iron1h: HANDS('a plain iron one-handed sword with a leather-wrapped grip'),
-  steel1h: HANDS('a fine steel one-handed sword with a curved guard'),
-  gilded1h: HANDS('a gilded golden elven one-handed sword with a curved, leaf-shaped blade'),
-  night1h: HANDS('a black glass-like volcanic one-handed sword with a jagged green-black blade'),
+  iron1h: HAND1('a plain iron one-handed sword with a leather-wrapped grip'),
+  steel1h: HAND1('a fine steel one-handed sword with a curved guard'),
+  gilded1h: HAND1('a gilded golden elven one-handed sword with a curved, leaf-shaped blade'),
+  night1h: HAND1('(ONE hand only, the left side of the picture empty) a black glass-like volcanic one-handed sword with a jagged green-black blade'),
   iron2h: HANDS('a heavy iron two-handed greatsword with a long plain blade'),
   steel2h: HANDS('a steel two-handed battleaxe with a broad double blade'),
   gilded2h: HANDS('a gilded golden two-handed warhammer with ornate engraving'),

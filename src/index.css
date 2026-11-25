@@ -160,9 +160,7 @@ button { font: inherit; }
 .em-reveal { margin: 0; }
 .em-reveal-frame { position: relative; overflow: hidden; aspect-ratio: 4 / 3; background: #0b0d10; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
 .em-reveal-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.em-reveal-after { clip-path: circle(0% at 50% 55%); opacity: 0; }
-.em-reveal.go .em-reveal-after { animation: em-wave-in 3.2s cubic-bezier(0.3, 0.1, 0.2, 1) forwards; }
-.em-reveal.go .em-reveal-before { animation: em-before-out 3.2s ease-in forwards; }
+.em-reveal-after { opacity: 0; }
 .em-reveal-wave { position: absolute; left: 50%; top: 55%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; pointer-events: none; opacity: 0; box-shadow: 0 0 22px 10px rgba(180, 225, 255, 0.85), inset 0 0 18px 6px rgba(255, 255, 255, 0.9); }
 .em-reveal.go .em-reveal-wave { animation: em-wave-ring 3.2s cubic-bezier(0.3, 0.1, 0.2, 1) forwards; }
 @keyframes em-wave-in { 0% { clip-path: circle(0% at 50% 55%); opacity: 1; filter: brightness(2) blur(6px); } 70% { filter: brightness(1.15) blur(1px); } 100% { clip-path: circle(100% at 50% 55%); opacity: 1; filter: none; } }
@@ -410,3 +408,6 @@ button { font: inherit; }
 
 .em-edit-label { text-align: left; letter-spacing: 0.2em; margin: 12px 0 2px; }
 .em-edit-home input { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 9px 10px; font: inherit; font-size: 16px; background: transparent; color: inherit; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
+
+.em-reveal-portal { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.em-reveal-frame { will-change: transform; }

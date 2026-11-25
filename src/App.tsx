@@ -12,7 +12,7 @@ import { KIND_TITLE, PROVINCES, SEAS, kindTitle, loreName, placeLine, readableIn
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
-import SceneView from './SceneView';
+import SceneView, { Reveal } from './SceneView';
 import TownLegend from './TownLegend';
 import Shop from './Shop';
 import Ledger from './Ledger';
@@ -716,6 +716,7 @@ export default function App() {
             onNeedsAccount={() => { setLegend(null); setAccountOpen(true); }} onSpent={() => void account.refresh()} onOpenSpot={(s) => setViewing(s)} onClose={() => setLegend(null)} />
         )}
 
+        {import.meta.env.DEV && new URLSearchParams(window.location.search).has('revealtest') && <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: '#0b0d10', padding: 20 }}><Reveal glimpse={{ url: '/_test-wide.png', before: '/_test-before.png', credit: null, discovered: { by: 'Test', at: '' } } as never} name="Reveal test" /></div>}
         {import.meta.env.DEV && new URLSearchParams(window.location.search).has('combattest') && (
           <CombatScreen title="Chicago" imageUrl={new URLSearchParams(window.location.search).get("img") || "/_test.png"} plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
