@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Account } from './lib/account';
 import { db } from './lib/account';
 import {
-  COLS, LEVELS, ROOM_DEFS, ROWS, applyBuild, applyDemolish, applyFurnish, applyPlace, buildRecipe, checkIn, newVault, furnishRecipe, furnitureOf, hasDecon, isDoorCell, normalize, roomAt, roomDef, slotsOf, stairOptions, whyNotBuild, whyNotDemolish,
+  COLS, LEVELS, ROOM_DEFS, ROWS, applyBuild, applyDemolish, applyFurnish, applyPlace, buildRecipe, checkIn, newVault, slotOf, INSTRUMENTS, INSTRUMENT_NAMES, furnishRecipe, furnitureOf, hasDecon, isDoorCell, normalize, roomAt, roomDef, slotsOf, stairOptions, whyNotBuild, whyNotDemolish,
   type Face, type LootBag, type RoomType, type StairDir, type StairShape, type VaultHome, type VaultRoom,
 } from './lib/house';
 import { LOOT } from './lib/loot';
@@ -15,15 +15,27 @@ const pixelToFloor = (x: number, y: number) => {
   const a = (y - G.topY) / G.halfH, b = (x - G.cx) / G.halfW;
   return { u: Math.max(0, Math.min(1, (a + b) / 2)), v: Math.max(0, Math.min(1, (a - b) / 2)) };
 };
-/** Where the pieces stand until the owner moves them. */
-const DEFAULT_SPOTS: [number, number][] = [[0.22, 0.28], [0.72, 0.24], [0.26, 0.74], [0.74, 0.72], [0.5, 0.5], [0.5, 0.2], [0.2, 0.5], [0.8, 0.5]];
-/** How wide each piece is drawn, in the room's own 1024-wide picture. */
-const WIDTH: Record<string, number> = {
-  bed: 230, couch: 200, table: 230, pooltable: 210, bar: 230, snackbar: 200, seating: 230, dresser: 150, bookshelf: 150, chinacabinet: 150, stove: 160, sinkcabinets: 190, shower: 170, washer: 130,
-  corn: 190, tatoes: 190, mutfruit: 190, decon: 150, desk: 170, craftingtable: 190, tv: 140, armchair: 120, statue: 100, plant: 100, lamp: 80, fishtank: 80, coatrack: 110, weaponrack: 120,
-  dartboard: 110, easel: 110, dryer: 120, ironingboard: 160, toilet: 100, bathsink: 110, nightstand: 100, instrument: 110, punchbowl: 120, speakers: 160, screen: 170, pinball: 160,
-  coffeetable: 150, shoebench: 150, toolchest: 140, armorstand: 110, fridge: 130,
+/** Where each piece stands until the owner moves it: a spot on the floor (u across, v deep), and which back wall it stands against (x: the left one, y: the right one, none: in the open). The same places as in WastelandMaps. */
+const SPOT: Record<string, { u: number; v: number; wall?: 'x' | 'y' }> = {
+  coatrack: { u: 0.1, v: 0.22, wall: 'x' }, shoebench: { u: 0.1, v: 0.62, wall: 'x' }, decon: { u: 0.72, v: 0.14, wall: 'y' }, couch: { u: 0.5, v: 0.2, wall: 'y' }, tv: { u: 0.1, v: 0.5, wall: 'x' },
+  armchair: { u: 0.78, v: 0.62 }, coffeetable: { u: 0.5, v: 0.62 }, table: { u: 0.5, v: 0.5 }, punchbowl: { u: 0.5, v: 0.5 }, chinacabinet: { u: 0.1, v: 0.78, wall: 'x' }, sinkcabinets: { u: 0.5, v: 0.1, wall: 'y' },
+  fridge: { u: 0.1, v: 0.35, wall: 'x' }, stove: { u: 0.85, v: 0.1, wall: 'y' }, bed: { u: 0.5, v: 0.5 }, nightstand: { u: 0.88, v: 0.14, wall: 'y' }, dresser: { u: 0.1, v: 0.75, wall: 'x' }, lamp: { u: 0.12, v: 0.2, wall: 'x' },
+  toilet: { u: 0.7, v: 0.2, wall: 'y' }, bathsink: { u: 0.25, v: 0.2, wall: 'y' }, shower: { u: 0.78, v: 0.74 }, washer: { u: 0.22, v: 0.2, wall: 'y' }, dryer: { u: 0.62, v: 0.2, wall: 'y' }, ironingboard: { u: 0.78, v: 0.7 },
+  seating: { u: 0.5, v: 0.62 }, screen: { u: 0.5, v: 0.06, wall: 'y' }, snackbar: { u: 0.86, v: 0.1, wall: 'y' }, speakers: { u: 0.1, v: 0.3, wall: 'x' }, pooltable: { u: 0.5, v: 0.5 }, bar: { u: 0.5, v: 0.1, wall: 'y' },
+  dartboard: { u: 0.3, v: 0.05, wall: 'y' }, pinball: { u: 0.1, v: 0.55, wall: 'x' }, toolchest: { u: 0.1, v: 0.25, wall: 'x' }, armorstand: { u: 0.5, v: 0.55 }, craftingtable: { u: 0.6, v: 0.12, wall: 'y' },
+  fishtank: { u: 0.5, v: 0.5 }, weaponrack: { u: 0.5, v: 0.5 }, statue: { u: 0.5, v: 0.5 }, plant: { u: 0.5, v: 0.5 }, corn: { u: 0.27, v: 0.3 }, tatoes: { u: 0.5, v: 0.74 }, mutfruit: { u: 0.74, v: 0.3 },
+  bookshelf: { u: 0.1, v: 0.5, wall: 'x' }, desk: { u: 0.5, v: 0.08, wall: 'y' }, guitar: { u: 0.1, v: 0.62, wall: 'x' }, easel: { u: 0.8, v: 0.42 }, instrument: { u: 0.1, v: 0.62, wall: 'x' }, piano: { u: 0.76, v: 0.5 },
+  harp: { u: 0.8, v: 0.55 }, drums: { u: 0.8, v: 0.6 },
 };
+/** The floor is stretched a little so the pieces spread out and do not crowd the middle. */
+const stretch = (k: number): number => Math.max(0, Math.min(1, 0.5 + (k - 0.5) * 1.22));
+/** How far a piece reaches along its wall (its width on screen, in the room's 1024-pixel picture), as WastelandMaps sizes them against the room, a little under. */
+const WIDTH: Record<string, number> = {
+  coatrack: 80, shoebench: 120, decon: 120, couch: 190, tv: 130, armchair: 105, coffeetable: 130, table: 215, punchbowl: 110, chinacabinet: 130, sinkcabinets: 210, fridge: 95, stove: 120, bed: 215, nightstand: 78, dresser: 140,
+  lamp: 62, toilet: 88, bathsink: 100, shower: 165, washer: 112, dryer: 108, ironingboard: 130, seating: 220, screen: 260, snackbar: 175, speakers: 92, pooltable: 195, bar: 250, dartboard: 100, pinball: 130, toolchest: 125,
+  armorstand: 95, craftingtable: 190, fishtank: 70, weaponrack: 105, statue: 90, plant: 90, corn: 165, tatoes: 165, mutfruit: 165, bookshelf: 130, desk: 185, guitar: 92, instrument: 92, piano: 150, harp: 105, drums: 125, easel: 100,
+};
+const SMALL = new Set(['entry', 'stairs', 'hallway', 'laundry', 'bathroom']);
 const SHORT: Record<string, string> = { entry: 'GATE', stairs: 'STAIR', hallway: 'HALL', garden: 'GARD', study: 'STUDY', living: 'GREAT', dining: 'FEAST', kitchen: 'KITCH', bedroom: 'BED', laundry: 'WASH', bathroom: 'BATH', entertainment: 'BARD', game: 'TAVERN', workshop: 'FORGE' };
 const TINT: Record<string, string> = { entry: '#c9a45c', stairs: '#6c7480', hallway: '#4a5058', garden: '#4f7a45', study: '#7a5a8a', living: '#9a6a3a', dining: '#8a4a3a', kitchen: '#a08a4a', bedroom: '#4a6a8a', laundry: '#4a8a8a', bathroom: '#5a8aa0', entertainment: '#a05a7a', game: '#7a7a3a', workshop: '#8a4a2a' };
 const NORTHERN = new Set(['NO', 'SE', 'FI', 'DK', 'IS', 'RU', 'EE', 'LV', 'LT', 'CA', 'GL', 'FO']);
@@ -162,12 +174,12 @@ function Floorplan({ vault, level, setLevel, cell, setCell, loot, busy, act, ope
         </div>
       )}
       <div className="em-levels" role="tablist" aria-label="Levels">
-        {Array.from({ length: LEVELS }, (_, l) => (
-          <button key={l} type="button" role="tab" aria-selected={level === l} className={level === l ? 'on' : ''} onClick={() => { setLevel(l); setCell(null); }}>{l === 0 ? 'GROUND' : `DOWN ${l}`}<small>{vault.rooms.filter((r) => r.level === l).length}</small></button>
+        {Array.from({ length: LEVELS }, (_, i) => LEVELS - 1 - i).map((l) => (
+          <button key={l} type="button" role="tab" aria-selected={level === l} className={level === l ? 'on' : ''} onClick={() => { setLevel(l); setCell(null); }}>{l === 0 ? 'GROUND' : `FLOOR ${l}`}<small>{vault.rooms.filter((r) => r.level === l).length}</small></button>
         ))}
       </div>
       <div className="em-plan" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)`, gridTemplateRows: `repeat(${ROWS}, 1fr)` }}>{cells}</div>
-      <p className="em-fine">Tap a room to go in. Tap a + to build next to what you have.</p>
+      <p className="em-fine">Tap a room to go in. Tap a + to build next to what you have. The ground floor is at the bottom of the list: build upward from it with a stairwell.</p>
       {cell && <BuildSheet vault={vault} level={level} cell={cell} loot={loot} busy={busy} act={act} done={() => setCell(null)} />}
     </div>
   );
@@ -203,7 +215,7 @@ function BuildSheet({ vault, level, cell, loot, busy, act, done }: { vault: Vaul
       </ul>
       <div className="em-stair-opts">
         <small>FOR A STAIRWELL:</small>
-        <div className="em-seg"><button type="button" className={dir === 'down' ? 'on' : ''} onClick={() => setDir('down')}>DOWN</button><button type="button" className={dir === 'up' ? 'on' : ''} onClick={() => setDir('up')}>UP</button></div>
+        <div className="em-seg"><button type="button" className={dir === 'down' ? 'on' : ''} onClick={() => setDir('down')}>UP A FLOOR</button><button type="button" className={dir === 'up' ? 'on' : ''} onClick={() => setDir('up')}>DOWN A FLOOR</button></div>
         <div className="em-seg"><button type="button" className={shape === 'straight' ? 'on' : ''} onClick={() => setShape('straight')}>STRAIGHT</button><button type="button" className={shape === 'u' ? 'on' : ''} onClick={() => setShape('u')}>U-TURN</button></div>
         <div className="em-seg">{(['l', 'r', 'b', 'f'] as Face[]).map((f) => <button key={f} type="button" disabled={!faces.includes(f)} className={chosenSide === f ? 'on' : ''} onClick={() => setSide(f)}>{SIDE_NAME[f]}</button>)}</div>
       </div>
@@ -216,16 +228,22 @@ function BuildSheet({ vault, level, cell, loot, busy, act, done }: { vault: Vaul
 function RoomView({ vault, index, room, style, loot, busy, act, onGone }: { vault: VaultHome; index: number; room: VaultRoom; style: Style; loot: Record<string, number>; busy: boolean; act: (b: Record<string, unknown>) => Promise<boolean>; onGone: () => void }) {
   const stage = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState<string | null>(null);
+  const [inst, setInst] = useState<string>('guitar');
   const [drag, setDrag] = useState<{ item: string; u: number; v: number } | null>(null);
   const pieces = furnitureOf(room.type);
   const placed = room.furniture;
   const canMove = room.type !== 'hallway';
-  const spotOf = (item: string, i: number): { u: number; v: number; swap: boolean } => {
+  const spotOf = (item: string, _i: number): { u: number; v: number; swap: boolean } => {
     if (drag && drag.item === item) return { u: drag.u, v: drag.v, swap: !!room.put?.[item]?.swap };
     const p = room.put?.[item];
     if (p) return { u: p.u, v: p.v, swap: !!p.swap };
-    const d = room.type === 'hallway' ? [0.5, 0.5] : DEFAULT_SPOTS[i % DEFAULT_SPOTS.length];
-    return { u: d[0], v: d[1], swap: false };
+    if (room.type === 'hallway') return { u: 0.5, v: 0.5, swap: false };
+    const d = SPOT[item] ?? { u: 0.5, v: 0.5 };
+    // a piece that belongs to a wall stands right against it: its back a hair from the wall
+    let u = stretch(d.u), v = stretch(d.v);
+    if (d.wall === 'x') u = Math.max(u, 0.1);
+    if (d.wall === 'y') v = Math.max(v, 0.1);
+    return { u, v, swap: false };
   };
   const toFloor = (e: React.PointerEvent): { u: number; v: number } | null => {
     const rect = stage.current?.getBoundingClientRect();
@@ -247,11 +265,11 @@ function RoomView({ vault, index, room, style, loot, busy, act, onGone }: { vaul
         {order.map(({ item, i }) => {
           const s = spotOf(item, i);
           const p = floorToPixel(s.u, s.v);
-          const w = WIDTH[item] ?? 140;
+          const w = (WIDTH[item] ?? 120) * (SMALL.has(room.type) ? 0.86 : 1);
           return (
             <img
               key={item} className={`em-piece${sel === item ? ' on' : ''}${drag?.item === item ? ' drag' : ''}`} src={`${BASE}house/${style}/f/${item}.webp`} alt={furnitureOf(room.type).find((f) => f.id === item)?.name ?? item} draggable={false}
-              style={{ left: `${(p.x / G.w) * 100}%`, top: `${(p.y / G.h) * 100}%`, width: `${(w / G.w) * 100}%`, zIndex: Math.round(p.y), transform: `translate(-50%, -94%)${s.swap ? ' scaleX(-1)' : ''}` }}
+              style={{ left: `${(p.x / G.w) * 100}%`, top: `${(p.y / G.h) * 100}%`, width: `${(w / G.w) * 100}%`, zIndex: Math.round(p.y), transform: `translate(-50%, -70%)${s.swap ? ' scaleX(-1)' : ''}` }}
               onPointerDown={(e) => { if (!canMove || busy) return; e.preventDefault(); (e.currentTarget.parentElement as HTMLElement).setPointerCapture?.(e.pointerId); setSel(item); setDrag({ item, u: s.u, v: s.v }); }}
             />
           );
@@ -262,19 +280,25 @@ function RoomView({ vault, index, room, style, loot, busy, act, onGone }: { vaul
       <h3>FURNISHINGS</h3>
       <ul className="em-build-list">
         {pieces.map((f) => {
-          const have = placed.some((x) => x === f.id || (f.id === 'instrument' && x === 'instrument'));
-          const recipe = furnishRecipe(vault, index, f.id);
+          const placedItem = placed.find((x) => slotOf(x) === f.id);
+          const have = !!placedItem;
+          const makeItem = f.id === 'instrument' ? inst : f.id;
+          const recipe = furnishRecipe(vault, index, makeItem);
           const affordable = canPay(recipe, loot);
           const full = room.type === 'hallway' && room.furniture.length >= 1;
+          const name = placedItem && f.id === 'instrument' ? INSTRUMENT_NAMES[placedItem] ?? f.name : f.name;
           return (
             <li key={f.id} className={have ? 'em-shop-owned' : ''}>
               <div>
-                <b>{f.name.toUpperCase()}</b>
+                <b>{name.toUpperCase()}</b>
                 <small>{have ? 'IN THE ROOM' : full ? 'A HALLWAY HOLDS ONE PIECE' : describe(recipe)}</small>
+                {!have && f.id === 'instrument' && (
+                  <div className="em-seg em-inst">{INSTRUMENTS.map((k) => <button key={k} type="button" className={inst === k ? 'on' : ''} onClick={() => setInst(k)}>{INSTRUMENT_NAMES[k].toUpperCase()}</button>)}</div>
+                )}
               </div>
               {have
-                ? canMove && <button type="button" className={`em-btn em-btn-ghost${sel === f.id ? ' on' : ''}`} onClick={async () => { setSel(f.id); const cur = room.put?.[f.id] ?? { u: 0.5, v: 0.5 }; await act({ action: 'place', room: index, item: f.id, at: { u: cur.u, v: cur.v, ...(room.put?.[f.id]?.swap ? {} : { swap: true }) } }); }}>TURN</button>
-                : <button type="button" className="em-btn" disabled={busy || full || !affordable} onClick={() => void act({ action: 'furnish', room: index, item: f.id })}>{affordable ? 'MAKE' : 'NEED LOOT'}</button>}
+                ? canMove && <button type="button" className={`em-btn em-btn-ghost${sel === placedItem ? ' on' : ''}`} onClick={async () => { const it = placedItem as string; setSel(it); const cur = room.put?.[it] ?? (() => { const sp = spotOf(it, 0); return { u: sp.u, v: sp.v }; })(); await act({ action: 'place', room: index, item: it, at: { u: cur.u, v: cur.v, ...(room.put?.[it]?.swap ? {} : { swap: true }) } }); }}>TURN</button>
+                : <button type="button" className="em-btn" disabled={busy || full || !affordable} onClick={() => void act({ action: 'furnish', room: index, item: makeItem })}>{affordable ? 'MAKE' : 'NEED LOOT'}</button>}
             </li>
           );
         })}

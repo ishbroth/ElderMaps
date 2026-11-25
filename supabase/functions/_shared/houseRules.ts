@@ -8,7 +8,7 @@ export type LootBag = Partial<Record<string, number>>;
 /** One level of the floorplan: eleven cells by eleven, room enough to grow in any direction from the entryway in the middle (15 rooms is the most there can be). */
 export const COLS = 11;
 export const ROWS = 11;
-/** Levels down: the one you start on and four more. */
+/** Floors, built upward: level 0 is the ground floor (where the entrance hall is) and 1 to 4 are the floors above it. (A stairwell going "down" in the rules below goes to the NEXT level number: up a floor, to the player.) */
 export const LEVELS = 5;
 /** The most room slots a vault can hold, on whatever levels (a wide room takes two). The entryway, hallways and stairwells do not count. */
 export const MAX_SLOTS = 25;
@@ -210,10 +210,10 @@ const going = (v: VaultHome, level: number, dir: StairDir): number => v.rooms.fi
 /** What every stairwell needs, whatever its shape: a level to go to, and room for another one going that way (two down from a level, and two up to it from the one below). */
 function whyNotLevels(v: VaultHome, level: number, dir: StairDir): string | null {
   const other = dir === 'down' ? level + 1 : level - 1;
-  if (other >= LEVELS) return 'There is nothing below the fifth level';
-  if (other < 0) return 'There is nothing above the first level';
+  if (other >= LEVELS) return 'There is no floor above the top one';
+  if (other < 0) return 'There is nothing below the ground floor';
   if (going(v, level, dir) >= STAIRS_PER_LEVEL) return `This level already has ${STAIRS_PER_LEVEL} stairwells going ${dir}`;
-  if (going(v, other, dir === 'down' ? 'up' : 'down') >= STAIRS_PER_LEVEL) return `The level ${dir === 'down' ? 'below' : 'above'} already has ${STAIRS_PER_LEVEL} stairwells coming ${dir === 'down' ? 'up' : 'down'} to this one`;
+  if (going(v, other, dir === 'down' ? 'up' : 'down') >= STAIRS_PER_LEVEL) return `The level ${dir === 'down' ? 'above' : 'below'} already has ${STAIRS_PER_LEVEL} stairwells coming ${dir === 'down' ? 'down' : 'up'} to this one`;
   return null;
 }
 
@@ -221,16 +221,16 @@ function whyNotLevels(v: VaultHome, level: number, dir: StairDir): string | null
 function whyNotStairsOn(v: VaultHome, level: number, col: number, row: number, dir: StairDir, face: Face): string | null {
   const other = dir === 'down' ? level + 1 : level - 1;
   // with every room slot used there is nothing to put on a level that has not been reached yet (the entryway, hallways and stairwells take no slot)
-  if (roomsOn(v, other).length === 0 && settlerSlots(v) >= MAX_SLOTS) return 'Every room slot is used: you cannot go down to a new level';
+  if (roomsOn(v, other).length === 0 && settlerSlots(v) >= MAX_SLOTS) return 'Every room slot is used: you cannot build up to a new floor';
   // the other end opens the opposite way, onto the cell on the far side: at the very edge of the vault there is none, and a straight flight would end in the edge with no room to turn
   const away = FACE_STEP[OPPOSITE[face]];
   const beyond = [col + away[0], row + away[1]];
   if (beyond[0] < 0 || beyond[0] >= COLS || beyond[1] < 0 || beyond[1] >= ROWS) return 'A straight stairwell facing this way would run into the edge of the house on the other level: choose the U-shaped one, which turns back';
-  if (roomAt(v, other, col, row)) return `There is already a room ${dir === 'down' ? 'under' : 'over'} it`;
-  if (isDoorCell(v, other, col, row)) return 'That is the wall with the front door on the level above: it stays clear';
+  if (roomAt(v, other, col, row)) return `There is already a room ${dir === 'down' ? 'over' : 'under'} it`;
+  if (isDoorCell(v, other, col, row)) return 'That is the wall with the front door on the ground floor: it stays clear';
   // at the other end the corridor picks up from the opposite side: nothing may be beside it on the other three
   const beside = around(v, other, col, row).filter((n) => n.face !== OPPOSITE[face]);
-  if (beside.length > 0) return `There is something in the way beside it on the level ${dir === 'down' ? 'below' : 'above'}`;
+  if (beside.length > 0) return `There is something in the way beside it on the level ${dir === 'down' ? 'above' : 'below'}`;
   return null;
 }
 
@@ -262,12 +262,12 @@ export type UPlan = { col: number; row: number; entry: 0 | 1; face: Face };
 
 function whyNotUOn(v: VaultHome, level: number, col: number, row: number, dir: StairDir, face: Face): string | null {
   const other = dir === 'down' ? level + 1 : level - 1;
-  if (roomsOn(v, other).length === 0 && settlerSlots(v) >= MAX_SLOTS) return 'Every room slot is used: you cannot go down to a new level';
-  if (roomAt(v, other, col, row)) return `There is already a room ${dir === 'down' ? 'under' : 'over'} it`;
-  if (isDoorCell(v, other, col, row)) return 'That is the wall with the front door on the level above: it stays clear';
+  if (roomsOn(v, other).length === 0 && settlerSlots(v) >= MAX_SLOTS) return 'Every room slot is used: you cannot build up to a new floor';
+  if (roomAt(v, other, col, row)) return `There is already a room ${dir === 'down' ? 'over' : 'under'} it`;
+  if (isDoorCell(v, other, col, row)) return 'That is the wall with the front door on the ground floor: it stays clear';
   // at the other end it opens the same way: nothing may be beside it on the other three sides
   const beside = around(v, other, col, row).filter((nb) => nb.face !== face);
-  if (beside.length > 0) return `There is something in the way beside it on the level ${dir === 'down' ? 'below' : 'above'}`;
+  if (beside.length > 0) return `There is something in the way beside it on the level ${dir === 'down' ? 'above' : 'below'}`;
   return null;
 }
 
@@ -420,7 +420,7 @@ export function furnishCost(r: VaultRoom): number {
 export const furnitureOf = (type: RoomType): FurnitureDef[] => roomDef(type).furniture;
 /** The study's instrument is one slot with a choice: until chosen it is "instrument", then one of these. */
 export const INSTRUMENTS = ['guitar', 'piano', 'harp', 'drums'] as const;
-export const INSTRUMENT_NAMES: Record<string, string> = { guitar: 'Lute', piano: 'Pipe Organ', harp: 'Harp', drums: 'War Drums' };
+export const INSTRUMENT_NAMES: Record<string, string> = { guitar: 'Lute', piano: 'Clavichord', harp: 'Harp', drums: 'Tympanon' };
 /** Which slot of its room a placed piece fills (a guitar, a piano, a harp or a drum set fills the instrument slot). */
 export const slotOf = (item: string): string => (item === 'instrument' || (INSTRUMENTS as readonly string[]).includes(item) ? 'instrument' : item);
 export const roomComplete = (r: VaultRoom): boolean => r.furniture.length >= (r.type === 'hallway' ? 1 : furnitureOf(r.type).length);

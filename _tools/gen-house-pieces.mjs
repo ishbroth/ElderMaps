@@ -27,7 +27,11 @@ const HINT = {
   pooltable: 'a gaming table with carved pieces on it', pinball: 'a dice table', dartboard: 'ONE single round archery target on a wooden stand (only one target)',
   craftingtable: 'an alchemy station with bottles, a mortar and herbs', armorstand: 'ONE single wooden stand holding one suit of armour (only one stand)', toolchest: 'an iron-bound tool chest',
 };
+// the study's instruments: one is chosen (a lute for the old 'guitar', a clavichord for the 'piano', a harp, a tympanon for the 'drums')
+HINT.guitar = 'a wooden lute on a small stand'; HINT.piano = 'a standing clavichord: a small keyed instrument in a carved wooden case on legs, with a row of keys';
+HINT.harp = 'a tall carved wooden concert harp with strings'; HINT.drums = 'a tympanon: a large shallow round drum on a carved wooden stand with two mallets';
 const piecesOf = [];
+for (const [id, name] of [['guitar', 'Lute'], ['piano', 'Clavichord'], ['harp', 'Harp'], ['drums', 'Tympanon']]) piecesOf.push({ id, name, room: 'Scriptorium' });
 for (const r of ROOM_DEFS) for (const f of r.furniture) if (!piecesOf.some((p) => p.id === f.id)) piecesOf.push({ id: f.id, name: f.name, room: r.name });
 const [style, ...only] = process.argv.slice(2);
 if (!KEY || !STYLES[style]) { console.log('usage: <nordic|imperial> [pieceId ...]'); process.exit(1); }
