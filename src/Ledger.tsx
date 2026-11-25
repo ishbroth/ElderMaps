@@ -1,3 +1,4 @@
+import Coin from './Coin';
 import { useMemo, useState } from 'react';
 import type { Spot } from './App';
 import { CHARACTER_TYPES, deleteAccount, type Account } from './lib/account';
@@ -151,8 +152,8 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
                 <button type="button" className="em-btn em-btn-ghost em-small" onClick={() => void account.signOut()}>SIGN OUT</button>
               </div>
               <p className="em-fine">HOME: {account.home?.address ?? 'not set'}</p>
-              <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
-              <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onBuy}>BUY SEPTIMS</button></div>
+              <p className="em-septims"><Coin size={20} /> {account.septims.toLocaleString('en-US')}</p>
+              <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onBuy}>EXCHANGE TENDER</button></div>
               <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onHouse}>YOUR HOUSE</button></div>
               <h4>LOOT</h4>
               <p className="em-fine">{loot.length ? loot.map(([id, n]) => n + ' ' + lootName(id).toUpperCase()).join(' · ') : 'Nothing yet: clear places, then visit them in person.'}</p>

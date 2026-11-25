@@ -18,7 +18,7 @@ html, body, #root { margin: 0; height: 100%; }
 body { font-family: var(--font-ui); color: var(--sky-ink); background: #0b0d10; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow: hidden; }
 button { font: inherit; }
 
-.em-app { position: fixed; inset: 0; }
+.em-app { position: fixed; inset: env(safe-area-inset-top) 0 0 0; } /* never up into the phone's status bar */
 .em-stage { position: absolute; inset: 0; overflow: hidden; }
 .em-map { position: absolute; inset: 0; }
 .em-vignette { position: absolute; inset: 0; pointer-events: none; z-index: 4; background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0) 52%, rgba(3, 5, 8, 0.62) 100%); }
@@ -30,7 +30,7 @@ button { font: inherit; }
 
 /* ---- the header ---- */
 .em-head {
-  position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); right: max(14px, env(safe-area-inset-right)); z-index: 10;
+  position: absolute; top: 10px; left: max(14px, env(safe-area-inset-left)); right: max(14px, env(safe-area-inset-right)); z-index: 10;
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap; pointer-events: none;
 }
 .em-head > * { pointer-events: auto; }
@@ -96,7 +96,7 @@ button { font: inherit; }
 
 /* ---- the road: the flat sketched map with its turn-by-turn banner ---- */
 .em-road { --sky-ink: #3b2a1a; --sky-dim: #6b563a; --sky-panel: rgba(233, 220, 184, 0.96); --sky-line: rgba(90, 65, 40, 0.6); }
-.em-nav { position: absolute; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); z-index: 14; max-width: 560px; padding: 12px 14px; background: var(--sky-panel); border: 2px solid #3b2a1a; box-shadow: 0 6px 24px rgba(40, 25, 8, 0.4); color: #3b2a1a; }
+.em-nav { position: absolute; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); top: 12px; z-index: 14; max-width: 560px; padding: 12px 14px; background: var(--sky-panel); border: 2px solid #3b2a1a; box-shadow: 0 6px 24px rgba(40, 25, 8, 0.4); color: #3b2a1a; }
 .em-nav-turn { display: flex; align-items: center; gap: 14px; }
 .em-nav-arrow { font-size: 42px; line-height: 1; width: 52px; text-align: center; flex: none; }
 .em-nav-text { display: flex; flex-direction: column; min-width: 0; }
@@ -231,8 +231,8 @@ button { font: inherit; }
 
 /* the ledger: under the map (upright) or beside it (sideways). Upright, the map fills the screen but for the top of the ledger (the search and the tabs); scroll the page to bring the rest up. */
 .em-app { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
-.em-stage { position: relative; flex: 0 0 calc(100dvh - 146px); min-height: 330px; inset: auto; }
-.em-ledger { flex: 0 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--sky-panel, rgba(12, 16, 20, 0.96)); color: var(--sky-ink, #f2f2ee); border-top: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: env(safe-area-inset-bottom); }
+.em-stage { position: relative; flex: 0 0 calc(100dvh - 146px - env(safe-area-inset-top)); min-height: 330px; inset: auto; }
+.em-ledger { flex: 0 0 auto; height: calc(100dvh - env(safe-area-inset-top)); display: flex; flex-direction: column; background: var(--sky-panel, rgba(12, 16, 20, 0.96)); color: var(--sky-ink, #f2f2ee); border-top: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: env(safe-area-inset-bottom); }
 @media (orientation: landscape) and (min-width: 700px) {
   .em-app { flex-direction: row; overflow: hidden; }
   .em-stage { flex: 1 1 auto; min-height: 0; }
@@ -383,3 +383,6 @@ button { font: inherit; }
 .em-placebar button { width: 40px; height: 40px; font-size: 22px; line-height: 1; border: 1px solid rgba(201, 194, 176, 0.7); background: rgba(12, 16, 20, 0.95); color: #f2f2ee; cursor: pointer; font-family: inherit; }
 .em-placebar-ok { background: #2f7a4a !important; border-color: #7fe0a0 !important; }
 .em-placebar-ok.blocked { background: #6a3a34 !important; border-color: #f08070 !important; }
+
+.em-coin { display: inline-block; vertical-align: -0.2em; }
+.em-septims { display: flex; align-items: center; justify-content: center; gap: 6px; }

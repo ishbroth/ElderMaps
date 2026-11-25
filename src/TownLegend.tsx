@@ -1,3 +1,4 @@
+import Coin from './Coin';
 import { useEffect, useRef, useState } from 'react';
 import type { Spot } from './App';
 import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
@@ -121,7 +122,7 @@ export default function TownLegend({ metro, province, world, signedIn, septims, 
         <div className="em-legend-gate">
           <h2>THE TOWN LEGEND OF {metro.name.toUpperCase()}</h2>
           <p>The whole city on one map, its streets drawn as the old roads of this land, the villages and mills round it, and every place travellers have glimpsed there{status.count > 0 ? ` (${status.count} so far)` : ''}.</p>
-          <p className="em-septims">{(cost * 100).toLocaleString('en-US')} SEPTIMS</p>
+          <p className="em-septims"><Coin size={20} /> {(cost * 100).toLocaleString('en-US')}</p>
           <p className="em-fine">You hold {septims.toLocaleString('en-US')}.</p>
           <button type="button" className="em-btn" disabled={busy} onClick={() => void buy()}>{busy ? 'BUYING…' : 'BUY THE TOWN LEGEND'}</button>
         </div>

@@ -1,3 +1,4 @@
+import Coin from './Coin';
 import { useRef, useState } from 'react';
 import { CHARACTER_TYPES, saveSetup, sendSignInLink, signInWithHearth, type Account } from './lib/account';
 import { loadWorld } from './lib/world';
@@ -176,8 +177,8 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
             <TypePicker value={account.profile?.characterType ?? CHARACTER_TYPES[0].id} onChange={() => undefined} sex={account.profile?.characterSex ?? 'm'} />
             <p className="em-fine">{account.email}</p>
             <p className="em-fine">HOME: {account.home?.address} · SERF NUMBER {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
-            <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
-            <div className="em-card-buttons">{onBuy && <button type="button" className="em-btn" onClick={onBuy}>BUY SEPTIMS</button>}{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
+            <p className="em-septims"><Coin size={20} /> {account.septims.toLocaleString('en-US')}</p>
+            <div className="em-card-buttons">{onBuy && <button type="button" className="em-btn" onClick={onBuy}>EXCHANGE TENDER</button>}{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
           </>
         )}
       </article>

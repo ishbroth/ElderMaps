@@ -1,3 +1,4 @@
+import Coin from './Coin';
 import { useState } from 'react';
 import { db } from './lib/account';
 import { goTo, purchasesAvailable } from './lib/native';
@@ -20,14 +21,14 @@ export default function BuySeptims({ onClose }: { onClose: () => void }) {
     await goTo(url);
   };
   return (
-    <div className="em-scene-back" role="dialog" aria-modal="true" aria-label="Buy septims" onClick={onClose}>
+    <div className="em-scene-back" role="dialog" aria-modal="true" aria-label="Exchange tender" onClick={onClose}>
       <article className="em-scene em-account" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="em-card-x" onClick={onClose} aria-label="Close">×</button>
-        <h2>TRADE FOR SEPTIMS</h2>
-        <p className="em-fine">A glimpse costs 100 septims (400 for a great city); a Town Legend 4,800.</p>
+        <h2>EXCHANGE TENDER</h2>
+        <p className="em-fine">A glimpse costs <Coin size={13} /> 100 (<Coin size={13} /> 400 for a great city); a Town Legend <Coin size={13} /> 4,800. The coin is the septim.</p>
         {!purchasesAvailable() && <p className="em-fine">Septims cannot be bought inside the app yet. The ones you have, and any bought on eldermaps.com, work here once you sign in.</p>}
         {purchasesAvailable() && <div className="em-packs">
-          {PACKS.map((p) => <button key={p.id} type="button" className="em-btn" disabled={!!busy} onClick={() => void buy(p.id)}>{busy === p.id ? 'OPENING…' : `${p.septims.toLocaleString('en-US')} SEPTIMS · ${p.price}`}</button>)}
+          {PACKS.map((p) => <button key={p.id} type="button" className="em-btn" disabled={!!busy} onClick={() => void buy(p.id)}>{busy === p.id ? 'OPENING…' : <><Coin size={18} /> {p.septims.toLocaleString('en-US')} · {p.price}</>}</button>)}
         </div>}
         {note && <p className="em-note">{note}</p>}
       </article>

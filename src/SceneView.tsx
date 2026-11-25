@@ -1,3 +1,4 @@
+import Coin from './Coin';
 import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
 import { kindTitle, readableInk, type Province } from './lib/lore';
@@ -90,7 +91,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
         <div className="em-card-buttons">
           {state !== 'ready' && (
             <button type="button" className="em-btn" disabled={state === 'working'} onClick={() => void look()} title="See this place as it might stand in the realm">
-              {state === 'working' ? 'GLIMPSING…' : <>GLIMPSE · {cost} SEPTIMS <span aria-hidden="true">🔒</span></>}
+              {state === 'working' ? 'GLIMPSING…' : <>GLIMPSE · <Coin size={15} /> {cost} <span aria-hidden="true">🔒</span></>}
             </button>
           )}
           {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR</button>}

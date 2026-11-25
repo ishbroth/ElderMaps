@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   ios: { contentInset: 'never', backgroundColor: '#0b0d10' },
-  android: { backgroundColor: '#0b0d10' },
+  android: { backgroundColor: '#0b0d10', adjustMarginsForEdgeToEdge: 'force' },
   plugins: {
     SplashScreen: { launchAutoHide: false, backgroundColor: '#000000', showSpinner: false },
   },
