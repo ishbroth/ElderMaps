@@ -1,5 +1,6 @@
 // Accounts: signing in (an emailed link, then the serf number), the character, the home and the septims. The twin of WastelandMaps' account.ts, cut down to what step 1 needs.
 
+import { APP_SCHEME, NATIVE_AUTH_REDIRECT, isNative } from './native';
 import { useCallback, useEffect, useState } from 'react';
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -103,7 +104,7 @@ export function useAccount(): Account {
 
 /** Sends the emailed sign-in link. Null when it went; else a message. */
 export async function sendSignInLink(email: string): Promise<string | null> {
-  const { error } = await db().auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin + window.location.pathname } });
+  const { error } = await db().auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: isNative() ? NATIVE_AUTH_REDIRECT : window.location.origin + window.location.pathname } });
   if (!error) return null;
   return /rate|seconds|too many/i.test(error.message) ? 'A link was sent a moment ago. Give it a minute, then ask again.' : 'The link could not be sent. Check the address and try again.';
 }
@@ -157,4 +158,23 @@ export async function deleteAccount(serf: string): Promise<string | null> {
   const response = (error as { context?: Response } | null)?.context;
   if (response) { try { reason = ((await response.json()) as { error?: string }).error ?? 'server'; } catch { /* no body */ } }
   return reason === 'wrong_serf' ? 'THAT IS NOT YOUR SERF NUMBER.' : 'THE ACCOUNT COULD NOT BE DELETED. TRY AGAIN IN A MOMENT.';
+}
+
+/** The app was opened by the sign-in email's link (com.eldermaps.app://auth#access_token=...): finish signing in with it. */
+export async function completeSignInFromUrl(url: string): Promise<boolean> {
+  if (!url.startsWith(NATIVE_AUTH_REDIRECT) && !url.startsWith(APP_SCHEME)) return false;
+  const hash = new URLSearchParams(url.includes('#') ? url.slice(url.indexOf('#') + 1) : '');
+  const query = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] : '');
+  const access = hash.get('access_token');
+  const refresh = hash.get('refresh_token');
+  if (access && refresh) {
+    const { error } = await db().auth.setSession({ access_token: access, refresh_token: refresh });
+    return !error;
+  }
+  const code = query.get('code');
+  if (code) {
+    const { error } = await db().auth.exchangeCodeForSession(code);
+    return !error;
+  }
+  return false;
 }

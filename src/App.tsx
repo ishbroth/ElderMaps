@@ -1,3 +1,5 @@
+import { onAppUrl } from './lib/native';
+import { completeSignInFromUrl } from './lib/account';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { distanceMeters, getFix, watchFix, type LatLng } from './lib/geo';
 import { findPlace, loadGoogle } from './lib/google';
@@ -207,6 +209,8 @@ export default function App() {
     void db().from('raid_runs').select('place_id').eq('user_id', id).eq('won', true).then((r) => setCleared(new Set(((r.data ?? []) as { place_id: string }[]).map((x) => x.place_id))));
   }, [account.session?.user.id]);
   useEffect(() => { seenRef.current = seen; try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch { /* storage unavailable */ } }, [seen]);
+
+  useEffect(() => onAppUrl((url) => { void completeSignInFromUrl(url).then((ok) => { if (ok) void account.refresh(); }); }), [account]);
 
   const say = useCallback((text: string) => {
     setToast(text);
