@@ -225,16 +225,26 @@ function BuildSheet({ vault, level, cell, loot, busy, act, done }: { vault: Vaul
 
 // ---- inside a room ----
 
+/** The floor space a piece takes, as a square of this side in floor units (0 to 1 of the floor), from how wide it is drawn. */
+const sideOf = (item: string, small: boolean): number => ((WIDTH[item] ?? 120) * (small ? 0.86 : 1)) / 1000;
+type Placing = { item: string; isNew: boolean; u: number; v: number; swap: boolean };
+
 function RoomView({ vault, index, room, style, loot, busy, act, onGone }: { vault: VaultHome; index: number; room: VaultRoom; style: Style; loot: Record<string, number>; busy: boolean; act: (b: Record<string, unknown>) => Promise<boolean>; onGone: () => void }) {
   const stage = useRef<HTMLDivElement>(null);
-  const [sel, setSel] = useState<string | null>(null);
   const [inst, setInst] = useState<string>('guitar');
-  const [drag, setDrag] = useState<{ item: string; u: number; v: number } | null>(null);
+  const [placing, setPlacing] = useState<Placing | null>(null);
+  const placingRef = useRef<Placing | null>(null);
+  placingRef.current = placing;
+  const dragging = useRef<number | null>(null);
+  const hold = useRef<{ x: number; y: number; id: number; timer: number; item: string } | null>(null);
+  const [say, setSay] = useState('');
   const pieces = furnitureOf(room.type);
   const placed = room.furniture;
+  const small = SMALL.has(room.type);
   const canMove = room.type !== 'hallway';
-  const spotOf = (item: string, _i: number): { u: number; v: number; swap: boolean } => {
-    if (drag && drag.item === item) return { u: drag.u, v: drag.v, swap: !!room.put?.[item]?.swap };
+
+  /** Where a piece stands now: where its owner put it, else its own place in the room (the same spots as in WastelandMaps). */
+  const spotOf = (item: string): { u: number; v: number; swap: boolean } => {
     const p = room.put?.[item];
     if (p) return { u: p.u, v: p.v, swap: !!p.swap };
     if (room.type === 'hallway') return { u: 0.5, v: 0.5, swap: false };
@@ -245,37 +255,104 @@ function RoomView({ vault, index, room, style, loot, busy, act, onGone }: { vaul
     if (d.wall === 'y') v = Math.max(v, 0.1);
     return { u, v, swap: false };
   };
-  const toFloor = (e: React.PointerEvent): { u: number; v: number } | null => {
+  const toFloor = (e: { clientX: number; clientY: number }): { u: number; v: number } | null => {
     const rect = stage.current?.getBoundingClientRect();
     if (!rect) return null;
-    return pixelToFloor(((e.clientX - rect.left) / rect.width) * G.w, ((e.clientY - rect.top) / rect.height) * G.h);
+    // the piece is held by its middle: a little above the finger so the finger does not hide it
+    return pixelToFloor(((e.clientX - rect.left) / rect.width) * G.w, ((e.clientY - rect.top) / rect.height) * G.h - 18);
   };
+  /** Does a piece fit at this spot: on the floor and not on top of another piece? */
+  const fits = (p: Placing): boolean => {
+    const s = sideOf(p.item, small) / 2;
+    if (p.u - s < -0.02 || p.u + s > 1.02 || p.v - s < -0.02 || p.v + s > 1.02) return false;
+    return placed.every((other) => {
+      if (other === p.item) return true;
+      const o = spotOf(other), os = sideOf(other, small) / 2;
+      return Math.abs(p.u - o.u) >= (s + os) * 0.8 || Math.abs(p.v - o.v) >= (s + os) * 0.8;
+    });
+  };
+
+  const startNew = (item: string) => {
+    if (busy || placingRef.current) return;
+    const d = spotOf(item);
+    setPlacing({ item, isNew: true, u: d.u, v: d.v, swap: d.swap });
+    setSay('Drag it where you want it, turn it if you like, then tick it into place. Nothing is spent until you tick.');
+  };
+  const pickUp = (item: string, pointer: number) => {
+    if (busy || placingRef.current || !canMove) return;
+    const d = spotOf(item);
+    setPlacing({ item, isNew: false, u: d.u, v: d.v, swap: d.swap });
+    dragging.current = pointer;
+    try { stage.current?.setPointerCapture?.(pointer); } catch { /* the pointer ended */ }
+    setSay('Drag it to its new place, then tick it down.');
+  };
+  const confirm = async () => {
+    const p = placingRef.current;
+    if (!p || busy) return;
+    if (!fits(p)) { setSay('It does not fit there: it is over another piece or off the floor.'); return; }
+    const at = { u: p.u, v: p.v, ...(p.swap ? { swap: true } : {}) };
+    const ok = await act(p.isNew ? { action: 'furnish', room: index, item: p.item, at } : { action: 'place', room: index, item: p.item, at });
+    if (ok) { setPlacing(null); setSay(''); }
+  };
+  const cancel = () => { setPlacing(null); dragging.current = null; setSay(''); };
+
   const whyNo = whyNotDemolish(vault, index);
   const [sure, setSure] = useState(false);
+  const shown = [...placed.filter((i) => !(placing && !placing.isNew && placing.item === i)), ...(placing ? [placing.item] : [])];
+  const at = (item: string): { u: number; v: number; swap: boolean } => (placing && placing.item === item ? placing : spotOf(item));
+  const order = shown.map((item) => ({ item, y: floorToPixel(at(item).u, at(item).v).y })).sort((a, b) => a.y - b.y);
+  const pp = placing ? floorToPixel(placing.u, placing.v) : null;
+  const okNow = placing ? fits(placing) : false;
 
-  const order = [...placed].map((item, i) => ({ item, i, y: floorToPixel(spotOf(item, i).u, spotOf(item, i).v).y })).sort((a, b) => a.y - b.y);
   return (
     <div className="em-house-body">
       <div
         className="em-roomstage" ref={stage}
-        onPointerMove={(e) => { if (drag) { const f = toFloor(e); if (f) setDrag({ ...drag, ...f }); } }}
-        onPointerUp={async (e) => { if (!drag) return; const f = toFloor(e) ?? drag; const item = drag.item; const swap = !!room.put?.[item]?.swap; setDrag(null); await act({ action: 'place', room: index, item, at: { u: f.u, v: f.v, ...(swap ? { swap: true } : {}) } }); }}
+        onPointerDown={(e) => { if (placingRef.current) { dragging.current = e.pointerId; try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* the pointer ended */ } const f = toFloor(e); if (f) setPlacing({ ...placingRef.current, ...f }); } }}
+        onPointerMove={(e) => {
+          if (hold.current && Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > 8) { window.clearTimeout(hold.current.timer); hold.current = null; }
+          if (dragging.current === e.pointerId && placingRef.current) { const f = toFloor(e); if (f) setPlacing({ ...placingRef.current, ...f }); }
+        }}
+        onPointerUp={(e) => { if (hold.current) { window.clearTimeout(hold.current.timer); hold.current = null; } if (dragging.current === e.pointerId) dragging.current = null; }}
+        onPointerCancel={() => { if (hold.current) window.clearTimeout(hold.current.timer); hold.current = null; dragging.current = null; }}
       >
         <img className="em-roomart" src={`${BASE}house/${style}/${room.type}.webp`} alt="" draggable={false} />
-        {order.map(({ item, i }) => {
-          const s = spotOf(item, i);
+        {placing && pp && (
+          <svg className="em-footprint" viewBox={`0 0 ${G.w} ${G.h}`} aria-hidden="true">
+            {(() => {
+              const s = sideOf(placing.item, small) / 2;
+              const c = [floorToPixel(placing.u - s, placing.v - s), floorToPixel(placing.u + s, placing.v - s), floorToPixel(placing.u + s, placing.v + s), floorToPixel(placing.u - s, placing.v + s)];
+              return <polygon points={c.map((q) => `${q.x},${q.y}`).join(' ')} fill={okNow ? 'rgba(90,200,120,0.28)' : 'rgba(220,80,70,0.34)'} stroke={okNow ? '#7fe0a0' : '#f08070'} strokeWidth="3" strokeDasharray="10 6" />;
+            })()}
+          </svg>
+        )}
+        {order.map(({ item }) => {
+          const s = at(item);
           const p = floorToPixel(s.u, s.v);
-          const w = (WIDTH[item] ?? 120) * (SMALL.has(room.type) ? 0.86 : 1);
+          const w = (WIDTH[item] ?? 120) * (small ? 0.86 : 1);
+          const mine = placing?.item === item;
           return (
             <img
-              key={item} className={`em-piece${sel === item ? ' on' : ''}${drag?.item === item ? ' drag' : ''}`} src={`${BASE}house/${style}/f/${item}.webp`} alt={furnitureOf(room.type).find((f) => f.id === item)?.name ?? item} draggable={false}
-              style={{ left: `${(p.x / G.w) * 100}%`, top: `${(p.y / G.h) * 100}%`, width: `${(w / G.w) * 100}%`, zIndex: Math.round(p.y), transform: `translate(-50%, -70%)${s.swap ? ' scaleX(-1)' : ''}` }}
-              onPointerDown={(e) => { if (!canMove || busy) return; e.preventDefault(); (e.currentTarget.parentElement as HTMLElement).setPointerCapture?.(e.pointerId); setSel(item); setDrag({ item, u: s.u, v: s.v }); }}
+              key={item} className={`em-piece${mine ? ' on' : ''}`} src={`${BASE}house/${style}/f/${item}.webp`} alt={furnitureOf(room.type).find((f) => slotOf(item) === f.id)?.name ?? item} draggable={false}
+              style={{ left: `${(p.x / G.w) * 100}%`, top: `${(p.y / G.h) * 100}%`, width: `${(w / G.w) * 100}%`, zIndex: Math.round(p.y) + (mine ? 2000 : 0), transform: `translate(-50%, -70%)${s.swap ? ' scaleX(-1)' : ''}`, opacity: mine ? 0.92 : 1 }}
+              onPointerDown={(e) => {
+                if (placingRef.current || !canMove || busy) return;
+                // a piece already set down is picked up by holding a finger on it
+                const pid = e.pointerId; const it = item;
+                hold.current = { x: e.clientX, y: e.clientY, id: pid, item: it, timer: window.setTimeout(() => { hold.current = null; pickUp(it, pid); }, 550) };
+              }}
             />
           );
         })}
+        {placing && pp && (
+          <div className="em-placebar" style={{ left: `${Math.min(86, Math.max(14, (pp.x / G.w) * 100))}%`, top: `${Math.min(94, (pp.y / G.h) * 100 + 7)}%` }} onPointerDown={(e) => e.stopPropagation()}>
+            <button type="button" className="em-placebar-x" onClick={cancel} disabled={busy} aria-label="Cancel: nothing is spent" title="Cancel (nothing is spent)">×</button>
+            <button type="button" className="em-placebar-turn" onClick={() => setPlacing({ ...placing, swap: !placing.swap })} disabled={busy} aria-label="Turn it" title="Turn it">⟳</button>
+            <button type="button" className={`em-placebar-ok${okNow ? '' : ' blocked'}`} onClick={() => void confirm()} disabled={busy} aria-label="Set it down" title="Set it down">✓</button>
+          </div>
+        )}
       </div>
-      {canMove && placed.length > 0 && <p className="em-fine">Drag a piece to put it where you want it. Tap a name below to turn it round.</p>}
+      {say ? <p className="em-fine">{say}</p> : canMove && placed.length > 0 ? <p className="em-fine">Hold a finger on a piece to pick it up and move it.</p> : null}
 
       <h3>FURNISHINGS</h3>
       <ul className="em-build-list">
@@ -296,9 +373,11 @@ function RoomView({ vault, index, room, style, loot, busy, act, onGone }: { vaul
                   <div className="em-seg em-inst">{INSTRUMENTS.map((k) => <button key={k} type="button" className={inst === k ? 'on' : ''} onClick={() => setInst(k)}>{INSTRUMENT_NAMES[k].toUpperCase()}</button>)}</div>
                 )}
               </div>
-              {have
-                ? canMove && <button type="button" className={`em-btn em-btn-ghost${sel === placedItem ? ' on' : ''}`} onClick={async () => { const it = placedItem as string; setSel(it); const cur = room.put?.[it] ?? (() => { const sp = spotOf(it, 0); return { u: sp.u, v: sp.v }; })(); await act({ action: 'place', room: index, item: it, at: { u: cur.u, v: cur.v, ...(room.put?.[it]?.swap ? {} : { swap: true }) } }); }}>TURN</button>
-                : <button type="button" className="em-btn" disabled={busy || full || !affordable} onClick={() => void act({ action: 'furnish', room: index, item: makeItem })}>{affordable ? 'MAKE' : 'NEED LOOT'}</button>}
+              {!have && (
+                room.type === 'hallway'
+                  ? <button type="button" className="em-btn" disabled={busy || full || !affordable} onClick={() => void act({ action: 'furnish', room: index, item: makeItem })}>{affordable ? 'MAKE' : 'NEED LOOT'}</button>
+                  : <button type="button" className="em-btn" disabled={busy || full || !affordable || !!placing} onClick={() => startNew(makeItem)}>{affordable ? 'MAKE' : 'NEED LOOT'}</button>
+              )}
             </li>
           );
         })}
