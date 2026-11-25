@@ -105,7 +105,7 @@ async function shootSize(key, port) {
   await new Promise((r) => (ws.onopen = r));
   let id = 0; const pending = new Map();
   ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) { pending.get(d.id)(d.result ?? d.error); pending.delete(d.id); } };
-  const send = (method, params = {}) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
+  const send = (method, params = {}) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); setTimeout(() => { if (pending.has(i)) { pending.delete(i); res(undefined); } }, 70000); }); // (a call that never answers is given up after 70 seconds)
   await send('Page.enable'); await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: Math.round(W / dpr), height: Math.round(H / dpr), deviceScaleFactor: dpr, mobile: true });
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });

@@ -12,8 +12,13 @@ fs.mkdirSync(OUT, { recursive: true });
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CH = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const find = (stem) => { const f = fs.readdirSync(SRC).find((x) => x.startsWith(stem)); if (!f) throw new Error('missing ' + stem); return path.join(SRC, f); };
-const data = async (file, width) => `data:image/jpeg;base64,${(await sharp(file).resize({ width, withoutEnlargement: true }).jpeg({ quality: 90 }).toBuffer()).toString('base64')}`;
-const MAP = await data(find('map-vivid'), 3000), DRAGON = await data(find('dragon-chicago'), 2400), ROOM = await data(find('house-room'), 2000), LEGEND = await data(find('town-legend'), 2000);
+/** A picture as a data address, cut to a share of itself first (left, top, width, height as 0 to 1 of the picture). */
+const data = async (file, width, cut) => {
+  let img = sharp(file);
+  if (cut) { const m = await sharp(file).metadata(); img = img.extract({ left: Math.round(cut[0] * m.width), top: Math.round(cut[1] * m.height), width: Math.round(cut[2] * m.width), height: Math.round(cut[3] * m.height) }); }
+  return `data:image/jpeg;base64,${(await img.resize({ width, withoutEnlargement: true }).jpeg({ quality: 90 }).toBuffer()).toString('base64')}`;
+};
+const MAP = await data(find('map-vivid'), 3000), DRAGON = await data(find('dragon-chicago'), 2400), ROOM = await data(find('house-room'), 2000, [0.2, 0.09, 0.6, 0.5]), LEGEND = await data(find('town-legend'), 2000, [0, 0.07, 0.76, 0.93]);
 const ARROW = `data:image/png;base64,${(await sharp(path.join(ROOT, 'resources', 'icon-only.png')).extract({ left: 232, top: 232, width: 560, height: 560 }).resize(900).png().toBuffer()).toString('base64')}`;
 
 const page = (W, H) => {
@@ -30,7 +35,7 @@ const page = (W, H) => {
   return `<!doctype html><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&display=swap" rel="stylesheet">
 <style>
 html,body{margin:0;width:${W}px;height:${H}px;overflow:hidden;background:#0b0d10;font-family:'Jost',sans-serif;color:#f2f2ee}
-.bg{position:absolute;inset:0;background:url(${MAP}) center/cover;filter:saturate(.9)}
+.bg{position:absolute;inset:-3%;background:url(${MAP}) center/cover;filter:saturate(.85) brightness(.7) blur(${u * 0.25}px)}
 .shade{position:absolute;inset:0;background:${wide ? 'linear-gradient(90deg,#0b0d10 0%,#0b0d10f2 32%,#0b0d10a0 48%,#0b0d1030 70%,#0b0d1070 100%)' : 'linear-gradient(180deg,#0b0d10f5 0%,#0b0d10d8 40%,#0b0d10b0 100%)'}}
 .brand{position:absolute;display:flex;flex-direction:column;gap:${u * 1.6}px}
 .brand h1{margin:0;font-weight:300;letter-spacing:.34em;text-shadow:0 ${u * 0.3}px ${u * 1.6}px #000}
