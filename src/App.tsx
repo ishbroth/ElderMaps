@@ -106,7 +106,7 @@ export default function App() {
   const [world, setWorld] = useState<World | null>(null);
   const [problem, setProblem] = useState('');
   const [ready, setReady] = useState(false);
-  const [look, setLook] = useState<LookId>(() => { const l = localStorage.getItem('eldermaps:look'); return l === 'oblivion' || l === 'vivid' ? l : 'skyrim'; });
+  const [look, setLook] = useState<LookId>(() => { const l = localStorage.getItem('eldermaps:look'); return l === 'oblivion' || l === 'vivid' ? l : 'vivid'; }); // the northern look is retired from the picker (see _archive/NORTHERN-LOOK.md)
   // the vivid look's two layers (the relief and the clouds), and whether the clouds are on
   const vividRef = useRef<Vivid | null>(null);
   const [cloudsOn, setCloudsOn] = useState(true);
@@ -652,7 +652,7 @@ export default function App() {
           <header className="em-head">
             <div className="em-title"><h1>ELDERMAPS</h1><small>the world as an age-old realm</small></div>
             <div className="em-tools">
-              <button type="button" onClick={() => setLook(look === 'skyrim' ? 'vivid' : look === 'vivid' ? 'oblivion' : 'skyrim')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
+              <button type="button" onClick={() => setLook(look === 'vivid' ? 'oblivion' : 'vivid')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
               {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
               {accountsEnabled && !account.session && <button type="button" onClick={() => setAccountOpen(true)} title="Enter the realm">ENTER</button>}
               <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
