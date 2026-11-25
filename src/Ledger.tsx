@@ -41,6 +41,8 @@ interface Props {
   /** Takes the large map to a city. */
   onTryCity: (c: { name: string; lat: number; lng: number }) => void;
   onHouse: () => void;
+  /** The sigil city under its realm name (the real name is never shown). */
+  originName: string | null;
 }
 
 /** A few well-known cities to try, as in WastelandMaps: each takes the map there. */
@@ -83,7 +85,7 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 }
 
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse }: Props) {
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse, originName }: Props) {
   const [tab, setTab] = useState<Tab>('places');
   const [query, setQuery] = useState('');
   const [only, setOnly] = useState<'all' | 'cleared'>('all');
@@ -151,7 +153,7 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
                 <button type="button" className="em-quill" aria-label="Edit your character" title="Edit" onClick={onAccount}><Quill size={20} /></button>
                 <button type="button" className="em-btn em-btn-ghost em-small" onClick={() => void account.signOut()}>SIGN OUT</button>
               </div>
-              <p className="em-fine em-origin"><b>ORIGIN</b> {account.profile?.sigilCity ?? 'not chosen'}</p>
+              <p className="em-fine em-origin"><b>ORIGIN</b> {originName ?? 'not chosen'}</p>
               <p className="em-fine em-origin"><b>DOMICILE</b> {account.home?.address ?? 'none yet: glimpse the place you live and make it your hearth'}</p>
               <p className="em-septims"><Coin size={20} /> {account.septims.toLocaleString('en-US')}</p>
               <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onBuy}>EXCHANGE TENDER</button></div>

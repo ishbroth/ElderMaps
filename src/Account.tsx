@@ -53,7 +53,7 @@ function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: 
 }
 
 /** Signing in, the first-time setup (character, home, hearth number) and the account's own card. */
-export default function AccountModal({ account, onClose, onShop, onBuy }: { account: Account; onClose: () => void; onShop?: () => void; onBuy?: () => void }) {
+export default function AccountModal({ account, onClose, onShop, onBuy, originName }: { account: Account; originName?: string | null; onClose: () => void; onShop?: () => void; onBuy?: () => void }) {
   const signedIn = !!account.session;
   const needsSetup = signedIn && account.loaded && (!account.profile?.characterName || !account.home?.hearthNumber || !account.profile?.sigilCity);
   const [mode, setMode] = useState<'in' | 'new'>('in');
@@ -176,7 +176,7 @@ export default function AccountModal({ account, onClose, onShop, onBuy }: { acco
             {editSigil && (<><SigilPicker value={sigil} onChange={setSigil} />{note && <p className="em-note">{note}</p>}<div className="em-card-buttons"><button type="button" className="em-btn" disabled={busy || !sigil} onClick={() => void saveNewSigil()}>{busy ? 'SAVING…' : 'KEEP THIS SIGIL'}</button></div></>)}
             <TypePicker value={account.profile?.characterType ?? CHARACTER_TYPES[0].id} onChange={() => undefined} sex={account.profile?.characterSex ?? 'm'} />
             <p className="em-fine">{account.email}</p>
-            <p className="em-fine">ORIGIN: {account.profile?.sigilCity} · SERF NUMBER {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
+            <p className="em-fine">ORIGIN: {originName ?? ''} · SERF NUMBER {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
             <p className="em-septims"><Coin size={20} /> {account.septims.toLocaleString('en-US')}</p>
             <div className="em-card-buttons">{onBuy && <button type="button" className="em-btn" onClick={onBuy}>EXCHANGE TENDER</button>}{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
           </>

@@ -157,6 +157,7 @@ export default function App() {
   const [regionName, setRegionName] = useState<string | null>(null);
   const regionCache = useRef(new Map<string, string | null>());
   const account = useAccount();
+  const originName = (() => { const c = account.profile?.sigilCity; if (!c) return null; return world ? loreName(c, world.provinceOfCountry(account.profile?.sigilIso ?? '')) : null; })();
   const [accountOpen, setAccountOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
@@ -710,7 +711,7 @@ export default function App() {
           <CombatScreen title="Chicago" imageUrl={new URLSearchParams(window.location.search).get("img") || "/_test.png"} plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
-        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} onBuy={() => { setAccountOpen(false); setBuyOpen(true); }} />}
+        {accountOpen && !trip && <AccountModal account={account} originName={originName} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} onBuy={() => { setAccountOpen(false); setBuyOpen(true); }} />}
         {typeof window !== 'undefined' && window.location.search.includes('housetest') && <HouseTest onClose={() => { window.location.href = window.location.pathname; }} />}
         {houseOpen && !trip && account.session && <House account={account} onClose={() => setHouseOpen(false)} />}
         {buyOpen && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}
@@ -737,7 +738,7 @@ export default function App() {
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
           onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)}
           following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
-          onHouse={() => setHouseOpen(true)} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
+          onHouse={() => setHouseOpen(true)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
       )}
     </div>
   );
