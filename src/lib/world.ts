@@ -76,13 +76,20 @@ export function loadWorld(): Promise<World> {
       for (const c of countries) { const d = (c.centre[0] - lat) ** 2 + ((c.centre[1] - lng) * Math.cos((lat * Math.PI) / 180)) ** 2; if (d < bestD) { bestD = d; best = c; } }
       return best.province;
     };
+    // lighthouses: the famous ones stay; the rest only where someone could get to them, near a city (an easy road or ferry away). The far ones out in the water are dropped.
+    const keepLight = (w: WildPlace): boolean => {
+      if (w[4] !== 'lighthouse' || w[5] >= 8) return true;
+      const [, , lat, lng] = w;
+      return cityList.some((c) => Math.abs(c[1] - lat) < 0.2 && Math.abs(c[2] - lng) < 0.3 && Math.hypot((c[1] - lat) * 111.32, (c[2] - lng) * 111.32 * Math.cos((lat * Math.PI) / 180)) <= 20);
+    };
+    const wildKept = wild.filter(keepLight);
     const cities = { crest: [] as City[], town: [] as City[], village: [] as City[] };
     // an exception to the metro-size rule: Anchorage is a great city of the far north and wears a shield
     const SHIELD_EXCEPTIONS = new Set(['Anchorage|US']);
     for (const c of cityList.sort((a, b) => b[3] - a[3])) cities[SHIELD_EXCEPTIONS.has(c[0] + '|' + c[5]) ? 'crest' : c[4]].push(c);
     return {
       cities, provinceRings: countries.flatMap((c) => c.rings.map((r) => ({ province: c.province, pts: r.pts }))),
-      countries, geojson: { type: 'FeatureCollection', features: countries.map((c) => c.feature) }, metros: metros.sort((a, b) => b.pop - a.pop), keys, wild,
+      countries, geojson: { type: 'FeatureCollection', features: countries.map((c) => c.feature) }, metros: metros.sort((a, b) => b.pop - a.pop), keys, wild: wildKept,
       provinceAt, provinceOfCountry: (iso2) => byIso2.get(iso2)?.province ?? 'cyrodiil',
     };
   })();

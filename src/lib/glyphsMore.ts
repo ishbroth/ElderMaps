@@ -43,6 +43,12 @@ export const MORE: Record<string, Part[]> = {
   watermill: [fill('M2.8 21.5V12l5-3.6 5 3.6v9.5Z'), line('M18 11.4a4.7 4.7 0 1 0 0 9.4 4.7 4.7 0 0 0 0-9.4ZM18 11.4v9.4M13.3 16.1h9.4', 1.5)],
   manor: [fill('M2.5 21.5V11l4-2.4 3 1.6V7.4l2.5-1.8 2.5 1.8v2.8l3-1.6 4 2.4v10.5ZM10.4 21.5v-3.6a1.6 1.6 0 0 1 3.2 0v3.6Z')],
   peaks2: [fill('M1.8 21.5 8 9.6l3.2 5 4.6-9 6.4 15.9Z'), line('M13.6 9l2.2 2.6 2-1.6', 1.2)],
+  // ---- lighthouses and beacons ----
+  lighthouse2: [fill('M9 21.5l.9-11h4.2l.9 11Z'), fill('M8 10h8v1.3H8Z'), fill('M10.2 10V6.4h3.6V10Z'), fill('M9.5 6.4 12 3.4l2.5 3Z'), line('M5 6.6l3.2.8M19 6.6l-3.2.8M12 1.6V2.6', 1.3)],
+  lighthouse3: [fill('M5.5 21.5V12.5h4.2v9Z'), fill('M5 12.5h5.2l-.4-1.3H5.4Z'), fill('M6.3 11.2V8.6h2.6v2.6Z'), fill('M5.8 8.6 7.6 6.4l1.8 2.2Z'), fill('M10.6 21.5v-4.6l3.7-2.6 4.2 2.6v4.6Z'), line('M3 7.4l1.8.6M12 7.4l-1.6.6', 1.2)],
+  lighthouse4: [fill('M6.8 21.5l1.4-5.6h7.6l1.4 5.6Z'), fill('M11.1 15.9V10h1.8v5.9Z'), fill('M9.2 10l.9-2.2h3.8l.9 2.2Z'), fill('M12 2.4c2 1.9 2.9 3.4 2.2 5.2H9.8C9.1 5.8 10 4.3 12 2.4Z')],
+  lighthouse5: [fill('M2.6 21.5l3.2-3.4 3.2 1.3 3-2.2 3.6 1.7 2.6-1.5 3.2 4.1Z'), fill('M9.9 17.5V10h4.2v7.5Z'), fill('M10.5 10V7.4h3V10Z'), fill('M9.9 7.4 12 4.6l2.1 2.8Z'), line('M7 5.4l2.4 1M17 5.4l-2.4 1', 1.2)],
+  beacon: [fill('M8 21.5V13h8v8.5Z'), fill('M7 13h10v-1.6H7Z'), fill('M12 3c2.2 2.2 3.2 3.9 2.4 6H9.6C8.8 6.9 9.8 5.2 12 3Z')],
   // ---- the smallest settlements ----
   cottage: [fill(house(4.5, 15, 7.5, 6)), fill(door(10.5, 3, 5)), line('M16.4 8.6V4.8h2v5.2', 1.4)],
   chapelvillage: [fill('M3 21.5V14.2l4.6-3.2v10.5Z'), fill('M7.6 21.5V9.6h8.4v11.9Z'), fill('M7.6 9.6 11.8 3.2l4.2 6.4Z'), fill('M16 21.5v-7l5 2.6v4.4Z'), fill('M10.2 21.5v-3.4a1.6 1.6 0 0 1 3.2 0v3.4Z'), line('M11.8 3.2V1.4', 1.2)],
@@ -107,6 +113,7 @@ export function wildPic(type: string, name: string): string {
   if (type === 'cave') return pickBy(['cave', 'cavemouth'], name);
   if (type === 'fort') return /\b(gate|tor|porte)\b/.test(n) ? 'fortgate' : pickBy(['fort', 'fortgate', 'fortkeep'], name);
   if (type === 'tower') return pickBy(['tower', 'tower2', 'watchtower'], name);
+  if (type === 'lighthouse') return /\b(beacon|fire|signal|light)\b/i.test(n) && /\b(beacon|fire|signal)\b/i.test(n) ? 'beacon' : pickBy(['lighthouse', 'lighthouse2', 'lighthouse3', 'lighthouse4', 'lighthouse5'], name);
   if (type === 'shrine') return pickBy(['shrine', 'chapel', 'obelisk', 'statue'], name);
   if (type === 'grove') return pickBy(['grove', 'pines'], name);
   if (type === 'mill') return /\bwater|\bmühle|\bmoulin/.test(n) ? 'watermill' : pickBy(['mill', 'windmill', 'watermill'], name);

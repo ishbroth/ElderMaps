@@ -76,7 +76,7 @@ const KIND_HINT: Record<string, string> = {
   landmark: 'It is a landmark building: keep its exact outline and proportions, rebuilt in this style.',
 };
 
-export function glimpsePrompt(name: string, kind: string, kit: string): string {
+export function glimpsePrompt(name: string, kind: string, kit: string, water?: string): string {
   const style = KITS[kit] ?? KITS.imperial;
   const hint = KIND_HINT[kind] ?? KIND_HINT.landmark;
   return [
@@ -84,6 +84,7 @@ export function glimpsePrompt(name: string, kind: string, kit: string): string {
     `This is "${name}". ${hint}`,
     NATURAL.has(kind) ? `This is a natural place, and the landform itself stays the star: keep its exact shape and most of the frame natural. Give it just ONE touch of the ancient, in the style above and sized to the feature (small against a mountain, larger beside a stream): ${NATURAL_FLAVORS[kind][flavorHash(name) % NATURAL_FLAVORS[kind].length]}. Never hide or replace the natural feature; do not add a town or modern buildings.` : '',
     'IMPORTANT: keep the exact composition, camera angle and framing of the photograph, and keep the overall shape, size, proportions and layout of the main building or landscape, so anyone who knows the place would still recognise it; only its materials, roofs, details and surroundings are rebuilt in the fantasy style. Do NOT replace it with a generic building.',
+    water ? `${water} Keep it in the same style as the rest, and keep it modest so it sits naturally with the building.` : '',
     'Remove anything modern: cars, wires, road signs, glass-and-steel, modern clothing, text and logos. No people in the foreground.',
     'Painterly, realistic fantasy-game art with rich textures and soft atmospheric light, and a few faint floating motes of light in the air. The image must fill the whole frame to its edges: no glowing border, no vignette, no frame, no edge effect. No text, no letters, no watermark.',
   ].filter(Boolean).join(' ');

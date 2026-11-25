@@ -13,6 +13,7 @@ import { findPhotoFor, type PhotoHit } from '../_shared/photoSources.ts';
 import { bestStreetView } from '../_shared/streetViews.ts';
 import { keepsBuilding } from '../_shared/verifyRender.ts';
 import { glimpsePrompt, KIT_OF_PROVINCE, kitFor } from '../_shared/glimpsePrompt.ts';
+import { pickWaterFlavour, waterNear } from '../_shared/waterSetting.ts';
 
 const SITE = 'https://eldermaps.com';
 const STALE_MS = 8 * 60 * 1000;
@@ -144,8 +145,21 @@ Deno.serve(async (req) => {
     }
     if (!photo) { await db.from('renders').delete().eq('place_id', placeId); await giveBack(); return reply(req, { error: 'no_photo' }, 404); }
 
+    // the water beside the place, dressed with an eye to what is already made nearby (one waterwheel, one bridge to an area; the rest look onto the water)
+    let waterText = '';
+    if (!['waterfall', 'peak', 'volcano', 'glacier', 'grove', 'spring', 'pass', 'cave'].includes(kind)) {
+      try {
+        const near = await waterNear(lat, lng);
+        if (near) {
+          const { data: around } = await db.from('renders').select('water_flavour').not('water_flavour', 'is', null).neq('place_id', placeId).gte('lat', lat - 0.0028).lte('lat', lat + 0.0028).gte('lng', lng - 0.0036).lte('lng', lng + 0.0036);
+          const f = pickWaterFlavour(near, province, placeId, (around ?? []).map((r) => String(r.water_flavour)));
+          if (f) { waterText = f.text; await db.from('renders').update({ water_flavour: f.key }).eq('place_id', placeId); }
+        }
+      } catch { /* no water setting: the picture is made without one */ }
+    }
+
     // 4. the picture, checked against the photograph (one more try if it is not the same structure)
-    const prompt = glimpsePrompt(name, kind, kit);
+    const prompt = glimpsePrompt(name, kind, kit, waterText);
     let png = await generate(photo, prompt);
     if (!(await keepsBuilding(photo, png))) png = await generate(photo, prompt + ' Be stricter: keep the structure exactly as in the photograph.');
 
