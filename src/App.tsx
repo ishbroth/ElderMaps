@@ -706,7 +706,7 @@ export default function App() {
           <CombatScreen title="Chicago" imageUrl={new URLSearchParams(window.location.search).get("img") || "/_test.png"} plan={planFor('x', new URLSearchParams(window.location.search).get('combattest') || 'ruin', 50, 'cyrodiil')} spawns={{ horizon: 0.6, points: [], buildingM: 20 }} arsenal={{ onehand: 2, twohand: 2, bow: 2, shock: 2, frost: 2, fire: 2, drain: 2 }} level={0} potions={1} shouts={2} onDone={() => undefined} onExit={() => undefined} />
         )}
 
-        {accountOpen && !trip && <AccountModal account={account} originName={originName} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} onBuy={() => { setAccountOpen(false); setBuyOpen(true); }} />}
+        {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}
         {typeof window !== 'undefined' && window.location.search.includes('housetest') && <HouseTest onClose={() => { window.location.href = window.location.pathname; }} />}
         {houseOpen && !trip && account.session && <House account={account} onClose={() => setHouseOpen(false)} />}
         {buyOpen && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}

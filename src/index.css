@@ -407,3 +407,6 @@ button { font: inherit; }
 
 .em-quest-head { text-align: left; letter-spacing: 0.2em; margin: 2px 0 6px; }
 .em-ledger-name small { display: block; }
+
+.em-edit-label { text-align: left; letter-spacing: 0.2em; margin: 12px 0 2px; }
+.em-edit-home input { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 9px 10px; font: inherit; font-size: 16px; background: transparent; color: inherit; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }

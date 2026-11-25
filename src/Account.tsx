@@ -1,9 +1,9 @@
-import Coin from './Coin';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CHARACTER_TYPES, saveSetup, sendSignInLink, signInWithHearth, type Account } from './lib/account';
 import { loadWorld } from './lib/world';
+import { findPlace } from './lib/google';
 import { randomCharacterName } from './lib/names';
-import SigilPicker, { Emblem, Quill, type SigilChoice } from './Sigil';
+import SigilPicker, { Quill, type SigilChoice } from './Sigil';
 import { db } from './lib/account';
 
 /** The portrait of a character type. (A drawn emblem for now; the painted portraits replace it when they are made: public/portraits/<id>.jpg is used when it exists.) */
@@ -18,6 +18,7 @@ function Portrait({ id, name, sex }: { id: string; name: string; sex: 'm' | 'f' 
 function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: (id: string) => void; sex: 'm' | 'f'; onSex?: (s: 'm' | 'f') => void }) {
   const i = Math.max(0, CHARACTER_TYPES.findIndex((c) => c.id === value));
   const track = useRef<HTMLDivElement>(null);
+  useEffect(() => { const el = track.current; if (el) el.scrollLeft = i * el.clientWidth; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const go = (to: number) => {
     const n = (to + CHARACTER_TYPES.length) % CHARACTER_TYPES.length;
     onChange(CHARACTER_TYPES[n].id);
@@ -53,7 +54,7 @@ function TypePicker({ value, onChange, sex, onSex }: { value: string; onChange: 
 }
 
 /** Signing in, the first-time setup (character, home, hearth number) and the account's own card. */
-export default function AccountModal({ account, onClose, onShop, onBuy, originName }: { account: Account; originName?: string | null; onClose: () => void; onShop?: () => void; onBuy?: () => void }) {
+export default function AccountModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const signedIn = !!account.session;
   const needsSetup = signedIn && account.loaded && (!account.profile?.characterName || !account.home?.hearthNumber || !account.profile?.sigilCity);
   const [mode, setMode] = useState<'in' | 'new'>('in');
@@ -68,7 +69,6 @@ export default function AccountModal({ account, onClose, onShop, onBuy, originNa
   const [sex, setSex] = useState<'m' | 'f'>(account.profile?.characterSex ?? 'm');
   const [sigil, setSigil] = useState<SigilChoice | null>(account.profile?.sigilCity ? { city: account.profile.sigilCity, iso: account.profile.sigilIso ?? '' } : null);
   const [step, setStep] = useState<1 | 2 | 3>(account.profile?.characterName && account.home?.hearthNumber !== undefined ? 3 : 1);
-  const [editSigil, setEditSigil] = useState(false);
   const [number, setNumber] = useState(account.home?.hearthNumber !== undefined ? String(account.home.hearthNumber).padStart(4, '0') : '');
 
   const link = async () => {
@@ -82,6 +82,25 @@ export default function AccountModal({ account, onClose, onShop, onBuy, originNa
     const problem = await signInWithHearth(email.trim().toLowerCase(), digits);
     setBusy(false);
     if (problem) setNote(problem); else { await account.refresh(); onClose(); }
+  };
+  const [editAddr, setEditAddr] = useState(false);
+  const [addr, setAddr] = useState('');
+  const saveEdit = async () => {
+    if (!account.session) return;
+    if (name.trim().length < 2) { setNote('Choose a name of at least two letters.'); return; }
+    setBusy(true); setNote('');
+    const id = account.session.user.id;
+    const prof = await db().from('profiles').update({ character_name: name.trim(), character_type: type, character_sex: sex, sigil_city: sigil?.city ?? null, sigil_iso: sigil?.iso ?? null, updated_at: new Date().toISOString() }).eq('user_id', id);
+    if (prof.error) { setBusy(false); setNote(prof.error.code === '23505' ? 'That name is taken. Choose another.' : 'The changes could not be saved. Try again.'); return; }
+    if (editAddr && addr.trim()) {
+      const found = await findPlace(addr.trim()).catch(() => null);
+      if (!found) { setBusy(false); setNote('That address could not be found. Try the street, town and country.'); return; }
+      const home = await db().from('user_home').update({ address: found.name, lat: found.center.lat, lng: found.center.lng, updated_at: new Date().toISOString() }).eq('user_id', id);
+      if (home.error) { setBusy(false); setNote('The address could not be saved. Try again.'); return; }
+    }
+    await account.refresh();
+    setBusy(false);
+    onClose();
   };
   const next1 = () => {
     if (name.trim().length < 2) { setNote('Choose a name of at least two letters.'); return; }
@@ -98,14 +117,6 @@ export default function AccountModal({ account, onClose, onShop, onBuy, originNa
     if (problem) { setNote(problem); if (/name/i.test(problem)) setStep(1); return; }
     await account.refresh();
     onClose();
-  };
-  const saveNewSigil = async () => {
-    if (!account.session || !sigil) return;
-    setBusy(true); setNote('');
-    const { error } = await db().from('profiles').update({ sigil_city: sigil.city, sigil_iso: sigil.iso, updated_at: new Date().toISOString() }).eq('user_id', account.session.user.id);
-    setBusy(false);
-    if (error) { setNote('The sigil could not be saved. Try again.'); return; }
-    await account.refresh(); setEditSigil(false);
   };
 
   return (
@@ -172,13 +183,22 @@ export default function AccountModal({ account, onClose, onShop, onBuy, originNa
 
         {signedIn && account.loaded && !needsSetup && (
           <>
-            <h2><Emblem type={account.profile?.characterType ?? null} sex={account.profile?.characterSex ?? null} city={account.profile?.sigilCity ?? null} iso={account.profile?.sigilIso ?? null} size={34} /> {account.profile?.characterName} <button type="button" className="em-quill" aria-label="Change your sigil" title="Change your sigil" onClick={() => { setEditSigil((v) => !v); setNote(''); }}><Quill /></button></h2>
-            {editSigil && (<><SigilPicker value={sigil} onChange={setSigil} />{note && <p className="em-note">{note}</p>}<div className="em-card-buttons"><button type="button" className="em-btn" disabled={busy || !sigil} onClick={() => void saveNewSigil()}>{busy ? 'SAVING…' : 'KEEP THIS SIGIL'}</button></div></>)}
-            <TypePicker value={account.profile?.characterType ?? CHARACTER_TYPES[0].id} onChange={() => undefined} sex={account.profile?.characterSex ?? 'm'} />
-            <p className="em-fine">{account.email}</p>
-            <p className="em-fine">ORIGIN: {originName ?? ''} · SERF NUMBER {String(account.home?.hearthNumber ?? 0).padStart(4, '0')}</p>
-            <p className="em-septims"><Coin size={20} /> {account.septims.toLocaleString('en-US')}</p>
-            <div className="em-card-buttons">{onBuy && <button type="button" className="em-btn" onClick={onBuy}>EXCHANGE TENDER</button>}{onShop && <button type="button" className="em-btn" onClick={onShop}>FORGE & ALCHEMIST</button>}<button type="button" className="em-btn em-btn-ghost" onClick={() => void account.signOut().then(onClose)}>SIGN OUT</button></div>
+            <h2>EDIT YOUR CHARACTER</h2>
+            <TypePicker value={type} onChange={setType} sex={sex} onSex={setSex} />
+            <label className="em-field">CHARACTER NAME
+              <span className="em-sigil-search"><input value={name} maxLength={20} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} /><button type="button" className="em-btn em-btn-ghost" onClick={() => setName(randomCharacterName())}>ROLL</button></span>
+            </label>
+            <p className="em-fine em-edit-label">HOME SIGIL</p>
+            <SigilPicker value={sigil} onChange={setSigil} />
+            {account.home?.address && (
+              <div className="em-edit-home">
+                <p className="em-fine em-edit-label">HEARTH ADDRESS <button type="button" className="em-quill" aria-label="Change your hearth address" title="Change your hearth address" onClick={() => setEditAddr((v) => !v)}><Quill size={16} /></button></p>
+                <p className="em-fine">{account.home.address}</p>
+                {editAddr && <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="the new address: street, town, country" aria-label="New hearth address" />}
+              </div>
+            )}
+            {note && <p className="em-note">{note}</p>}
+            <div className="em-card-buttons"><button type="button" className="em-btn" disabled={busy} onClick={() => void saveEdit()}>{busy ? 'SAVING…' : 'SAVE'}</button></div>
           </>
         )}
       </article>
