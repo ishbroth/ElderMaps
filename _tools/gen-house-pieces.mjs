@@ -24,8 +24,8 @@ const HINT = {
   washer: 'a wooden wash tub', dryer: 'a wooden drying rack with cloth hung on it', ironingboard: 'a wooden pressing board',
   toilet: 'a plain wooden privy seat', bathsink: 'a stone wash basin on a stand', shower: 'a large wooden bathing tub',
   seating: 'a row of wooden benches', screen: "a storyteller's hanging tapestry on a wooden frame", speakers: 'a pair of large war drums', snackbar: 'a long feast board with bread and cheese',
-  pooltable: 'a gaming table with carved pieces on it', pinball: 'a dice table', dartboard: 'an archery target on a stand',
-  craftingtable: 'an alchemy station with bottles, a mortar and herbs', armorstand: 'a wooden stand holding a suit of armour', toolchest: 'an iron-bound tool chest',
+  pooltable: 'a gaming table with carved pieces on it', pinball: 'a dice table', dartboard: 'ONE single round archery target on a wooden stand (only one target)',
+  craftingtable: 'an alchemy station with bottles, a mortar and herbs', armorstand: 'ONE single wooden stand holding one suit of armour (only one stand)', toolchest: 'an iron-bound tool chest',
 };
 const piecesOf = [];
 for (const r of ROOM_DEFS) for (const f of r.furniture) if (!piecesOf.some((p) => p.id === f.id)) piecesOf.push({ id: f.id, name: f.name, room: r.name });
@@ -35,11 +35,15 @@ const list = only.length ? piecesOf.filter((p) => only.includes(p.id)) : piecesO
 
 async function cut(buf) {
   const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  // the background colour is read from the four corners (the painter sometimes drifts from pure magenta to a purple), and pixels close to it are cut away
+  const at = (x, y) => [data[(y * info.width + x) * 4], data[(y * info.width + x) * 4 + 1], data[(y * info.width + x) * 4 + 2]];
+  const cs = [at(2, 2), at(info.width - 3, 2), at(2, info.height - 3), at(info.width - 3, info.height - 3)];
+  const bg = [0, 1, 2].map((k) => cs.map((c) => c[k]).sort((p, q) => p - q)[1]);
   for (let i = 0; i < data.length; i += 4) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    const mag = Math.min(r, b) - g;
-    if (mag > 90) data[i + 3] = 0;
-    else if (mag > 50) { data[i + 3] = Math.round(255 * (90 - mag) / 40); data[i] = Math.min(r, g + 40); data[i + 2] = Math.min(b, g + 40); }
+    const dist = Math.hypot(data[i] - bg[0], data[i + 1] - bg[1], data[i + 2] - bg[2]);
+    const mag = Math.min(data[i], data[i + 2]) - data[i + 1];
+    if (dist < 70 || mag > 110) data[i + 3] = 0;
+    else if (dist < 120) { data[i + 3] = Math.round(255 * (dist - 70) / 50); if (mag > 40) { data[i] = Math.min(data[i], data[i + 1] + 30); data[i + 2] = Math.min(data[i + 2], data[i + 1] + 30); } }
   }
   return sharp(data, { raw: info }).trim().resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true }).webp({ quality: 88, alphaQuality: 95 }).toBuffer();
 }
