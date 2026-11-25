@@ -308,7 +308,7 @@ export default function App() {
     // nothing sits on top of anything else: a pin yields to one placed before it (cities first) within a few pixels, and a name is only written where it has room
     const proj = map.getProjection();
     const scale = 256 * 2 ** (map.getZoom() ?? zoom);
-    const taken: { x: number; y: number }[] = [];
+    const taken: { x: number; y: number; room: number }[] = [];
     const written: { x: number; y: number; w: number }[] = [];
     // the map shows only icons and shields: a place's name is on its card when it is tapped
     const add = (spot: Spot, _wantsName: boolean) => {
@@ -319,8 +319,8 @@ export default function App() {
         const pt = proj.fromLatLngToPoint(new google.maps.LatLng(spot.lat, spot.lng));
         if (pt) { x = pt.x * scale; y = pt.y * scale; }
         const room = spot.kind === 'crest' ? 40 : 19;
-        if (taken.some((q) => Math.abs(q.x - x) < room && Math.abs(q.y - y) < room)) return;
-        taken.push({ x, y });
+        if (taken.some((q) => Math.abs(q.x - x) < Math.max(room, q.room) && Math.abs(q.y - y) < Math.max(room, q.room))) return; // (a city's shield is bigger: what lies under it gives way)
+        taken.push({ x, y, room });
         const w = Math.min(190, spot.name.length * 9);
         if (labelled && written.some((q) => Math.abs(q.x - x) < (q.w + w) / 2 + 8 && Math.abs(q.y - y) < 25)) labelled = false;
         if (labelled) written.push({ x, y, w });
@@ -346,7 +346,28 @@ export default function App() {
         shown++;
       }
     }
-    // (the key places inside a city, its keep and landmarks, are shown only in that city's Town Legend, so they never cover its icon)
+    // the key places round a city: the keep, the best-known landmarks, the towns and villages about it
+    // the key places only gather round the cities marked as crests or towns
+    const anchors = new Set([...world.cities.crest, ...world.cities.town].map((c) => `${c[0]}|${c[5]}`));
+    if (zoom >= 9) {
+      let count = 0;
+      // how many of each kind round a city, by how close in the view is: a few at first, all of them at the closest
+      const room = zoom === 9 ? 2 : zoom === 10 ? 4 : 7;
+      for (const m of world.metros) {
+        if (count > 160) break;
+        if (!anchors.has(`${m.name}|${m.country}`) || !inView(m.lat, m.lng)) continue;
+        const province = world.provinceOfCountry(m.country);
+        const used = { landmark: 0, town: 0, keep: 0 };
+        for (const [name, lat, lng, kind, category, fame] of world.keys[m.id] ?? []) {
+          if (kind === 'town' || used[kind] >= room) continue;
+          // the keep stands where the crest does unless the seat of government is out in the city
+          if (kind === 'keep' && distanceMeters({ lat, lng }, { lat: m.lat, lng: m.lng }) < 2500) continue;
+          used[kind]++;
+          add({ id: `k:${m.id}:${name}`, kind, real: name, name: kind === 'keep' ? `${loreName(m.name, province)} Keep` : name, province, lat, lng, fame, note: kind === 'landmark' ? category : `Round ${loreName(m.name, province)}` }, kind !== 'landmark' || zoom >= 10);
+          count++;
+        }
+      }
+    }
     const insideCity = (lat: number, lng: number): boolean => {
       for (const m of cityMetros.current) { if (Math.abs(m.lat - lat) > 0.6 || Math.abs(m.lng - lng) > 0.8) continue; if (Math.hypot((lat - m.lat) * 111.32, (lng - m.lng) * 111.32 * Math.cos((m.lat * Math.PI) / 180)) <= m.radiusKm * 0.9) return true; }
       return false;
