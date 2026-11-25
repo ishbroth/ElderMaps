@@ -122,7 +122,6 @@ export default function App() {
   /** What the large map shows now (for the Quests list), and what the open Town Legend shows. */
   const [nearby, setNearby] = useState<Spot[]>([]);
   const [legendSpots, setLegendSpots] = useState<Spot[]>([]);
-  const cityMetros = useRef<{ lat: number; lng: number; radiusKm: number }[]>([]);
   const [trip, setTrip] = useState<{ to: Spot; route: NavRoute; step: number; toTurn: number; remaining: number; gps: boolean } | null>(null);
   const [zoomShown, setZoomShown] = useState(4);
 
@@ -330,7 +329,6 @@ export default function App() {
 
     // the cities, biggest first and more of them as you come in: crests (the anchors of metros over a million), towns (smaller metros that stand alone),
     // and villages (every other city over 60,000, drawn as a farm, a mill or a mine)
-    if (cityMetros.current.length === 0) { const names = new Set([...world.cities.crest, ...world.cities.town].map((c) => `${c[0]}|${c[5]}`)); cityMetros.current = world.metros.filter((m) => names.has(`${m.name}|${m.country}`)); }
     const tiers: [typeof world.cities.crest, number, 'crest' | 'town' | 'village', number][] = [
       [world.cities.crest, 1e9, 'crest', 260], [world.cities.town, townCount(zoom), 'town', 220], [world.cities.village, villageCount(zoom), 'village', 260],
     ];
@@ -368,10 +366,6 @@ export default function App() {
         }
       }
     }
-    const insideCity = (lat: number, lng: number): boolean => {
-      for (const m of cityMetros.current) { if (Math.abs(m.lat - lat) > 0.6 || Math.abs(m.lng - lng) > 0.8) continue; if (Math.hypot((lat - m.lat) * 111.32, (lng - m.lng) * 111.32 * Math.cos((m.lat * Math.PI) / 180)) <= m.radiusKm * 0.9) return true; }
-      return false;
-    };
     // the countryside: waterfalls, caves, ruins, forts, camps, beacons, fire mountains, springs, passes, glaciers, groves, shrines and peaks
     const fameFloor = wildFame(zoom);
     if (zoom >= 3) {
@@ -379,7 +373,6 @@ export default function App() {
       for (const [id, name, lat, lng, type, fame] of world.wild) {
         if (count > 420) break;
         if ((fame < fameFloor && !(zoom <= 4 && famousFar(name, type, fame))) || !inView(lat, lng)) continue;
-        if (insideCity(lat, lng)) continue; // inside a city's limits: it belongs to that city's Town Legend
         const province = world.provinceAt(lat, lng);
         add({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, pic: wildPic(type, name), note: KIND_TITLE[type] ?? type }, zoom >= 7);
         count++;
