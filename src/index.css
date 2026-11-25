@@ -231,7 +231,7 @@ button { font: inherit; }
 
 /* the ledger: under the map (upright) or beside it (sideways). Upright, the map fills the screen but for the top of the ledger (the search and the tabs); scroll the page to bring the rest up. */
 .em-app { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
-.em-stage { position: relative; flex: 0 0 calc(100dvh - 146px - env(safe-area-inset-top)); min-height: 330px; inset: auto; }
+.em-stage { position: relative; flex: 0 0 calc(100dvh - 176px - env(safe-area-inset-top)); min-height: 330px; inset: auto; }
 .em-ledger { flex: 0 0 auto; height: calc(100dvh - env(safe-area-inset-top)); display: flex; flex-direction: column; background: var(--sky-panel, rgba(12, 16, 20, 0.96)); color: var(--sky-ink, #f2f2ee); border-top: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: env(safe-area-inset-bottom); }
 @media (orientation: landscape) and (min-width: 700px) {
   .em-app { flex-direction: row; overflow: hidden; }
@@ -323,7 +323,7 @@ button { font: inherit; }
 .em-try-row button { flex: 0 0 auto; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); font-family: inherit; font-size: 12px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
 
 /* the ME locator sits on the map above the zoom buttons */
-.em-locate { position: absolute; z-index: 6; right: max(27px, calc(env(safe-area-inset-right) + 17px)); bottom: 156px; width: 46px; height: 46px; display: grid; place-items: center; gap: 0; padding: 4px 0 2px; background: rgba(12, 16, 20, 0.94); color: var(--sky-ink, #f2f2ee); border: 1px solid rgba(201, 194, 176, 0.7); cursor: pointer; font-family: inherit; }
+.em-locate { position: absolute; z-index: 6; right: max(27px, calc(env(safe-area-inset-right) + 17px)); bottom: 186px; width: 46px; height: 46px; display: grid; place-items: center; gap: 0; padding: 4px 0 2px; background: rgba(12, 16, 20, 0.94); color: var(--sky-ink, #f2f2ee); border: 1px solid rgba(201, 194, 176, 0.7); cursor: pointer; font-family: inherit; }
 .em-locate svg { width: 20px; height: 20px; }
 .em-locate span { font-size: 9px; letter-spacing: 0.18em; line-height: 1; }
 .em-locate.on { color: #0c1014; background: var(--sky-ink, #f2f2ee); }
@@ -404,3 +404,6 @@ button { font: inherit; }
 .em-lv { background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.6)); font-size: 18px; cursor: pointer; }
 .em-house-head .em-card-x { width: auto; padding: 0 10px; font-size: 11px; letter-spacing: 0.15em; }
 .em-door { font-size: 18px; font-weight: 400 !important; }
+
+.em-quest-head { text-align: left; letter-spacing: 0.2em; margin: 2px 0 6px; }
+.em-ledger-name small { display: block; }

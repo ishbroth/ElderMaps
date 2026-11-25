@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { Spot } from './App';
 import { CHARACTER_TYPES, deleteAccount, type Account } from './lib/account';
 import { levelInfo } from './lib/points';
+import { enemyById, lootRangeFor, planFor, worthFor } from './lib/combat/data';
 import { ShopBody } from './Shop';
 import { Emblem, Quill } from './Sigil';
 import { voiceAvailable } from './lib/voice';
@@ -12,7 +13,7 @@ import { crestSvg } from './lib/crests';
 import { kindTitle } from './lib/lore';
 import { LOOT, REGIONAL_HERBS } from './lib/loot';
 
-type Tab = 'places' | 'inventory' | 'herald';
+type Tab = 'quests' | 'inventory' | 'herald';
 
 interface Props {
   account: Account;
@@ -41,20 +42,35 @@ interface Props {
   /** Takes the large map to a city. */
   onTryCity: (c: { name: string; lat: number; lng: number }) => void;
   onHouse: () => void;
+  /** What the map shows now; and, while a Town Legend is open, what it shows (null when none is open). */
+  nearby: Spot[];
+  legendSpots: Spot[] | null;
+  legendName: string | null;
+  /** A real city's name under the realm's name for it. */
+  invent: (name: string, iso: string) => string;
   /** The sigil city under its realm name (the real name is never shown). */
   originName: string | null;
 }
 
 /** A few well-known cities to try, as in WastelandMaps: each takes the map there. */
-const TRY_CITIES: { name: string; lat: number; lng: number }[] = [
-  { name: 'Savannah', lat: 32.08, lng: -81.09 }, { name: 'Kuala Lumpur', lat: 3.14, lng: 101.69 }, { name: 'St. Louis', lat: 38.63, lng: -90.2 }, { name: 'Paris', lat: 48.86, lng: 2.35 },
-  { name: 'Seattle', lat: 47.61, lng: -122.33 }, { name: 'Edinburgh', lat: 55.95, lng: -3.19 }, { name: 'Cairo', lat: 30.04, lng: 31.24 }, { name: 'Kyoto', lat: 35.01, lng: 135.77 },
-  { name: 'Istanbul', lat: 41.01, lng: 28.98 }, { name: 'Rome', lat: 41.9, lng: 12.5 }, { name: 'Oslo', lat: 59.91, lng: 10.75 }, { name: 'New Orleans', lat: 29.95, lng: -90.07 },
-  { name: 'Mumbai', lat: 19.08, lng: 72.88 }, { name: 'Lisbon', lat: 38.72, lng: -9.14 }, { name: 'Prague', lat: 50.08, lng: 14.44 }, { name: 'Anchorage', lat: 61.22, lng: -149.9 },
+const TRY_CITIES: { name: string; iso: string; lat: number; lng: number }[] = [
+  { name: 'Savannah', iso: 'US', lat: 32.08, lng: -81.09 }, { name: 'Kuala Lumpur', iso: 'MY', lat: 3.14, lng: 101.69 }, { name: 'St. Louis', iso: 'US', lat: 38.63, lng: -90.2 }, { name: 'Paris', iso: 'FR', lat: 48.86, lng: 2.35 },
+  { name: 'Seattle', iso: 'US', lat: 47.61, lng: -122.33 }, { name: 'Edinburgh', iso: 'GB', lat: 55.95, lng: -3.19 }, { name: 'Cairo', iso: 'EG', lat: 30.04, lng: 31.24 }, { name: 'Kyoto', iso: 'JP', lat: 35.01, lng: 135.77 },
+  { name: 'Istanbul', iso: 'TR', lat: 41.01, lng: 28.98 }, { name: 'Rome', iso: 'IT', lat: 41.9, lng: 12.5 }, { name: 'Oslo', iso: 'NO', lat: 59.91, lng: 10.75 }, { name: 'New Orleans', iso: 'US', lat: 29.95, lng: -90.07 },
+  { name: 'Mumbai', iso: 'IN', lat: 19.08, lng: 72.88 }, { name: 'Lisbon', iso: 'PT', lat: 38.72, lng: -9.14 }, { name: 'Prague', iso: 'CZ', lat: 50.08, lng: 14.44 }, { name: 'Anchorage', iso: 'US', lat: 61.22, lng: -149.9 },
 ];
 
 const lootName = (id: string): string => LOOT.find((l) => l.id === id)?.name ?? REGIONAL_HERBS.find((h) => h.loot.id === id)?.loot.name ?? id;
 const iconOf = (s: Spot): string => (s.kind === 'crest' ? crestSvg(s.real, s.iso2, true) : glyph(s.pic ?? (s.kind === 'landmark' ? glyphForCategory(s.note) : s.kind), true));
+
+/** The foes that hold a place and the spoils it pays. */
+function questOf(s: Spot): { foes: string; spoils: string } {
+  const worth = worthFor(s.kind, 10);
+  const plan = planFor(s.id, s.kind, worth, s.province);
+  const foes = [...plan.enemies.map((e) => enemyById(e).plural), ...(plan.boss ? [enemyById(plan.boss).name] : [])];
+  const [lo, hi] = lootRangeFor(worth);
+  return { foes: [...new Set(foes)].join(', '), spoils: lo + ' to ' + hi + ' pieces of loot' };
+}
 
 /** The privacy and support pages (shown signed in or not). */
 function Legal() {
@@ -85,15 +101,20 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 }
 
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse, originName }: Props) {
-  const [tab, setTab] = useState<Tab>('places');
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse, originName, nearby, legendSpots, legendName, invent }: Props) {
+  const [tab, setTab] = useState<Tab>('quests');
+  const [view, setView] = useState<'near' | 'found'>('near');
   const [query, setQuery] = useState('');
-  const [only, setOnly] = useState<'all' | 'cleared'>('all');
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return [...found].reverse().filter((s) => (only === 'all' || cleared.has(s.id)) && (!q || s.name.toLowerCase().includes(q) || s.real.toLowerCase().includes(q)));
-  }, [found, cleared, query, only]);
+    return [...found].reverse().filter((s) => (!q || s.name.toLowerCase().includes(q) || s.real.toLowerCase().includes(q)));
+  }, [found, cleared, query]);
   const type = CHARACTER_TYPES.find((c) => c.id === account.profile?.characterType);
+  // what is about: inside an open Town Legend, that city's places; otherwise what the large map shows
+  const shownNear = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (legendSpots ?? nearby).filter((s) => !q || s.name.toLowerCase().includes(q)).slice(0, 80);
+  }, [legendSpots, nearby, query]);
   const loot = Object.entries(account.loot).filter(([, n]) => n > 0);
   const level = levelInfo(account.points);
 
@@ -110,32 +131,59 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
       </div>
       <div className="em-try">
         <span>TRY</span>
-        <div className="em-try-row">{TRY_CITIES.map((c) => <button key={c.name} type="button" onClick={() => onTryCity(c)}>{c.name}</button>)}</div>
+        <div className="em-try-row">{TRY_CITIES.map((c) => <button key={c.name} type="button" onClick={() => onTryCity(c)}>{invent(c.name, c.iso)}</button>)}</div>
       </div>
       <div className="em-ledger-tabs" role="tablist">
-        {([['places', 'PLACES'], ['inventory', 'INVENTORY'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
+        {([['quests', 'QUESTS'], ['inventory', 'INVENTORY'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
       <div className="em-ledger-body">
-        {tab === 'places' && (
+        {tab === 'quests' && (
           <>
             <div className="em-ledger-tools">
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find among your places" aria-label="Find among your places" />
-              <button type="button" className={only === 'cleared' ? 'on' : ''} onClick={() => setOnly(only === 'all' ? 'cleared' : 'all')}>{only === 'cleared' ? 'CLEARED' : 'ALL'}</button>
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={view === 'near' ? (legendName ? 'Find in ' + legendName : 'Find among the places about') : 'Find among your places'} aria-label="Find a place" />
+              <button type="button" className={view === 'found' ? 'on' : ''} onClick={() => setView(view === 'near' ? 'found' : 'near')}>{view === 'near' ? 'ABOUT' : 'FOUND'}</button>
             </div>
-            {found.length === 0 && <p className="em-fine">Nothing found yet. Walk to a place on the map (turn on ME) and it is yours, with its story and a glimpse to buy.</p>}
-            <ul className="em-ledger-list">
-              {list.map((s) => (
-                <li key={s.id}>
-                  <button type="button" onClick={() => onOpenSpot(s)}>
-                    <span className="em-ledger-ico" dangerouslySetInnerHTML={{ __html: iconOf(s) }} />
-                    <span className="em-ledger-name"><b>{s.name}</b><small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small></span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {found.length > 0 && list.length === 0 && <p className="em-fine">None of your places match.</p>}
+            {view === 'near' ? (
+              <>
+                <p className="em-fine em-quest-head">{legendName ? 'INSIDE ' + legendName.toUpperCase() : 'ABOUT YOU ON THE MAP'}</p>
+                {shownNear.length === 0 && <p className="em-fine">{legendSpots ? 'Nothing is mapped inside this city yet.' : 'Nothing is shown at this distance. Come in on the map and the places about will be listed here, with the foes that hold them and the spoils they pay.'}</p>}
+                <ul className="em-ledger-list">
+                  {shownNear.map((s) => {
+                    const q = questOf(s);
+                    return (
+                      <li key={s.id}>
+                        <button type="button" onClick={() => onOpenSpot(s)}>
+                          <span className="em-ledger-ico" dangerouslySetInnerHTML={{ __html: iconOf(s) }} />
+                          <span className="em-ledger-name">
+                            <b>{s.name}</b>
+                            <small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small>
+                            {!cleared.has(s.id) && <small>FOES: {q.foes}</small>}
+                            {!cleared.has(s.id) && <small>SPOILS: {q.spoils}</small>}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              <>
+                {found.length === 0 && <p className="em-fine">Nothing found yet. Walk to a place on the map (turn on ME) and it is yours, with its story and a glimpse to buy.</p>}
+                <ul className="em-ledger-list">
+                  {list.map((s) => (
+                    <li key={s.id}>
+                      <button type="button" onClick={() => onOpenSpot(s)}>
+                        <span className="em-ledger-ico" dangerouslySetInnerHTML={{ __html: iconOf(s) }} />
+                        <span className="em-ledger-name"><b>{s.name}</b><small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small></span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {found.length > 0 && list.length === 0 && <p className="em-fine">None of your places match.</p>}
+              </>
+            )}
           </>
         )}
 

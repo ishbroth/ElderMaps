@@ -11,6 +11,8 @@ import { legendPlaces, legendStatus, legendUnlock, type LegendStatus } from './l
 import type { Metro, World } from './lib/world';
 
 interface Props {
+  /** Tells the page which places the legend shows (for the Quests list). */
+  onPlaces?: (spots: Spot[]) => void;
   metro: Metro;
   province: ProvinceId;
   world: World;
@@ -38,7 +40,7 @@ function pin(spot: Spot, glimpsed: boolean, onPick: () => void): HTMLElement {
 }
 
 /** The map of a whole city: its streets in the style of its land, the villages, mills and country places round it, and every place travellers have glimpsed there. */
-export default function TownLegend({ metro, province, world, signedIn, septims, onNeedsAccount, onSpent, onOpenSpot, onClose }: Props) {
+export default function TownLegend({ onPlaces, metro, province, world, signedIn, septims, onNeedsAccount, onSpent, onOpenSpot, onClose }: Props) {
   const [status, setStatus] = useState<LegendStatus | null>(null);
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
@@ -82,7 +84,9 @@ export default function TownLegend({ metro, province, world, signedIn, septims, 
     streets = createStreetLayer(map, kit, roadKitName(province));
     if (import.meta.env.DEV) (window as unknown as { __legend?: google.maps.Map }).__legend = map;
     const near = (lat: number, lng: number) => Math.hypot((lat - metro.lat) * 111.32, (lng - metro.lng) * 111.32 * Math.cos((metro.lat * Math.PI) / 180)) <= metro.radiusKm * 1.05;
+    const shown: Spot[] = [];
     const put = (spot: Spot, glimpsed: boolean) => {
+      shown.push(spot);
       const h = createHtmlMarker({ position: { lat: spot.lat, lng: spot.lng }, element: pin(spot, glimpsed, () => onOpenSpot(spot)), zIndex: glimpsed ? 8 : 5 });
       h.setMap(map);
       markers.push(h);
@@ -100,12 +104,18 @@ export default function TownLegend({ metro, province, world, signedIn, septims, 
       const prov = world.provinceAt(lat, lng);
       put({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, prov), province: prov, lat, lng, fame, pic: wildPic(type, name), note: type }, false);
     }
+    // the key places inside the city: its keep and landmarks (kept off the large map, where they would cover the city's own icon)
+    for (const [name, lat, lng, kind, category, fame] of world.keys[metro.id] ?? []) {
+      if (kind === 'town') continue;
+      put({ id: `k:${metro.id}:${name}`, kind, real: name, name: kind === 'keep' ? `${loreName(metro.name, province)} Keep` : name, province, lat, lng, fame, note: kind === 'landmark' ? category : `Round ${loreName(metro.name, province)}` }, false);
+    }
+    onPlaces?.([...shown]);
     // every place travellers have glimpsed in this city
     void legendPlaces(metro.id).then((r) => {
       if (off || !r.ok) return;
       for (const p of r.data.places) put({ id: p.id, kind: p.kind, real: p.name, name: p.name, province, lat: p.lat, lng: p.lng, fame: 0, pic: wildPic(p.kind, p.name), note: 'Glimpsed by travellers' }, true);
     });
-    return () => { off = true; markers.forEach((m) => m.setMap(null)); streets?.detach(); };
+    return () => { off = true; onPlaces?.([]); markers.forEach((m) => m.setMap(null)); streets?.detach(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status?.unlocked, metro.id]);
 

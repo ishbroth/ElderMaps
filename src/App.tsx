@@ -119,6 +119,10 @@ export default function App() {
   const [voiceOn, setVoiceOn] = useState(() => voiceEnabled());
   const [hapticsOn, setHapticsOn] = useState(() => hapticsEnabled());
   const [houseOpen, setHouseOpen] = useState(false);
+  /** What the large map shows now (for the Quests list), and what the open Town Legend shows. */
+  const [nearby, setNearby] = useState<Spot[]>([]);
+  const [legendSpots, setLegendSpots] = useState<Spot[]>([]);
+  const cityMetros = useRef<{ lat: number; lng: number; radiusKm: number }[]>([]);
   const [trip, setTrip] = useState<{ to: Spot; route: NavRoute; step: number; toTurn: number; remaining: number; gps: boolean } | null>(null);
   const [zoomShown, setZoomShown] = useState(4);
 
@@ -216,6 +220,9 @@ export default function App() {
   useEffect(() => { seenRef.current = seen; try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch { /* storage unavailable */ } }, [seen]);
 
   useEffect(() => onAppUrl((url) => { void completeSignInFromUrl(url).then((ok) => { if (ok) void account.refresh(); }); }), [account]);
+
+  // anything opened from the info section (a place, the account, the shop, the house...) shows on the map: the page is brought back up to it
+  useEffect(() => { if (selected || viewing || legend || accountOpen || shopOpen || buyOpen || houseOpen) document.querySelector('.em-app')?.scrollTo({ top: 0, behavior: 'smooth' }); }, [selected, viewing, legend, accountOpen, shopOpen, buyOpen, houseOpen]);
 
   const say = useCallback((text: string) => {
     setToast(text);
@@ -323,6 +330,7 @@ export default function App() {
 
     // the cities, biggest first and more of them as you come in: crests (the anchors of metros over a million), towns (smaller metros that stand alone),
     // and villages (every other city over 60,000, drawn as a farm, a mill or a mine)
+    if (cityMetros.current.length === 0) { const names = new Set([...world.cities.crest, ...world.cities.town].map((c) => `${c[0]}|${c[5]}`)); cityMetros.current = world.metros.filter((m) => names.has(`${m.name}|${m.country}`)); }
     const tiers: [typeof world.cities.crest, number, 'crest' | 'town' | 'village', number][] = [
       [world.cities.crest, 1e9, 'crest', 260], [world.cities.town, townCount(zoom), 'town', 220], [world.cities.village, villageCount(zoom), 'village', 260],
     ];
@@ -338,28 +346,11 @@ export default function App() {
         shown++;
       }
     }
-    // the key places round a city: the keep, the best-known landmarks, the towns and villages about it
-    // the key places only gather round the cities marked as crests or towns
-    const anchors = new Set([...world.cities.crest, ...world.cities.town].map((c) => `${c[0]}|${c[5]}`));
-    if (zoom >= 9) {
-      let count = 0;
-      // how many of each kind round a city, by how close in the view is: a few at first, all of them at the closest
-      const room = zoom === 9 ? 2 : zoom === 10 ? 4 : 7;
-      for (const m of world.metros) {
-        if (count > 160) break;
-        if (!anchors.has(`${m.name}|${m.country}`) || !inView(m.lat, m.lng)) continue;
-        const province = world.provinceOfCountry(m.country);
-        const used = { landmark: 0, town: 0, keep: 0 };
-        for (const [name, lat, lng, kind, category, fame] of world.keys[m.id] ?? []) {
-          if (kind === 'town' || used[kind] >= room) continue;
-          // the keep stands where the crest does unless the seat of government is out in the city
-          if (kind === 'keep' && distanceMeters({ lat, lng }, { lat: m.lat, lng: m.lng }) < 2500) continue;
-          used[kind]++;
-          add({ id: `k:${m.id}:${name}`, kind, real: name, name: kind === 'keep' ? `${loreName(m.name, province)} Keep` : name, province, lat, lng, fame, note: kind === 'landmark' ? category : `Round ${loreName(m.name, province)}` }, kind !== 'landmark' || zoom >= 10);
-          count++;
-        }
-      }
-    }
+    // (the key places inside a city, its keep and landmarks, are shown only in that city's Town Legend, so they never cover its icon)
+    const insideCity = (lat: number, lng: number): boolean => {
+      for (const m of cityMetros.current) { if (Math.abs(m.lat - lat) > 0.6 || Math.abs(m.lng - lng) > 0.8) continue; if (Math.hypot((lat - m.lat) * 111.32, (lng - m.lng) * 111.32 * Math.cos((m.lat * Math.PI) / 180)) <= m.radiusKm * 0.9) return true; }
+      return false;
+    };
     // the countryside: waterfalls, caves, ruins, forts, camps, beacons, fire mountains, springs, passes, glaciers, groves, shrines and peaks
     const fameFloor = wildFame(zoom);
     if (zoom >= 3) {
@@ -367,11 +358,15 @@ export default function App() {
       for (const [id, name, lat, lng, type, fame] of world.wild) {
         if (count > 420) break;
         if ((fame < fameFloor && !(zoom <= 4 && famousFar(name, type, fame))) || !inView(lat, lng)) continue;
+        if (insideCity(lat, lng)) continue; // inside a city's limits: it belongs to that city's Town Legend
         const province = world.provinceAt(lat, lng);
         add({ id: `w:${id}`, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, pic: wildPic(type, name), note: KIND_TITLE[type] ?? type }, zoom >= 7);
         count++;
       }
     }
+
+    // the Quests list: what is in this view (nothing at the farthest zoom)
+    setNearby(zoom >= 4 ? [...wanted.values()].map((w) => w.spot).sort((x, y) => y.fame - x.fame).slice(0, 120) : []);
 
     // pins are added and taken away one by one, so the rest does not flicker
     for (const [id, pin] of pins.current) {
@@ -703,7 +698,7 @@ export default function App() {
         )}
 
         {legend && world && !trip && (
-          <TownLegend metro={legend} province={world.provinceOfCountry(legend.country)} world={world} signedIn={!!account.session} septims={account.septims}
+          <TownLegend onPlaces={setLegendSpots} metro={legend} province={world.provinceOfCountry(legend.country)} world={world} signedIn={!!account.session} septims={account.septims}
             onNeedsAccount={() => { setLegend(null); setAccountOpen(true); }} onSpent={() => void account.refresh()} onOpenSpot={(s) => setViewing(s)} onClose={() => setLegend(null)} />
         )}
 
@@ -738,7 +733,7 @@ export default function App() {
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
           onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)}
           following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
-          onHouse={() => setHouseOpen(true)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
+          onHouse={() => setHouseOpen(true)} nearby={nearby} legendSpots={legend ? legendSpots : null} legendName={legend && world ? loreName(legend.name, world.provinceOfCountry(legend.country)) : null} invent={(name, iso) => (world ? loreName(name, world.provinceOfCountry(iso)) : name)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
       )}
     </div>
   );
