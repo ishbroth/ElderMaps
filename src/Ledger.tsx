@@ -39,6 +39,7 @@ interface Props {
   onToggleHaptics: () => void;
   /** Takes the large map to a city. */
   onTryCity: (c: { name: string; lat: number; lng: number }) => void;
+  onHouse: () => void;
 }
 
 /** A few well-known cities to try, as in WastelandMaps: each takes the map there. */
@@ -81,7 +82,7 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 }
 
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity }: Props) {
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse }: Props) {
   const [tab, setTab] = useState<Tab>('places');
   const [query, setQuery] = useState('');
   const [only, setOnly] = useState<'all' | 'cleared'>('all');
@@ -152,6 +153,7 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
               <p className="em-fine">HOME: {account.home?.address ?? 'not set'}</p>
               <p className="em-septims">{account.septims.toLocaleString('en-US')} SEPTIMS</p>
               <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onBuy}>BUY SEPTIMS</button></div>
+              <div className="em-card-buttons"><button type="button" className="em-btn" onClick={onHouse}>YOUR HOUSE</button></div>
               <h4>LOOT</h4>
               <p className="em-fine">{loot.length ? loot.map(([id, n]) => n + ' ' + lootName(id).toUpperCase()).join(' · ') : 'Nothing yet: clear places, then visit them in person.'}</p>
               <h4>FORGE & ALCHEMIST</h4>

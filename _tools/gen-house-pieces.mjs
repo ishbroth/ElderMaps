@@ -17,7 +17,7 @@ const HINT = {
   decon: 'a stone hearth-altar with a bowl of living flame, the Hearthstone of the house',
   fishtank: 'a standing rune lantern with a glowing blue crystal',
   plant: 'a small indoor tree in a pot',
-  corn: 'a tall patch of barley in a raised bed', tatoes: 'a raised bed of root vegetables', mutfruit: 'a raised bed with berry bushes',
+  corn: 'a tall patch of barley in a raised bed', tatoes: 'a raised bed of root vegetables', mutfruit: 'a low raised stone planter box full of berry bushes with red berries (a garden planter, NOT a bed for sleeping, no cloth, no canopy)',
   tv: 'an enchanting table with glowing runes and crystals', instrument: 'a lute on a stand',
   sinkcabinets: 'wooden cupboards with a stone basin', fridge: 'an ice chest of wood and iron', stove: 'a stone cooking hearth with a pot over the fire',
   punchbowl: 'a barrel-shaped mead cask on a stand', couch: 'a long carved wooden bench with cushions', coffeetable: 'a low wooden table',

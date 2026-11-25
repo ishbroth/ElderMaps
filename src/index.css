@@ -231,7 +231,7 @@ button { font: inherit; }
 
 /* the ledger: under the map (upright) or beside it (sideways). Upright, the map fills the screen but for the top of the ledger (the search and the tabs); scroll the page to bring the rest up. */
 .em-app { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
-.em-stage { position: relative; flex: 0 0 calc(100dvh - 232px - env(safe-area-inset-bottom)); min-height: 330px; inset: auto; }
+.em-stage { position: relative; flex: 0 0 calc(100dvh - 146px); min-height: 330px; inset: auto; }
 .em-ledger { flex: 0 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--sky-panel, rgba(12, 16, 20, 0.96)); color: var(--sky-ink, #f2f2ee); border-top: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); padding-bottom: env(safe-area-inset-bottom); }
 @media (orientation: landscape) and (min-width: 700px) {
   .em-app { flex-direction: row; overflow: hidden; }
@@ -321,3 +321,56 @@ button { font: inherit; }
 .em-try-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
 .em-try-row::-webkit-scrollbar { display: none; }
 .em-try-row button { flex: 0 0 auto; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); font-family: inherit; font-size: 12px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+
+/* the ME locator sits on the map above the zoom buttons */
+.em-me { position: absolute; z-index: 6; right: max(27px, calc(env(safe-area-inset-right) + 17px)); bottom: 131px; width: 46px; height: 46px; display: grid; place-items: center; gap: 0; padding: 4px 0 2px; background: rgba(12, 16, 20, 0.94); color: var(--sky-ink, #f2f2ee); border: 1px solid rgba(201, 194, 176, 0.7); cursor: pointer; font-family: inherit; }
+.em-me svg { width: 20px; height: 20px; }
+.em-me span { font-size: 9px; letter-spacing: 0.18em; line-height: 1; }
+.em-me.on { color: #0c1014; background: var(--sky-ink, #f2f2ee); }
+
+/* the house */
+.em-house { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: #0b0d10; color: var(--sky-ink, #f2f2ee); overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
+.em-house-head { display: flex; align-items: center; gap: 10px; padding: max(10px, env(safe-area-inset-top)) 12px 6px; }
+.em-house-head h2 { margin: 0; flex: 1; font-size: 15px; letter-spacing: 0.3em; font-weight: 400; }
+.em-house-head .em-card-x { position: static; }
+.em-house-style { margin: 0; }
+.em-house-style button { padding: 6px 10px; font-size: 10px; }
+.em-house-loot, .em-house-note { margin: 2px 12px; }
+.em-house-body { padding: 8px 12px 24px; max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.em-house-body h3 { font-size: 12px; letter-spacing: 0.25em; font-weight: 500; margin: 18px 0 6px; }
+.em-house-banner { border: 1px solid #c9a45c; padding: 10px 12px; margin: 6px 0 10px; font-size: 13px; }
+.em-house-banner .em-btn { display: block; margin-top: 8px; }
+.em-levels { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 8px; }
+.em-levels button { flex: 1 0 auto; font-family: inherit; font-size: 10px; letter-spacing: 0.15em; padding: 7px 8px; background: transparent; color: var(--sky-dim, #9aa3a8); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); cursor: pointer; }
+.em-levels button.on { color: var(--sky-ink, #f2f2ee); border-color: var(--sky-ink, #f2f2ee); }
+.em-levels button small { margin-left: 5px; opacity: 0.7; }
+.em-plan { display: grid; gap: 2px; width: 100%; max-width: 520px; margin: 0 auto; aspect-ratio: 1 / 1; }
+.em-cell { border: 0; padding: 0; display: grid; place-items: center; align-content: center; font-family: inherit; color: #fff; }
+.em-cell-room { cursor: pointer; font-size: 9px; letter-spacing: 0.08em; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); min-width: 0; overflow: hidden; }
+.em-cell-room b { font-weight: 600; text-shadow: 0 1px 2px #000; }
+.em-cell-room small { font-size: 8px; opacity: 0.85; }
+.em-cell-free { background: transparent; border: 1px dashed rgba(201, 194, 176, 0.5); color: rgba(201, 194, 176, 0.8); cursor: pointer; font-size: 16px; }
+.em-cell-free.on { background: rgba(201, 194, 176, 0.2); }
+.em-cell-none { background: rgba(255, 255, 255, 0.025); }
+.em-sheet { position: relative; margin: 14px 0; padding: 12px; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); background: #11151a; }
+.em-sheet .em-card-x { position: absolute; top: 4px; right: 6px; }
+.em-sheet h3 { margin-top: 0; }
+.em-build-list { list-style: none; margin: 0; padding: 0; }
+.em-build-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(201, 194, 176, 0.18); }
+.em-build-list li > div { flex: 1; min-width: 0; }
+.em-build-list li b { display: block; font-size: 12px; letter-spacing: 0.14em; font-weight: 500; }
+.em-build-list li small { display: block; font-size: 11px; color: var(--sky-dim, #9aa3a8); margin-top: 2px; }
+.em-build-list .em-btn { flex: 0 0 auto; padding: 8px 12px; font-size: 11px; }
+.em-stair-opts { margin-top: 10px; display: grid; gap: 4px; }
+.em-stair-opts small { font-size: 10px; letter-spacing: 0.2em; color: var(--sky-dim, #9aa3a8); }
+.em-roomstage { position: relative; width: 100%; aspect-ratio: 1024 / 820; touch-action: none; user-select: none; -webkit-user-select: none; background: radial-gradient(circle at 50% 55%, #1a1d22, #0b0d10 70%); }
+.em-roomart { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.em-piece { position: absolute; cursor: grab; height: auto; filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.55)); }
+.em-piece.on { filter: drop-shadow(0 0 6px rgba(232, 217, 168, 0.9)) drop-shadow(0 6px 5px rgba(0, 0, 0, 0.55)); }
+.em-piece.drag { cursor: grabbing; opacity: 0.92; }
+.em-house-demolish { margin-top: 22px; }
+.em-btn.on { background: var(--sky-ink, #f2f2ee); color: #0c1014; }
+
+/* the ledger never grows past its column because of the row of cities */
+.em-ledger { min-width: 0; max-width: 100%; }
+@media (orientation: landscape) and (min-width: 700px) { .em-ledger { width: min(380px, 38%); max-width: min(380px, 38%); } }

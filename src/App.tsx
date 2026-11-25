@@ -1,3 +1,4 @@
+import House, { HouseTest } from './House';
 import { onAppUrl } from './lib/native';
 import { completeSignInFromUrl } from './lib/account';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -117,6 +118,7 @@ export default function App() {
   const [seen, setSeen] = useState<Set<string>>(() => loadSeen());
   const [voiceOn, setVoiceOn] = useState(() => voiceEnabled());
   const [hapticsOn, setHapticsOn] = useState(() => hapticsEnabled());
+  const [houseOpen, setHouseOpen] = useState(false);
   const [trip, setTrip] = useState<{ to: Spot; route: NavRoute; step: number; toTurn: number; remaining: number; gps: boolean } | null>(null);
   const [zoomShown, setZoomShown] = useState(4);
 
@@ -655,11 +657,15 @@ export default function App() {
               <button type="button" onClick={() => setLook(look === 'vivid' ? 'oblivion' : 'vivid')} title="Change the map's look">{look === 'skyrim' ? 'NORTHERN' : look === 'vivid' ? 'VIVID' : 'PARCHMENT'}</button>
               {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
               {accountsEnabled && !account.session && <button type="button" onClick={() => setAccountOpen(true)} title="Enter the realm">ENTER</button>}
-              <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
             </div>
           </header>
         )}
 
+        {!trip && (
+          <button type="button" className={'em-me' + (following ? ' on' : '')} onClick={() => void locate()} title="Find where you stand and discover what is near" aria-label="Find where you stand">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 18.6 20 12 16.2 5.4 20Z" fill="currentColor" /></svg><span>ME</span>
+          </button>
+        )}
         {!trip && <div className="em-compass" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 3 29 24 24 45 19 24Z" fill="currentColor" /><path d="M3 24 24 19 45 24 24 29Z" fill="currentColor" opacity="0.5" /><text x="24" y="14" textAnchor="middle" fontSize="9" fill="#000">N</text></svg></div>}
         {!trip && <div className="em-count">{seenCount} PLACES DISCOVERED{hint ? ` · ${hint}` : ''}</div>}
 
@@ -700,6 +706,8 @@ export default function App() {
         )}
 
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} onShop={() => { setAccountOpen(false); setShopOpen(true); }} onBuy={() => { setAccountOpen(false); setBuyOpen(true); }} />}
+        {typeof window !== 'undefined' && window.location.search.includes('housetest') && <HouseTest onClose={() => { window.location.href = window.location.pathname; }} />}
+        {houseOpen && !trip && account.session && <House account={account} onClose={() => setHouseOpen(false)} />}
         {buyOpen && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}
         {shopOpen && !trip && <Shop onClose={() => setShopOpen(false)} onBought={() => void account.refresh()} />}
 
@@ -724,7 +732,7 @@ export default function App() {
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
           onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)}
           following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
-          hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
+          onHouse={() => setHouseOpen(true)} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
       )}
     </div>
   );
