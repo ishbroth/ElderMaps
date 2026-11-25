@@ -7,7 +7,7 @@ import { createHtmlMarker, type HtmlMarkerHandle } from './lib/htmlMarker';
 import { glyph, glyphForCategory } from './lib/glyphs';
 import { settlementPic, wildPic } from './lib/glyphsMore';
 import { crestSvg, loadCrests } from './lib/crests';
-import { KIND_TITLE, PROVINCES, SEAS, kindTitle, loreName, placeLine, type ProvinceId } from './lib/lore';
+import { KIND_TITLE, PROVINCES, SEAS, kindTitle, loreName, placeLine, readableInk, type ProvinceId } from './lib/lore';
 import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, requestRoute, turnArrow, type NavRoute } from './lib/navigation';
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
@@ -24,6 +24,7 @@ import { bearingBetween, riderSvg } from './lib/rider';
 import { createVivid, type Vivid } from './lib/vivid';
 import AccountModal from './Account';
 import { accountsEnabled, db, loadFound, reportDiscovery, useAccount } from './lib/account';
+import { hapticsEnabled, setHapticsEnabled } from './lib/haptics';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type Metro, type World } from './lib/world';
 import TornFrame from './TornFrame';
@@ -115,6 +116,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [seen, setSeen] = useState<Set<string>>(() => loadSeen());
   const [voiceOn, setVoiceOn] = useState(() => voiceEnabled());
+  const [hapticsOn, setHapticsOn] = useState(() => hapticsEnabled());
   const [trip, setTrip] = useState<{ to: Spot; route: NavRoute; step: number; toTurn: number; remaining: number; gps: boolean } | null>(null);
   const [zoomShown, setZoomShown] = useState(4);
 
@@ -284,6 +286,8 @@ export default function App() {
     if (!map || !world || tripRef.current) return;
     const zoom = Math.round(map.getZoom() ?? 4);
     setZoomShown(zoom);
+    // the shields and marks grow a little as you come in: half as big again at the closest zoom as fully zoomed out
+    mapBox.current?.style.setProperty('--pin-scale', String(1 + 0.5 * Math.min(1, Math.max(0, ((map.getZoom() ?? 3) - 3) / (MAX_ZOOM - 3)))));
     const view = map.getBounds()?.toJSON();
     if (!view) return;
     const padLat = (view.north - view.south) * 0.15;
@@ -652,7 +656,6 @@ export default function App() {
               {look === 'vivid' && <button type="button" onClick={() => setCloudsOn(!cloudsOn)} title="Clouds over the map (yesterday's, from a satellite)">{cloudsOn ? '☁ CLOUDS' : '☁ OFF'}</button>}
               {accountsEnabled && !account.session && <button type="button" onClick={() => setAccountOpen(true)} title="Enter the realm">ENTER</button>}
               <button type="button" onClick={() => void locate()} title="Find where you stand and discover what is near">{following ? '◉ ME' : '○ ME'}</button>
-              {voiceAvailable() && <button type="button" onClick={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }} title="The road's voice">{voiceOn ? '♪ VOICE' : '♪ OFF'}</button>}
             </div>
           </header>
         )}
@@ -665,7 +668,7 @@ export default function App() {
         {toast && <div className="em-toast" role="status">{toast}</div>}
 
         {selected && province && !trip && (
-          <aside className="em-card" style={{ ['--prov' as string]: province.ink }}>
+          <aside className="em-card" style={{ ['--prov' as string]: readableInk(province) }}>
             <button type="button" className="em-card-x" onClick={() => setSelected(null)} aria-label="Close">×</button>
             <div className="em-card-icon" dangerouslySetInnerHTML={{ __html: selected.kind === 'crest' ? crestSvg(selected.real, selected.iso2) : glyph(selected.pic ?? (selected.kind === 'landmark' ? glyphForCategory(selected.note) : selected.kind)) }} />
             <h2>{selected.name}</h2>
@@ -719,7 +722,9 @@ export default function App() {
       </div>
       {!trip && (
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
-          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)} />
+          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)}
+          following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
+          hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
       )}
     </div>
   );

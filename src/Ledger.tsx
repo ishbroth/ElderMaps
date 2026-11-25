@@ -4,6 +4,8 @@ import { CHARACTER_TYPES, deleteAccount, type Account } from './lib/account';
 import { levelInfo } from './lib/points';
 import { ShopBody } from './Shop';
 import { Emblem, Quill } from './Sigil';
+import { voiceAvailable } from './lib/voice';
+import { hapticsAvailable } from './lib/haptics';
 import { glyph, glyphForCategory } from './lib/glyphs';
 import { crestSvg } from './lib/crests';
 import { kindTitle } from './lib/lore';
@@ -28,7 +30,24 @@ interface Props {
   query: string;
   onQuery: (q: string) => void;
   onSearch: (e: React.FormEvent) => void;
+  /** AUTO-DISCOVER: following where the phone is and finding places as they are reached. */
+  following: boolean;
+  onToggleFollow: () => void;
+  voiceOn: boolean;
+  onToggleVoice: () => void;
+  hapticsOn: boolean;
+  onToggleHaptics: () => void;
+  /** Takes the large map to a city. */
+  onTryCity: (c: { name: string; lat: number; lng: number }) => void;
 }
+
+/** A few well-known cities to try, as in WastelandMaps: each takes the map there. */
+const TRY_CITIES: { name: string; lat: number; lng: number }[] = [
+  { name: 'Savannah', lat: 32.08, lng: -81.09 }, { name: 'Kuala Lumpur', lat: 3.14, lng: 101.69 }, { name: 'St. Louis', lat: 38.63, lng: -90.2 }, { name: 'Paris', lat: 48.86, lng: 2.35 },
+  { name: 'Seattle', lat: 47.61, lng: -122.33 }, { name: 'Edinburgh', lat: 55.95, lng: -3.19 }, { name: 'Cairo', lat: 30.04, lng: 31.24 }, { name: 'Kyoto', lat: 35.01, lng: 135.77 },
+  { name: 'Istanbul', lat: 41.01, lng: 28.98 }, { name: 'Rome', lat: 41.9, lng: 12.5 }, { name: 'Oslo', lat: 59.91, lng: 10.75 }, { name: 'New Orleans', lat: 29.95, lng: -90.07 },
+  { name: 'Mumbai', lat: 19.08, lng: 72.88 }, { name: 'Lisbon', lat: 38.72, lng: -9.14 }, { name: 'Prague', lat: 50.08, lng: 14.44 }, { name: 'Anchorage', lat: 61.22, lng: -149.9 },
+];
 
 const lootName = (id: string): string => LOOT.find((l) => l.id === id)?.name ?? REGIONAL_HERBS.find((h) => h.loot.id === id)?.loot.name ?? id;
 const iconOf = (s: Spot): string => (s.kind === 'crest' ? crestSvg(s.real, s.iso2, true) : glyph(s.pic ?? (s.kind === 'landmark' ? glyphForCategory(s.note) : s.kind), true));
@@ -62,7 +81,7 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 }
 
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch }: Props) {
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity }: Props) {
   const [tab, setTab] = useState<Tab>('places');
   const [query, setQuery] = useState('');
   const [only, setOnly] = useState<'all' | 'cleared'>('all');
@@ -80,6 +99,15 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
         <input value={placeQuery} onChange={(e) => onQuery(e.target.value)} placeholder="Seek a city, a keep, a waterfall…" aria-label="Search for a place" />
         <button type="submit" aria-label="Search">⌕</button>
       </form>
+      <div className="em-ledger-switches">
+        <button type="button" className={'em-switch-wide' + (following ? ' on' : '')} aria-pressed={following} onClick={onToggleFollow} title="Find places as you walk, drive or ride">{following ? '◉ AUTO-DISCOVER ON' : '○ AUTO-DISCOVER OFF'}</button>
+        {voiceAvailable() && <button type="button" className={'em-switch' + (voiceOn ? ' on' : '')} aria-pressed={voiceOn} aria-label={voiceOn ? 'Mute the road\'s voice' : 'Unmute the road\'s voice'} title={voiceOn ? 'Mute the voice' : 'Unmute the voice'} onClick={onToggleVoice}>{voiceOn ? '♪' : '♪̸'}</button>}
+        {hapticsAvailable() && <button type="button" className={'em-switch' + (hapticsOn ? ' on' : '')} aria-pressed={hapticsOn} aria-label={hapticsOn ? 'Turn the buzz off' : 'Turn the buzz on'} title={hapticsOn ? 'Buzz on' : 'Buzz off'} onClick={onToggleHaptics}>{hapticsOn ? '≋' : '—'}</button>}
+      </div>
+      <div className="em-try">
+        <span>TRY</span>
+        <div className="em-try-row">{TRY_CITIES.map((c) => <button key={c.name} type="button" onClick={() => onTryCity(c)}>{c.name}</button>)}</div>
+      </div>
       <div className="em-ledger-tabs" role="tablist">
         {([['places', 'PLACES'], ['inventory', 'INVENTORY'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>

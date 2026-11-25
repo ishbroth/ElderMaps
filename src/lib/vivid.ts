@@ -17,6 +17,9 @@ const TERRARIUM = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium';
 const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default';
 
 type RGB = [number, number, number];
+/** The sea, the same everywhere (only the land takes the colours of its province). */
+const SEA: { shallow: RGB; deep: RGB } = { shallow: [48, 140, 204], deep: [14, 66, 124] };
+
 interface Palette { low: RGB; mid: RGB; rock: RGB; deep: RGB; shallow: RGB }
 
 /** Each province's land and sea colours: bright, like a game's, and imagined from what the land is like. */
@@ -116,6 +119,61 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
   const elev = new Float32Array(256 * 256);
   for (let i = 0; i < 65536; i++) elev[i] = src[i * 4] * 256 + src[i * 4 + 1] + src[i * 4 + 2] / 256 - 32768;
 
+  const land = new Float32Array(65536);
+  for (let i = 0; i < 65536; i++) land[i] = elev[i] > 1.2 ? 1 : 0; // the flat water of sounds and lakes reads as a mix of -0.4 and +0.4 metres in the height data: only above a metre or so is land
+  // close up, the sounds and lakes show blocks of "land" a few hundred pixels across that are only noise in the height data: a patch of land that does not touch the tile's edge and is small is dropped
+  if (z >= 10) {
+    const seen = new Uint8Array(65536);
+    const stack: number[] = [];
+    for (let start = 0; start < 65536; start++) {
+      if (land[start] !== 1 || seen[start]) continue;
+      const cells: number[] = [];
+      let touches = false;
+      stack.push(start); seen[start] = 1;
+      while (stack.length) {
+        const c = stack.pop() as number;
+        cells.push(c);
+        const cx = c & 255, cy = c >> 8;
+        if (cx === 0 || cy === 0 || cx === 255 || cy === 255) touches = true;
+        for (const n of [c - 1, c + 1, c - 256, c + 256]) {
+          if (n < 0 || n >= 65536 || seen[n] || land[n] !== 1) continue;
+          if ((n === c - 1 && cx === 0) || (n === c + 1 && cx === 255)) continue;
+          seen[n] = 1; stack.push(n);
+        }
+      }
+      if (!touches && cells.length < 700) for (const c of cells) land[c] = 0;
+    }
+  }
+  // close up, the height data over sounds and lakes has stray specks: a speck smaller than a few pixels is not land (an erosion, then a dilation of the same size)
+  let mask: Float32Array = land;
+  if (z >= 8) {
+    const R = z >= 10 ? 4 : 2;
+    const sweep = (src: Float32Array, grow: boolean, horizontal: boolean): Float32Array => {
+      const dst = new Float32Array(65536);
+      for (let y2 = 0; y2 < 256; y2++) for (let x2 = 0; x2 < 256; x2++) {
+        let v = grow ? 0 : 1;
+        for (let k = -R; k <= R; k++) {
+          const xx = horizontal ? Math.min(255, Math.max(0, x2 + k)) : x2, yy = horizontal ? y2 : Math.min(255, Math.max(0, y2 + k));
+          const t = src[yy * 256 + xx];
+          v = grow ? Math.max(v, t) : Math.min(v, t);
+        }
+        dst[y2 * 256 + x2] = v;
+      }
+      return dst;
+    };
+    mask = sweep(sweep(sweep(sweep(land, false, true), false, false), true, true), true, false);
+  }
+  let soft: Float32Array = mask;
+  for (let pass = 0; pass < 2; pass++) {
+    const tmp = new Float32Array(65536);
+    for (let y2 = 0; y2 < 256; y2++) for (let x2 = 0; x2 < 256; x2++) {
+      let sum = 0;
+      for (let k = -2; k <= 2; k++) { const xx = pass === 0 ? Math.min(255, Math.max(0, x2 + k)) : x2, yy = pass === 0 ? y2 : Math.min(255, Math.max(0, y2 + k)); sum += soft[yy * 256 + xx] * (3 - Math.abs(k)); }
+      tmp[y2 * 256 + x2] = sum / 9;
+    }
+    soft = tmp;
+  }
+
   // which province's colours sit at each point of a coarse grid over the tile (blended between grid points, so borders fade)
   const N = 8;
   const grid: Palette[][] = [];
@@ -144,41 +202,46 @@ async function paintRelief(canvas: HTMLCanvasElement, x: number, y: number, z: n
         const a = mix(pick(p00), pick(p10), fx), b = mix(pick(p01), pick(p11), fx);
         return mix(a, b, fy);
       };
-      let col: RGB;
+      const cover = smooth(0.32, 0.68, soft[i]); // 0 sea, 1 land, in between along the coast
       const x0 = elev[py * 256 + Math.max(0, px - 1)], x1 = elev[py * 256 + Math.min(255, px + 1)], y0 = elev[Math.max(0, py - 1) * 256 + px], y1 = elev[Math.min(255, py + 1) * 256 + px];
-      if (e <= 0) {
-        // sea: lighter and greener near the coast, deep and dark far out; a bright rim where it meets land
-        const depth = smooth(0, 4500, -e);
-        col = mix(blend((p) => p.shallow), blend((p) => p.deep), Math.pow(depth, 0.6));
-        if (x0 > 0 || x1 > 0 || y0 > 0 || y1 > 0) col = mix(col, [200, 240, 245], 0.5);
-        // a soft shading of the sea floor, so the shelves show
-        const sh = 0.94 + 0.12 * Math.max(-1, Math.min(1, (x0 - x1) / 400));
-        { const gry = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11; const s2 = SAT + 0.1; col = [gry + (col[0] - gry) * s2, gry + (col[1] - gry) * s2, gry + (col[2] - gry) * s2]; }
-        o[i * 4] = col[0] * sh; o[i * 4 + 1] = col[1] * sh; o[i * 4 + 2] = col[2] * sh; o[i * 4 + 3] = 255;
-        continue;
+      let sea: RGB = [0, 0, 0], terrain: RGB = [0, 0, 0];
+      if (cover < 0.999) {
+        // sea: lighter near the coast, deep and dark far out, the same colours all over the world
+        const depth = smooth(0, 4500, Math.max(0, -e));
+        let c = mix(SEA.shallow, SEA.deep, Math.pow(depth, 0.6));
+        const gry = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11; const s2 = SAT + 0.1; c = [gry + (c[0] - gry) * s2, gry + (c[1] - gry) * s2, gry + (c[2] - gry) * s2];
+        const sh = 0.94 + 0.12 * Math.max(-1, Math.min(1, (x0 - x1) / 400)); // a soft shading of the sea floor, so the shelves show
+        sea = [c[0] * sh, c[1] * sh, c[2] * sh];
       }
-      // the mountains are made taller than they are: the steeper and higher, the more the heights count
-      const boost = EXAG * (1 + e / 1500);
-      const dzdx = ((x1 - x0) / (2 * mpp)) * boost, dzdy = ((y1 - y0) / (2 * mpp)) * boost;
-      const nl = Math.hypot(dzdx, dzdy, 1);
-      const lit = ((-dzdx * lx - dzdy * ly + lz) / (nl * ln));
-      const shade = 0.5 + (lit - flat) * 3.4; // contrast: flat ground is about 0.5
-      // the colour by height: lowland, then hills, then bare rock, then snow above the snow line (lower towards the poles)
-      col = mix(blend((p) => p.low), blend((p) => p.mid), smooth(150, 1100, e));
-      col = mix(col, blend((p) => p.rock), smooth(1400, 3200, e));
-      const snow = smooth(snowLine - 250, snowLine + 350, e);
-      const steepRock = smooth(0.15, 0.6, Math.hypot(dzdx, dzdy) / boost * 14);
-      col = mix(col, blend((p) => p.rock), steepRock * 0.45 * (1 - snow));
-      col = mix(col, [246, 249, 252], snow);
-      { const gry = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11; col = [gry + (col[0] - gry) * SAT, gry + (col[1] - gry) * SAT, gry + (col[2] - gry) * SAT]; }
-      const k2 = Math.max(0.35, Math.min(1.5, 0.62 + shade * 0.7 + (snow > 0.5 ? 0.12 : 0)));
-      o[i * 4] = Math.min(255, col[0] * k2); o[i * 4 + 1] = Math.min(255, col[1] * k2); o[i * 4 + 2] = Math.min(255, col[2] * k2); o[i * 4 + 3] = 255;
+      if (cover > 0.001) {
+        const el = Math.max(e, 1);
+        // the mountains are made taller than they are: the steeper and higher, the more the heights count
+        const boost = EXAG * (1 + el / 1500);
+        const dzdx = ((Math.max(x1, 0) - Math.max(x0, 0)) / (2 * mpp)) * boost, dzdy = ((Math.max(y1, 0) - Math.max(y0, 0)) / (2 * mpp)) * boost;
+        const nl = Math.hypot(dzdx, dzdy, 1);
+        const lit = ((-dzdx * lx - dzdy * ly + lz) / (nl * ln));
+        const shade = 0.5 + (lit - flat) * 3.4; // contrast: flat ground is about 0.5
+        // the colour by height: lowland, then hills, then bare rock, then snow above the snow line (lower towards the poles)
+        let col = mix(blend((p) => p.low), blend((p) => p.mid), smooth(150, 1100, el));
+        col = mix(col, blend((p) => p.rock), smooth(1400, 3200, el));
+        const snow = smooth(snowLine - 250, snowLine + 350, el);
+        const steepRock = smooth(0.15, 0.6, Math.hypot(dzdx, dzdy) / boost * 14);
+        col = mix(col, blend((p) => p.rock), steepRock * 0.45 * (1 - snow));
+        col = mix(col, [246, 249, 252], snow);
+        { const gry = col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11; col = [gry + (col[0] - gry) * SAT, gry + (col[1] - gry) * SAT, gry + (col[2] - gry) * SAT]; }
+        const k2 = Math.max(0.35, Math.min(1.5, 0.62 + shade * 0.7 + (snow > 0.5 ? 0.12 : 0)));
+        terrain = [Math.min(255, col[0] * k2), Math.min(255, col[1] * k2), Math.min(255, col[2] * k2)];
+      }
+      let fin: RGB = cover >= 0.999 ? terrain : cover <= 0.001 ? sea : mix(sea, terrain, cover);
+      // a fine pale line of surf right along the coast, narrow and smooth
+      const rim = Math.pow(1 - Math.abs(2 * cover - 1), 2.2);
+      if (rim > 0.01) fin = mix(fin, [214, 240, 246], rim * 0.55);
+      o[i * 4] = fin[0]; o[i * 4 + 1] = fin[1]; o[i * 4 + 2] = fin[2]; o[i * 4 + 3] = 255;
     }
   }
   g.putImageData(out, 0, 0);
   // lakes and rivers on top, in the tone of the local sea
-  const mid = PALETTES[provinceAt(tileLat(y + 0.5, z), tileLng(x + 0.5, z))] ?? PALETTES.cyrodiil;
-  drawWater(g, x, y, z, mix(mid.shallow, mid.deep, 0.18));
+  drawWater(g, x, y, z, mix(SEA.shallow, SEA.deep, 0.18));
 }
 
 /** Paints one cloud tile from yesterday's true-colour picture of the Earth: white, colourless parts become soft clouds, the rest is clear. */

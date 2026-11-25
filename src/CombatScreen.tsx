@@ -1,3 +1,4 @@
+import { buzz } from './lib/haptics';
 import { useEffect, useRef, useState } from 'react';
 import { analyzeSpawns } from './lib/combat/analyze';
 import { loadCombatAssets, type CombatAssets } from './lib/combat/art';
@@ -56,6 +57,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
       const skyPlan = plan.dragonSky && looked?.sky && looked.sky.fraction >= 0.12;
       const usedPlan: RaidPlan = skyPlan ? { worth: plan.worth, enemies: [], boss: 'dragon', waves: [], total: 1, dragonSky: true } : plan;
       const g = new Game({ plan: usedPlan, dragonSky: skyPlan && looked?.sky ? { v: looked.sky.v } : undefined, spawns: looked ?? { ...DEFAULT_SPAWNS, ...spawns }, arsenal, hands: ['onehand'], level, potions, shouts, ratio: (e: Enemy) => { const f = assets.current.enemies[e.type.id]?.frames[0]; return f ? f.naturalWidth / f.naturalHeight : 0.45; } });
+      g.onBuzz = buzz;
       game.current = g; if (import.meta.env.DEV) (window as unknown as { __game?: Game }).__game = g; setHands(g.slots.map((s) => s.weapon.cls));
       setPhase('fighting');
     })();

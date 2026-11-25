@@ -104,6 +104,13 @@ export function loreName(real: string, province: ProvinceId): string {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
+/** The colour to write a land's name in on the dark cards: its own ink when that is light, otherwise its tint (the dark inks are for text on its light map). */
+export function readableInk(p: Province): string {
+  const n = parseInt(p.ink.slice(1), 16);
+  const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.5 ? p.ink : p.tint;
+}
+
 /** What the capital of a land is called there: several forms each, one picked by the city's name. */
 const CAPITAL_TITLE: Record<ProvinceId, string[]> = {
   skyrim: ['Hold Capital', "Jarl's Seat", 'High Hold'],

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
-import { kindTitle, type Province } from './lib/lore';
+import { kindTitle, readableInk, type Province } from './lib/lore';
 import { GLIMPSE_MESSAGES, requestGlimpse, type Glimpse } from './lib/glimpse';
 import CombatScreen from './CombatScreen';
 import { finishRun, startRun, type RunStart } from './lib/clear';
@@ -63,7 +63,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
 
   return (
     <div className="em-scene-back" role="dialog" aria-modal="true" aria-label={`${spot.name}: its story`} onClick={onClose}>
-      <article className="em-scene" style={{ ['--prov' as string]: province.ink }} onClick={(e) => e.stopPropagation()}>
+      <article className="em-scene" style={{ ['--prov' as string]: readableInk(province) }} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="em-card-x" onClick={onClose} aria-label="Close">×</button>
         {state === 'ready' && glimpse ? (
           <Reveal glimpse={glimpse} name={spot.name} />

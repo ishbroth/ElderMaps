@@ -106,6 +106,8 @@ export class Game {
   shoutT = 0;
   /** Struck down with a potion in the pack: the fight waits for the answer. */
   downed = false;
+  /** Told when a blow lands (hit) or is taken (hurt), so the phone can buzz. */
+  onBuzz?: (kind: 'hit' | 'hurt') => void;
   enemies: Enemy[] = [];
   effects: Effect[] = [];
   outcome: Outcome = 'fighting';
@@ -209,7 +211,7 @@ export class Game {
 
   private damage(e: Enemy, amount: number, crit = false) {
     if (e.state === 'dying') return;
-    e.hp -= amount; e.hurt = 0.18;
+    e.hp -= amount; e.hurt = 0.18; this.onBuzz?.('hit');
     this.effects.push({ kind: 'number', u0: e.u, v0: e.v - this.heightOf(e) * 0.8, u: e.u, v: e.v - this.heightOf(e) * 0.8, t: 0, life: 0.8, size: crit ? 1.4 : 1, value: Math.round(amount), crit });
     if (e.hp <= 0) { e.state = 'dying'; e.t = 0; this.killed++; }
   }
@@ -327,7 +329,7 @@ export class Game {
       s.attacking = phase > cycle - 0.45;
       if (phase >= cycle) {
         const [lo, hi] = STRIKE_SHARE.strong;
-        this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++;
+        this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++; this.onBuzz?.('hurt');
         if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
       }
       if (s.t >= 5.5) { s.mode = 'retreat'; s.t = 0; s.attacking = false; }
@@ -410,7 +412,7 @@ export class Game {
         // the wind-up, then the blow
         if (e.t >= 0.42) {
           const [lo, hi] = STRIKE_SHARE[threatOf(e.type)];
-          this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength;
+          this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.onBuzz?.('hurt');
           this.shake = 0.6; this.hitFlash = 1;
           e.state = 'leaving'; e.t = 0; this.escaped++;
           if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
