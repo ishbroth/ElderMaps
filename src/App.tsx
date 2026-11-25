@@ -293,7 +293,7 @@ export default function App() {
   // ---- what is on the map at this view ----
   const refresh = useCallback(() => {
     const map = mapRef.current;
-    if (!map || !world || tripRef.current) return;
+    if (!map || !world || tripRef.current || localRef.current) return;
     const zoom = Math.round(map.getZoom() ?? 4);
     setZoomShown(zoom);
     // the shields and marks grow a little as you come in: half as big again at the closest zoom as fully zoomed out
@@ -478,6 +478,7 @@ export default function App() {
           discover({ id: `c:${anchor[0]}:${anchor[1]}`, kind: anchor[4], real: anchor[0], name: loreName(anchor[0], prov), province: prov, lat: anchor[1], lng: anchor[2], fame: anchor[3], note: '', iso2: anchor[5] }, here, m.id);
         }
       }
+      if (localRef.current && fogCircles.current.length) { fogCircles.current[0] = { lat: here.lat, lng: here.lng, r: 900 }; drawFog(); }
       // on the road
       const t = tripRef.current;
       if (t) {
@@ -493,14 +494,101 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [following, world, discover]);
 
+  // ---- the local view: ME zooms into the city, drawn like the Town Legend's streets, with everything beyond your neighbourhood (and what you have paid to have pictured) in fog ----
+  const localRef = useRef(false);
+  const [local, setLocal] = useState(false);
+  const fogCv = useRef<HTMLCanvasElement>(null);
+  const fogCircles = useRef<{ lat: number; lng: number; r: number }[]>([]);
+  const fogMetro = useRef<Metro | null>(null);
+  const drawFog = useCallback(() => {
+    const map = mapRef.current, cv = fogCv.current, box = mapBox.current;
+    if (!map || !cv || !box || !localRef.current) return;
+    const proj = map.getProjection(), bounds = map.getBounds();
+    if (!proj || !bounds) return;
+    const W = box.clientWidth, H = box.clientHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d') as CanvasRenderingContext2D;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const zoom = map.getZoom() ?? 15, scale = 2 ** zoom;
+    const nw = proj.fromLatLngToPoint(new google.maps.LatLng(bounds.getNorthEast().lat(), bounds.getSouthWest().lng()));
+    if (!nw) return;
+    g.fillStyle = 'rgba(11, 13, 16, 0.94)';
+    g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'destination-out';
+    for (const c of fogCircles.current) {
+      const pt = proj.fromLatLngToPoint(new google.maps.LatLng(c.lat, c.lng));
+      if (!pt) continue;
+      const x = (pt.x - nw.x) * scale, y = (pt.y - nw.y) * scale;
+      const r = c.r / ((156543.03392 * Math.cos((c.lat * Math.PI) / 180)) / 2 ** zoom);
+      const gr = g.createRadialGradient(x, y, r * 0.55, x, y, r);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    // the zoom buttons stay clear of the fog
+    g.fillStyle = '#000'; g.fillRect(W - 112, H - 130, 100, 112);
+    g.globalCompositeOperation = 'source-over';
+  }, []);
+  const leaveLocal = useCallback(() => {
+    const map = mapRef.current;
+    if (!localRef.current || !map) return;
+    localRef.current = false; setLocal(false);
+    streets.current?.detach(); streets.current = null;
+    map.setOptions({ styles: WORLD_STYLES[lookRef.current], maxZoom: MAX_ZOOM, backgroundColor: PALETTE[lookRef.current].backdrop });
+    if (lookRef.current === 'vivid' && vividRef.current) {
+      map.mapTypes.set('vivid', vividRef.current.base); map.setMapTypeId('vivid'); map.overlayMapTypes.clear();
+      if (cloudsRef.current) map.overlayMapTypes.push(vividRef.current.clouds);
+      map.data.setStyle(() => ({ visible: false, clickable: false }));
+    } else map.setMapTypeId('terrain');
+    map.setZoom(Math.min(MAX_ZOOM, 10));
+    window.setTimeout(() => refresh(), 250);
+  }, [refresh]);
+  // zooming out past the city goes back to the large map; the fog follows every move
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !local) return;
+    const hs = [map.addListener('zoom_changed', () => { if ((map.getZoom() ?? 15) < 12) leaveLocal(); else drawFog(); }), map.addListener('bounds_changed', drawFog), map.addListener('idle', drawFog)];
+    drawFog();
+    return () => hs.forEach((h) => h.remove());
+  }, [local, leaveLocal, drawFog]);
+
   const locate = async () => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !world) return;
     try {
       const fix = await getFix();
-      map.setCenter({ lat: fix.lat, lng: fix.lng });
-      map.setZoom(10);
+      const here = { lat: fix.lat, lng: fix.lng };
       setFollowing(true);
+      // the city the traveller stands in (if any), and whether its Town Legend was bought
+      let metro: Metro | null = null, best = Infinity;
+      for (const m of world.metros) { const d = distanceMeters(here, { lat: m.lat, lng: m.lng }) / 1000; if (d <= m.radiusKm && d < best) { best = d; metro = m; } }
+      if (!metro) { map.setCenter(here); map.setZoom(10); return; }
+      let owned = false;
+      const bought: { lat: number; lng: number; r: number }[] = [];
+      if (account.session) {
+        const uid = account.session.user.id;
+        const [mu, un] = await Promise.all([db().from('metro_unlocks').select('metro_id').eq('user_id', uid), db().from('unlocks').select('place_id').eq('user_id', uid)]);
+        owned = ((mu.data ?? []) as { metro_id: string }[]).some((r) => r.metro_id === metro?.id);
+        for (const r of (un.data ?? []) as { place_id: string }[]) { const sp = spotById(world, r.place_id); if (sp && distanceMeters({ lat: sp.lat, lng: sp.lng }, { lat: metro.lat, lng: metro.lng }) / 1000 <= metro.radiusKm * 1.1) bought.push({ lat: sp.lat, lng: sp.lng, r: 450 }); }
+      }
+      // the whole city, if its Town Legend is theirs
+      if (owned) { setLegend(metro); return; }
+      // otherwise the neighbourhood, and the surroundings of what they paid to have pictured
+      const region = world.provinceAt(here.lat, here.lng);
+      const kit = roadKitFor(region);
+      pins.current.forEach((p) => p.handle.setMap(null)); pins.current.clear();
+      labels.current.forEach((h) => h.setMap(null)); labels.current = [];
+      setSelected(null);
+      map.setOptions({ styles: localStyleFor(region), maxZoom: 19, backgroundColor: kit.ground });
+      map.setMapTypeId('roadmap'); map.overlayMapTypes.clear();
+      map.data.setStyle(() => ({ visible: false, clickable: false }));
+      streets.current?.detach();
+      streets.current = createStreetLayer(map, kit, roadKitName(region));
+      setNearby([]);
+      fogCircles.current = [{ ...here, r: 900 }, ...bought];
+      fogMetro.current = metro;
+      localRef.current = true; setLocal(true);
+      map.setCenter(here); map.setZoom(15);
     } catch { say('THE ROAD CANNOT FIND YOU: LOCATION IS OFF'); }
   };
 
@@ -659,6 +747,10 @@ export default function App() {
     <div className={`em-app em-${look}${trip ? ' em-road' : ''}`} style={{ background: pal.backdrop }}>
       <div className="em-stage">
         <div ref={mapBox} className="em-map" />
+        {local && <canvas ref={fogCv} className="em-fog" aria-hidden="true" />}
+        {local && fogMetro.current && (
+          <div className="em-fog-note"><span>YOUR NEIGHBOURHOOD, AND WHAT YOU HAVE HAD PICTURED. THE REST OF {fogMetro.current.name.toUpperCase()} LIES IN FOG.</span><button type="button" className="em-btn" onClick={() => { const m = fogMetro.current; if (m) setLegend(m); }}>THE TOWN LEGEND</button></div>
+        )}
         {ready && world && !trip && look !== 'vivid' && <TintLayer map={mapRef.current} world={world} look={look} />}
         <div className="em-vignette" aria-hidden="true" />
         {look === 'oblivion' && !trip && <TornFrame />}
