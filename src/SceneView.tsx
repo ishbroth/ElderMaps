@@ -13,6 +13,8 @@ interface Props {
   province: Province;
   icon: string;
   signedIn: boolean;
+  /** This place is the player's own home city. */
+  homeCity?: boolean;
   /** Said when a button that needs an account (or something not built yet) is pressed. */
   onNeedsAccount: (what: string) => void;
   /** A glimpse was paid for: the balance has changed. */
@@ -26,7 +28,7 @@ interface Props {
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onTravel, onClose }: Props) {
+export default function SceneView({ homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onTravel, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -79,7 +81,7 @@ export default function SceneView({ spot, province, icon, signedIn, onNeedsAccou
         {state === 'working' && <p className="em-fine em-wave-note">THE RIFT OPENS… A MOMENT</p>}
         {paidLine && <p className="em-fine">{paidLine}</p>}
         {run && glimpse && (
-          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={{ ...STARTING_ARSENAL, ...(run.arsenal as Arsenal) }} dual={run.pack.dual} level={0} potions={run.pack.potions} shouts={run.pack.shouts}
+          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={{ ...STARTING_ARSENAL, ...(run.arsenal as Arsenal) }} dual={run.pack.dual} level={0} homeCity={homeCity} potions={run.pack.potions} shouts={run.pack.shouts}
             onDone={async (res) => {
               const end = await finishRun(run.runId, res.won, province.id, spot.kind, res.potionsUsed, res.shoutsUsed);
               if (res.won) onCleared(spot.id);

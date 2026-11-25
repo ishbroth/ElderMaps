@@ -17,8 +17,8 @@ export interface Spawns {
 export const DEFAULT_SPAWNS: Spawns = { horizon: 0.56, points: [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 0.18, 0.5, 0.78].map((u, i) => ({ u, v: 0.62 + (i % 3) * 0.05 })) };
 
 const PERSON_HEIGHT = 0.3;
-const STRIKE_V = 0.98;
-const strikeHeight = (size: number) => Math.min(0.95, 0.5 * Math.pow(size, 0.7));
+const STRIKE_V = 1.2; // the feet are below the bottom of the screen when it is on you: you see the chest, not the whole body
+const strikeHeight = (size: number) => Math.min(1.3, 0.85 * Math.pow(size, 0.6));
 export const SLOW_FACTOR = 0.3;
 export const SLOW_SECONDS = 8;
 /** How close an enemy must be (how far along its walk) for a sword or axe to reach it. */
@@ -81,6 +81,8 @@ export interface GameOptions {
   /** What is in the hands (one or two items: a second only when two hands are unlocked). */
   hands: ItemCls[];
   level?: number;
+  /** The dragon of the traveller's own home city: it is made quite gentle. */
+  homeDragon?: boolean;
   /** Health potions and Legendary Time (shouts) the traveller carries. */
   potions?: number;
   shouts?: number;
@@ -133,6 +135,8 @@ export class Game {
   private waves: number[];
   private order: { type: EnemyType; boss: boolean }[][];
   private strength: number;
+  private easy = 1;
+  private easyBoss = 1;
   private pending: { t: number; run: () => void }[] = [];
   private finalBoss: BossId | null;
   private dragonSky: { v: number } | null;
@@ -146,6 +150,10 @@ export class Game {
     this.potions = o.potions ?? 0;
     this.shouts = o.shouts ?? 0;
     this.strength = strengthForLevel(o.level ?? 0);
+    // a beginner meets weaker foes: they toughen with the traveller's level (the dragons most of all)
+    const lv = Math.max(0, o.level ?? 0);
+    this.easy = 0.45 + 0.55 * Math.min(1, lv / 12);
+    this.easyBoss = (0.1 + 0.9 * Math.min(1, lv / 30)) * (o.homeDragon ? 0.3 : 1);
     this.setHands(o.hands);
     this.waves = scaledWaves(o.plan, o.level ?? 0);
     this.order = this.waves.map((size) => Array.from({ length: size }, () => ({ type: enemyById(o.plan.enemies[Math.floor(this.random() * o.plan.enemies.length)]), boss: false })));
@@ -295,7 +303,7 @@ export class Game {
   private spawn(type: EnemyType, boss: boolean) {
     if (this.dragonSky && type.id === 'dragon') {
       const v = Math.max(0.12, Math.min(0.5, this.dragonSky.v * 0.5));
-      this.enemies.push({ id: this.nextId++, type, boss: true, u0: 0.5, v0: v, toU: 0.5, u: 0.5, v, p: 0.12, travel: 1, hp: Math.round(type.hp * 1.4 * this.strength), maxHp: Math.round(type.hp * 1.4 * this.strength), state: 'walking', t: 0, hurt: 0, phase: 0, exit: 1, chill: 0, gait: 0, lift: 0, sky: { mode: 'circle', t: 0, next: 10 + this.random() * 6, baseV: v, hit: 0, attacking: false, bite: 0 } });
+      this.enemies.push({ id: this.nextId++, type, boss: true, u0: 0.5, v0: v, toU: 0.5, u: 0.5, v, p: 0.12, travel: 1, hp: Math.max(40, Math.round(type.hp * 1.4 * this.strength * this.easyBoss)), maxHp: Math.max(40, Math.round(type.hp * 1.4 * this.strength * this.easyBoss)), state: 'walking', t: 0, hurt: 0, phase: 0, exit: 1, chill: 0, gait: 0, lift: 0, sky: { mode: 'circle', t: 0, next: 10 + this.random() * 6, baseV: v, hit: 0, attacking: false, bite: 0 } });
       return;
     }
     const pts = this.spawns.points;
@@ -305,7 +313,7 @@ export class Game {
     const travel = Math.min(15, Math.max(4.5, 6.5 * (0.065 / type.speed) * wavePace * (boss ? 1.2 : 1))) * (0.88 + this.random() * 0.24);
     this.enemies.push({
       id: this.nextId++, type, boss, u0: point.u, v0, toU: 0.2 + this.random() * 0.6, u: point.u, v: v0, p: 0, travel,
-      hp: Math.round(type.hp * this.strength), maxHp: Math.round(type.hp * this.strength), state: 'walking', t: 0, hurt: 0, phase: this.random() * 6.28, exit: this.random() < 0.5 ? -1 : 1, chill: 0, gait: 0, lift: 0,
+      hp: Math.max(8, Math.round(type.hp * this.strength * (boss ? this.easyBoss : this.easy))), maxHp: Math.max(8, Math.round(type.hp * this.strength * (boss ? this.easyBoss : this.easy))), state: 'walking', t: 0, hurt: 0, phase: this.random() * 6.28, exit: this.random() < 0.5 ? -1 : 1, chill: 0, gait: 0, lift: 0,
     });
   }
 
@@ -330,7 +338,7 @@ export class Game {
       // the head comes out of the picture at the player, and snaps shut at the moment of the bite
       s.bite = s.attacking ? Math.min(1, (phase - (cycle - 0.7)) / 0.62) : Math.max(0, s.bite - dt * 2.6);
       if (phase >= cycle) {
-        const [lo, hi] = STRIKE_SHARE.strong;
+        const [lo, hi] = STRIKE_SHARE.medium;
         this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++; this.onBuzz?.('hurt');
         if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
       }
@@ -412,7 +420,7 @@ export class Game {
         if (e.p >= stopAt) { e.state = 'striking'; e.t = 0; }
       } else if (e.state === 'striking') {
         // the wind-up, then the blow
-        if (e.t >= 0.42) {
+        if (e.t >= 0.75) {
           const [lo, hi] = STRIKE_SHARE[threatOf(e.type)];
           this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.onBuzz?.('hurt');
           this.shake = 0.6; this.hitFlash = 1;

@@ -17,6 +17,8 @@ interface Props {
   /** Both hands bought: two weapons or spells at once. */
   dual?: boolean;
   level: number;
+  /** This place is the traveller's own home city (its dragon is gentle). */
+  homeCity?: boolean;
   potions: number;
   shouts: number;
   onDone: (r: CombatResult) => void;
@@ -26,7 +28,7 @@ interface Props {
 const SPELL_COLOR: Record<string, string> = { shock: '#bfe6ff', frost: '#9fd8ff', fire: '#ff9a3c', drain: '#c0386e' };
 
 /** The fight: the place's picture, the enemies walking out of its ground, and the traveller's hands. Hold to charge, let go to strike. */
-export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, dual = false, level, potions, shouts, onDone, onExit }: Props) {
+export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, dual = false, level, homeCity = false, potions, shouts, onDone, onExit }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const game = useRef<Game | null>(null);
@@ -56,7 +58,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
       // a big city with sky in its picture is a dragon at once, in the sky (and the plan's ground enemies are the fallback when there is no sky)
       const skyPlan = plan.dragonSky && looked?.sky && looked.sky.fraction >= 0.12;
       const usedPlan: RaidPlan = skyPlan ? { worth: plan.worth, enemies: [], boss: 'dragon', waves: [], total: 1, dragonSky: true } : plan;
-      const g = new Game({ plan: usedPlan, dragonSky: skyPlan && looked?.sky ? { v: looked.sky.v } : undefined, spawns: looked ?? { ...DEFAULT_SPAWNS, ...spawns }, arsenal, hands: ['onehand'], level, potions, shouts, ratio: (e: Enemy) => { const f = assets.current.enemies[e.type.id]?.frames[0]; return f ? f.naturalWidth / f.naturalHeight : 0.45; } });
+      const g = new Game({ plan: usedPlan, dragonSky: skyPlan && looked?.sky ? { v: looked.sky.v } : undefined, spawns: looked ?? { ...DEFAULT_SPAWNS, ...spawns }, arsenal, hands: ['onehand'], level, homeDragon: homeCity, potions, shouts, ratio: (e: Enemy) => { const f = assets.current.enemies[e.type.id]?.frames[0]; return f ? f.naturalWidth / f.naturalHeight : 0.45; } });
       g.onBuzz = buzz;
       game.current = g; if (import.meta.env.DEV) (window as unknown as { __game?: Game }).__game = g; setHands(g.slots.map((s) => s.weapon.cls));
       setPhase('fighting');

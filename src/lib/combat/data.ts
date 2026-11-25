@@ -55,7 +55,8 @@ export const enemyById = (id: EnemyId | BossId): EnemyType => (ENEMIES as Record
 export type Threat = 'weak' | 'medium' | 'strong';
 export const threatOf = (t: EnemyType): Threat => (t.id in BOSSES || t.id === 'mammoth' || t.id === 'giant' ? 'strong' : ['wight', 'brasssphere', 'vampire', 'sorcerer', 'sabretiger', 'troll'].includes(t.id) ? 'medium' : 'weak');
 /** The share of the health bar one blow takes (about a third, a bit more for the strong). */
-export const STRIKE_SHARE: Record<Threat, [number, number]> = { weak: [0.25, 0.33], medium: [0.3, 0.38], strong: [0.33, 0.4] };
+/** How much of the traveller's health one blow takes (the weak ones are gentle: a beginner survives many). */
+export const STRIKE_SHARE: Record<Threat, [number, number]> = { weak: [0.06, 0.1], medium: [0.08, 0.13], strong: [0.11, 0.17] };
 
 // ---- what the traveller fights with ----
 
@@ -169,7 +170,7 @@ export function planFor(id: string, kind: string, worth: number, province: strin
       : kind === 'peak' || kind === 'glacier' || kind === 'volcano' || kind === 'grove' || kind === 'pass' ? 'giantchief'
       : kind === 'mill' || kind === 'fort' ? 'colossus' : 'gjenganger';
   }
-  const budget = 120 + worth * 24;
+  const budget = (120 + worth * 24) * 0.7;
   const avgHp = enemies.reduce((sum, e) => sum + enemyById(e).hp, 0) / enemies.length;
   let total = Math.max(hashLeast(enemies), Math.min(40, Math.round((boss ? budget * 0.6 : budget) / avgHp)));
   if (boss) total = Math.max(3, Math.min(total, 24));
