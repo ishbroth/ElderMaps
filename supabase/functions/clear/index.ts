@@ -8,6 +8,7 @@
 
 import { callerId, corsHeaders, reply, serviceClient } from '../_shared/common.ts';
 import { rollLoot } from '../_shared/loot.ts';
+import { xpTenths } from '../_shared/combatXp.ts';
 
 const SITE = 'https://eldermaps.com';
 const KINDS = /^[a-z]{2,20}$/;
@@ -74,14 +75,22 @@ Deno.serve(async (req) => {
       const { data: pack } = await db.from('pack').select('potions,shouts').eq('user_id', user).maybeSingle();
       if (pack) await db.from('pack').update({ potions: Math.max(0, pack.potions - potionsUsed), shouts: Math.max(0, pack.shouts - shoutsUsed) }).eq('user_id', user);
     }
-    if (!won) { await db.from('raid_runs').update({ won: false, finished_at: new Date().toISOString() }).eq('id', runId); return reply(req, { won: false }); }
+    const kills = (b.kills && typeof b.kills === 'object' ? b.kills : {}) as Record<string, unknown>;
+    if (!won) {
+      await db.from('raid_runs').update({ won: false, finished_at: new Date().toISOString() }).eq('id', runId);
+      const lost = xpTenths(kills, false, 0);
+      if (lost > 0) await db.rpc('add_combat_xp', { p_user: user, p_tenths: lost });
+      return reply(req, { won: false, xp: lost / 10 });
+    }
     const province = typeof b.province === 'string' && PROVINCES.has(b.province) ? b.province : 'cyrodiil';
     const kind = typeof b.kind === 'string' && KINDS.test(b.kind) ? b.kind : 'landmark';
     const loot = rollLoot(await worthOf(run.place_id as string, kind), province);
     await db.from('raid_runs').update({ won: true, finished_at: new Date().toISOString(), loot }).eq('id', runId);
     // paid now if the place has been discovered, otherwise held until it is
     const { data: paid } = await db.rpc('claim_loot', { p_user: user, p_place: run.place_id });
-    return reply(req, { won: true, loot, paid: !!paid });
+    const gained = xpTenths(kills, true, await worthOf(run.place_id as string, kind));
+    if (gained > 0) await db.rpc('add_combat_xp', { p_user: user, p_tenths: gained });
+    return reply(req, { won: true, loot, paid: !!paid, xp: gained / 10 });
   }
 
   return reply(req, { error: 'bad_action' }, 400);

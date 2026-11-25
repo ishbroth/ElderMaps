@@ -15,6 +15,8 @@ interface Props {
   signedIn: boolean;
   /** This place is the player's own home city. */
   homeCity?: boolean;
+  /** The traveller's level (foes toughen with it). */
+  level?: number;
   /** Said when a button that needs an account (or something not built yet) is pressed. */
   onNeedsAccount: (what: string) => void;
   /** A glimpse was paid for: the balance has changed. */
@@ -28,7 +30,7 @@ interface Props {
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onTravel, onClose }: Props) {
+export default function SceneView({ level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onTravel, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -36,6 +38,7 @@ export default function SceneView({ homeCity = false, spot, province, icon, sign
   const [problem, setProblem] = useState('');
   // clearing the place: the fight, and what it paid
   const [run, setRun] = useState<RunStart | null>(null);
+  const [xpLine, setXpLine] = useState('');
   const [paidLine, setPaidLine] = useState('');
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -80,10 +83,12 @@ export default function SceneView({ homeCity = false, spot, province, icon, sign
         )}
         {state === 'working' && <p className="em-fine em-wave-note">THE RIFT OPENS… A MOMENT</p>}
         {paidLine && <p className="em-fine">{paidLine}</p>}
+        {xpLine && <p className="em-fine">{xpLine}</p>}
         {run && glimpse && (
-          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={{ ...STARTING_ARSENAL, ...(run.arsenal as Arsenal) }} dual={run.pack.dual} level={0} homeCity={homeCity} potions={run.pack.potions} shouts={run.pack.shouts}
+          <CombatScreen title={spot.name} imageUrl={glimpse.url} plan={planFor(spot.id, spot.kind, worth, province.id)} spawns={{ horizon: 0.56, points: [], buildingM: 20 }} arsenal={{ ...STARTING_ARSENAL, ...(run.arsenal as Arsenal) }} dual={run.pack.dual} level={level} homeCity={homeCity} potions={run.pack.potions} shouts={run.pack.shouts}
             onDone={async (res) => {
-              const end = await finishRun(run.runId, res.won, province.id, spot.kind, res.potionsUsed, res.shoutsUsed);
+              const end = await finishRun(run.runId, res.won, province.id, spot.kind, res.potionsUsed, res.shoutsUsed, res.kills);
+              if (end && end.xp) setXpLine('+' + end.xp.toFixed(1) + ' XP FOR THE FIGHT');
               if (res.won) onCleared(spot.id);
               if (res.won && end?.loot) setPaidLine(`${end.paid ? 'LOOT: ' : 'HELD UNTIL YOU VISIT IN PERSON: '}${Object.entries(end.loot).map(([id, n]) => `${n} ${lootName(id).toUpperCase()}`).join(', ')}`);
             }}

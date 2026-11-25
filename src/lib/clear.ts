@@ -16,9 +16,9 @@ export async function startRun(spot: { id: string; kind: string }): Promise<Star
   return { ok: true, run: data as RunStart };
 }
 
-export interface RunEnd { won: boolean; loot?: Record<string, number>; paid?: boolean }
-export async function finishRun(runId: string, won: boolean, province: string, kind: string, potionsUsed: number, shoutsUsed: number): Promise<RunEnd | null> {
-  const { data, error } = await db().functions.invoke('clear', { body: { action: 'finish', runId, won, province, kind, potionsUsed, shoutsUsed } });
+export interface RunEnd { won: boolean; loot?: Record<string, number>; paid?: boolean; /** Experience the fight gave. */ xp?: number }
+export async function finishRun(runId: string, won: boolean, province: string, kind: string, potionsUsed: number, shoutsUsed: number, kills: Record<string, number> = {}): Promise<RunEnd | null> {
+  const { data, error } = await db().functions.invoke('clear', { body: { action: 'finish', runId, won, province, kind, potionsUsed, shoutsUsed, kills } });
   return error || !data ? null : (data as RunEnd);
 }
 

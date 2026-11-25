@@ -118,6 +118,8 @@ export class Game {
   effects: Effect[] = [];
   outcome: Outcome = 'fighting';
   killed = 0;
+  /** What was vanquished, by kind (the server turns it into experience). */
+  killedBy: Record<string, number> = {};
   escaped = 0;
   banner = '';
   bannerT = 0;
@@ -158,8 +160,11 @@ export class Game {
     this.strength = strengthForLevel(o.level ?? 0);
     // a beginner meets weaker foes: they toughen with the traveller's level (the dragons most of all)
     const lv = Math.max(0, o.level ?? 0);
-    this.easy = 0.45 + 0.55 * Math.min(1, lv / 12);
-    this.easyBoss = (0.1 + 0.9 * Math.min(1, lv / 30)) * (o.homeDragon ? 0.3 : 1);
+    const best = Math.max(...(Object.entries(o.arsenal) as [ItemCls, number][]).filter(([, t]) => t > 0).map(([c, t]) => weaponAt(c, Math.min(4, Math.max(1, t)) as 1 | 2 | 3 | 4).damage), 16);
+    const power = Math.pow(best / 16, 0.85); // a stronger weapon meets tougher foes, so a fight takes about as long whatever you carry
+    const late = lv > 12 ? 1 + 0.015 * (lv - 12) : 1; // and beyond the early levels the foes keep growing a little faster than you
+    this.easy = (0.45 + 0.55 * Math.min(1, lv / 12)) * late * power;
+    this.easyBoss = (0.1 + 0.9 * Math.min(1, lv / 30)) * late * power * (o.homeDragon ? 0.3 : 1);
     this.setHands(o.hands);
     this.waves = scaledWaves(o.plan, o.level ?? 0);
     this.order = this.waves.map((size) => Array.from({ length: size }, () => ({ type: enemyById(o.plan.enemies[Math.floor(this.random() * o.plan.enemies.length)]), boss: false })));
@@ -236,7 +241,7 @@ export class Game {
     if (e.state === 'dying') return;
     e.hp -= amount; e.hurt = 0.18; this.onBuzz?.('hit');
     this.effects.push({ kind: 'number', u0: e.u, v0: e.v - this.heightOf(e) * 0.8, u: e.u, v: e.v - this.heightOf(e) * 0.8, t: 0, life: 0.8, size: crit ? 1.4 : 1, value: Math.round(amount), crit });
-    if (e.hp <= 0) { e.state = 'dying'; e.t = 0; this.killed++; }
+    if (e.hp <= 0) { e.state = 'dying'; e.t = 0; this.killed++; this.killedBy[e.type.id] = (this.killedBy[e.type.id] ?? 0) + 1; }
   }
 
   private strike(slot: Slot, strength: number) {
@@ -401,7 +406,7 @@ export class Game {
         const dealt = drain.weapon.damage * dt;
         this.drainOn = t; t.hp -= dealt; t.hurt = Math.max(t.hurt, 0.05);
         this.health = Math.min(this.maxHealth, this.health + dealt * 0.5);
-        if (t.hp <= 0 && t.state !== 'dying') { t.state = 'dying'; t.t = 0; this.killed++; }
+        if (t.hp <= 0 && t.state !== 'dying') { t.state = 'dying'; t.t = 0; this.killed++; this.killedBy[t.type.id] = (this.killedBy[t.type.id] ?? 0) + 1; }
       }
     }
 

@@ -184,7 +184,8 @@ export const worthFor = (kind: string, fame: number): number => (kind === 'crest
 
 export const BASE_HEALTH = 100;
 export const healthForLevel = (level: number): number => BASE_HEALTH * (1 + 0.01 * Math.max(0, level));
-export const strengthForLevel = (level: number): number => 1 + 0.005 * Math.max(0, level);
+/** How hard a foe's blow lands against the traveller's health: it grows faster than health does, so the higher levels have reason to carry health potions and shouts. */
+export const strengthForLevel = (level: number): number => 1 + 0.012 * Math.max(0, level);
 export function scaledWaves(plan: RaidPlan, level: number): number[] {
   if (level <= 0) return plan.waves;
   const waves = plan.waves.map((size) => Math.max(size, Math.floor(size * (1 + 0.1 * level) + 1e-9)));

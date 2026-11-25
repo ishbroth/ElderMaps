@@ -5,7 +5,7 @@ import { loadCombatAssets, type CombatAssets } from './lib/combat/art';
 import { CLASS_NAME, ENEMIES, BOSSES, ITEM_CLASSES, isSpell, weaponAt, type Arsenal, type ItemCls, type RaidPlan } from './lib/combat/data';
 import { DEFAULT_SPAWNS, Game, type Effect, type Enemy, type Spawns } from './lib/combat/engine';
 
-export interface CombatResult { won: boolean; killed: number; escaped: number; potionsUsed: number; shoutsUsed: number }
+export interface CombatResult { won: boolean; kills: Record<string, number>; killed: number; escaped: number; potionsUsed: number; shoutsUsed: number }
 
 interface Props {
   title: string;
@@ -78,7 +78,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
         g.update(dt);
         draw(c, img, g, assets.current, zoomAt.current);
         if (++frame % 4 === 0) tick((n) => n + 1);
-        if (g.outcome !== 'fighting' && !doneSent.current) { doneSent.current = true; onDone({ won: g.outcome === 'won', killed: g.killed, escaped: g.escaped, potionsUsed: potions - g.potions, shoutsUsed: shouts - g.shouts }); }
+        if (g.outcome !== 'fighting' && !doneSent.current) { doneSent.current = true; onDone({ won: g.outcome === 'won', kills: { ...g.killedBy }, killed: g.killed, escaped: g.escaped, potionsUsed: potions - g.potions, shoutsUsed: shouts - g.shouts }); }
       }
       raf = requestAnimationFrame(loop);
     };

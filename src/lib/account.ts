@@ -76,13 +76,15 @@ export function useAccount(): Account {
     if (!accountsEnabled) return;
     const s = (await db().auth.getSession()).data.session;
     if (!s) { setProfile(null); setHome(null); setBalance(0); setLoot({}); setPack({ potions: 0, shouts: 0, dual: false }); setLoaded(true); return; }
-    const [p, h, c, lb, pk, ds] = await Promise.all([
+    const [p, h, c, lb, pk, ds, cx] = await Promise.all([
+
       db().from('profiles').select('character_name,character_type,character_sex,sigil_city,sigil_iso').eq('user_id', s.user.id).maybeSingle(),
       db().from('user_home').select('place_id,address,lat,lng,hearth_number,skipped').eq('user_id', s.user.id).maybeSingle(),
       db().from('credits').select('balance').eq('user_id', s.user.id).maybeSingle(),
       db().from('loot_bag').select('loot_id,qty').eq('user_id', s.user.id),
       db().from('pack').select('potions,shouts,dual').eq('user_id', s.user.id).maybeSingle(),
       db().from('discoveries').select('points').eq('user_id', s.user.id),
+      db().from('combat_xp').select('tenths').eq('user_id', s.user.id).maybeSingle(),
     ]);
     const bag: Record<string, number> = {};
     for (const r of (lb.data ?? []) as { loot_id: string; qty: number }[]) bag[r.loot_id] = r.qty;
@@ -91,7 +93,7 @@ export function useAccount(): Account {
     setProfile(p.data ? { characterName: p.data.character_name ?? null, characterType: p.data.character_type ?? null, characterSex: p.data.character_sex === 'f' ? 'f' : p.data.character_sex === 'm' ? 'm' : null, sigilCity: p.data.sigil_city ?? null, sigilIso: p.data.sigil_iso ?? null } : { characterName: null, characterType: null, characterSex: null, sigilCity: null, sigilIso: null });
     setHome(h.data ? { placeId: h.data.place_id ?? undefined, address: h.data.address ?? undefined, lat: h.data.lat ?? undefined, lng: h.data.lng ?? undefined, hearthNumber: h.data.hearth_number ?? undefined, skipped: !!h.data.skipped } : null);
     setBalance((c.data?.balance as number | undefined) ?? 0);
-    setPoints(((ds.data ?? []) as { points: number }[]).reduce((n, r) => n + (r.points ?? 0), 0));
+    setPoints(Math.floor(((ds.data ?? []) as { points: number }[]).reduce((n, r) => n + (r.points ?? 0), 0) + ((cx.data as { tenths?: number } | null)?.tenths ?? 0) / 10));
     setLoaded(true);
   }, []);
 

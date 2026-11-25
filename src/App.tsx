@@ -1,3 +1,4 @@
+import { levelInfo } from './lib/points';
 import House, { HouseTest } from './House';
 import { onAppUrl } from './lib/native';
 import { completeSignInFromUrl } from './lib/account';
@@ -705,7 +706,7 @@ export default function App() {
         )}
 
         {viewing && !trip && (
-          <SceneView homeCity={!!account.profile?.sigilCity && viewing?.kind === 'crest' && viewing.real === account.profile.sigilCity} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
+          <SceneView level={levelInfo(account.points).level} homeCity={!!account.profile?.sigilCity && viewing?.kind === 'crest' && viewing.real === account.profile.sigilCity} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
             signedIn={!!account.session} onSpent={() => void account.refresh()} onCleared={(id) => setCleared((prev) => new Set(prev).add(id))}
             onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
             onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
