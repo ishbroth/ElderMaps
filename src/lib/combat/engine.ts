@@ -39,7 +39,9 @@ export interface Enemy {
   /** The seconds the whole way takes. */
   travel: number;
   hp: number; maxHp: number;
-  state: 'walking' | 'striking' | 'leaving' | 'dying';
+  state: 'walking' | 'striking' | 'aiming' | 'leaving' | 'dying';
+  /** Shots fired from afar so far (a shooter stops at a distance for three, then rushes in); and whether this one carries a bow (a bandit archer). */
+  aim?: number; archer?: boolean;
   t: number;
   hurt: number;
   phase: number;
@@ -53,7 +55,9 @@ export interface Enemy {
 }
 
 export interface Effect {
-  kind: 'slash' | 'arrow' | 'bolt' | 'spike' | 'fireball' | 'burst' | 'miss' | 'shout' | 'number';
+  kind: 'slash' | 'arrow' | 'bolt' | 'spike' | 'fireball' | 'burst' | 'miss' | 'shout' | 'number' | 'incoming';
+  /** For an incoming shot: what it is (arrow, spell, dark, fire, ice). */
+  style?: string;
   u0: number; v0: number; u: number; v: number;
   t: number; life: number; size: number;
   /** A number to show (damage), and whether it was a full-strength blow. */
@@ -136,6 +140,8 @@ export class Game {
   private order: { type: EnemyType; boss: boolean }[][];
   private strength: number;
   private easy = 1;
+  /** A dragon's breath coming at the screen (fire or ice), 0 to 1.4 seconds. */
+  breath: { t: number; kind: 'fire' | 'ice' } | null = null;
   private easyBoss = 1;
   private pending: { t: number; run: () => void }[] = [];
   private finalBoss: BossId | null;
@@ -216,6 +222,15 @@ export class Game {
   }
 
   // ---- blows ----
+
+  /** The traveller takes a blow worth a share of their health (the share is the range for the foe's kind, scaled). */
+  private hurt(share: [number, number], scale = 1) {
+    if (this.outcome !== 'fighting' || this.downed) return;
+    const [lo, hi] = share;
+    this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength * scale;
+    this.shake = 0.5; this.hitFlash = 1; this.onBuzz?.('hurt');
+    if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
+  }
 
   private damage(e: Enemy, amount: number, crit = false) {
     if (e.state === 'dying') return;
@@ -310,9 +325,9 @@ export class Game {
     const point = pts[Math.floor(this.random() * pts.length)] ?? { u: 0.5, v: 0.64 };
     const v0 = Math.max(this.spawns.horizon + 0.02, point.v);
     const wavePace = Math.max(0.65, 1.2 - 0.07 * Math.max(0, this.wave));
-    const travel = Math.min(15, Math.max(4.5, 6.5 * (0.065 / type.speed) * wavePace * (boss ? 1.2 : 1))) * (0.88 + this.random() * 0.24);
+    const travel = Math.min(24, Math.max(8, 6.5 * (0.065 / type.speed) * wavePace * (boss ? 1.2 : 1) * 1.7)) * (0.88 + this.random() * 0.24);
     this.enemies.push({
-      id: this.nextId++, type, boss, u0: point.u, v0, toU: 0.2 + this.random() * 0.6, u: point.u, v: v0, p: 0, travel,
+      id: this.nextId++, type, boss, u0: point.u, v0, toU: 0.2 + this.random() * 0.6, u: point.u, v: v0, p: 0, travel, aim: 0, archer: !boss && /^bandit/.test(type.id) && this.random() < 0.4,
       hp: Math.max(8, Math.round(type.hp * this.strength * (boss ? this.easyBoss : this.easy))), maxHp: Math.max(8, Math.round(type.hp * this.strength * (boss ? this.easyBoss : this.easy))), state: 'walking', t: 0, hurt: 0, phase: this.random() * 6.28, exit: this.random() < 0.5 ? -1 : 1, chill: 0, gait: 0, lift: 0,
     });
   }
@@ -337,7 +352,11 @@ export class Game {
       s.attacking = phase > cycle - 0.7;
       // the head comes out of the picture at the player, and snaps shut at the moment of the bite
       s.bite = s.attacking ? Math.min(1, (phase - (cycle - 0.7)) / 0.62) : Math.max(0, s.bite - dt * 2.6);
-      if (phase >= cycle) {
+      if (phase >= cycle && s.hit % 3 === 2 && !this.breath) {
+        // not a bite: it fills its chest and breathes fire or ice at the screen
+        this.breath = { t: 0, kind: this.random() < 0.5 ? 'fire' : 'ice' };
+        s.hit++;
+      } else if (phase >= cycle) {
         const [lo, hi] = STRIKE_SHARE.medium;
         this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++; this.onBuzz?.('hurt');
         if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
@@ -357,6 +376,7 @@ export class Game {
     this.hitFlash = Math.max(0, this.hitFlash - dt * 2.4);
     this.shoutT = Math.max(0, this.shoutT - dt);
     this.slowLeft = Math.max(0, this.slowLeft - dt);
+    if (this.breath) { this.breath.t += dt; if (this.breath.t >= 1.4) { this.breath = null; this.hurt(STRIKE_SHARE.strong, 1); } }
     const edt = dt * (this.slowLeft > 0 ? SLOW_FACTOR : 1);
 
     // pending blows and the effects
@@ -417,7 +437,20 @@ export class Game {
         e.v = e.v0 + (STRIKE_V - e.v0) * e.p;
         e.u = e.u0 + (e.toU - e.u0) * e.p * 0.7 + Math.sin(e.phase + e.p * 6.5) * 0.018 * (1 - e.p);
         e.lift = e.type.flying ? 0.02 + 0.015 * Math.sin(e.gait * 2) : Math.abs(Math.sin(e.gait * Math.PI)) * 0.006;
-        if (e.p >= stopAt) { e.state = 'striking'; e.t = 0; }
+        if ((e.type.ranged || e.archer) && (e.aim ?? 0) < 2 && e.p >= 0.36) { e.state = 'aiming'; e.t = 0; }
+        else if (e.p >= stopAt) { e.state = 'striking'; e.t = 0; }
+      } else if (e.state === 'aiming') {
+        // it holds its distance and shoots, three times, and then comes on
+        e.u += Math.sin(e.t * 1.7 + e.phase) * 0.0006;
+        if (e.t >= 0.9 + (e.aim ?? 0) * e.type.every * 1.25) {
+          e.aim = (e.aim ?? 0) + 1;
+          const style = e.archer ? 'arrow' : e.type.id === 'sorcerer' ? (e.aim % 2 ? 'fire' : 'ice') : e.type.id === 'vampirelord' || e.type.id === 'vampire' ? 'dark' : 'spell';
+          const fromV = e.v - this.heightOf(e) * 0.55;
+          const toU = 0.5 + (this.random() - 0.5) * 0.2;
+          this.effects.push({ kind: 'incoming', style, u0: e.u, v0: fromV, u: toU, v: 1.05, t: 0, life: 0.85, size: 1 });
+          this.pending.push({ t: 0.85, run: () => { this.hurt(STRIKE_SHARE.weak, 0.3); } });
+          if (e.aim >= 2) { e.state = 'walking'; e.t = 0; }
+        }
       } else if (e.state === 'striking') {
         // the wind-up, then the blow
         if (e.t >= 0.75) {

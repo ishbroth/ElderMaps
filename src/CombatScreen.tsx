@@ -175,6 +175,7 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
   for (const e of list) drawEnemy(ctx, e, g, art, W, H);
   // effects
   for (const f of g.effects) drawEffect(ctx, f, W, H);
+  drawBreath(ctx, g, W, H);
   // the drain: a beam from the hand to what it is draining
   const drain = g.drainOn;
   if (drain) {
@@ -209,7 +210,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: Combat
   const bite = e.sky ? e.sky.bite : 0;
   const biteK = bite > 0 ? Math.sin(Math.min(1, bite) * Math.PI * 0.5) : 0;
   let frame = Math.floor(e.gait * 2) % 2;
-  if (e.state === 'striking' || e.sky?.attacking) frame = 2; else if (e.state === 'dying') frame = 3;
+  if (e.state === 'striking' || e.sky?.attacking || g.breath && e.sky || (e.state === 'aiming' && Math.floor(e.t * 2) % 2 === 1)) frame = 2; else if (e.state === 'dying') frame = 3;
   const img = sprites?.frames[frame];
   // every pose is drawn at the same scale (the one that makes the first pose h tall), so a lunge is bigger and a corpse lower, and a flapping wing keeps its size
   const base = sprites?.frames[0];
@@ -232,6 +233,34 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: Combat
   ctx.restore();
   // health bar for the bigger ones
   if ((e.boss || e.type.size >= 1.5) && e.state !== 'dying') { const bw = Math.max(40, w * 0.8); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - bw / 2, y - h - 10, bw, 5); ctx.fillStyle = e.boss ? '#d8a23a' : '#b53a3a'; ctx.fillRect(x - bw / 2, y - h - 10, bw * Math.max(0, e.hp / e.maxHp), 5); }
+}
+
+/** The dragon's breath: a roaring cone of fire or ice from its mouth that swells until it fills the screen. */
+function drawBreath(ctx: CanvasRenderingContext2D, g: Game, W: number, H: number) {
+  const b = g.breath; if (!b) return;
+  const k = Math.min(1, b.t / 1.4);
+  const dr = g.enemies.find((e) => e.sky);
+  const mx = (dr ? dr.u : 0.5) * W, my = (dr ? dr.v - g.heightOf(dr) * 0.55 : 0.4) * H;
+  const fire = b.kind === 'fire';
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const puffs = 70;
+  for (let i = 0; i < puffs; i++) {
+    const h1 = Math.sin(i * 91.7) * 0.5 + 0.5, h2 = Math.sin(i * 37.3 + 2) * 0.5 + 0.5, h3 = Math.sin(i * 12.9 + 5) * 0.5 + 0.5;
+    const t = Math.min(1, Math.max(0, k * 1.15 - h1 * 0.35));
+    const x = mx + (W * (0.5 + (h2 - 0.5) * 1.1) - mx) * t, y = my + (H * (0.95 + (h3 - 0.5) * 0.3) - my) * t;
+    const r = (6 + 150 * t * t) * (0.6 + h3 * 0.8);
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+    if (fire) { gr.addColorStop(0, `rgba(255,240,170,${0.55 * (1 - t * 0.3)})`); gr.addColorStop(0.5, `rgba(255,120,20,${0.4 * (1 - t * 0.3)})`); gr.addColorStop(1, 'rgba(160,20,0,0)'); }
+    else { gr.addColorStop(0, `rgba(255,255,255,${0.55 * (1 - t * 0.3)})`); gr.addColorStop(0.5, `rgba(120,200,255,${0.4 * (1 - t * 0.3)})`); gr.addColorStop(1, 'rgba(20,80,200,0)'); }
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  // at the end it washes over the whole screen
+  const wash = Math.max(0, (k - 0.6) / 0.4);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = fire ? `rgba(255,110,20,${0.5 * wash})` : `rgba(150,215,255,${0.5 * wash})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
 }
 
 function drawEffect(ctx: CanvasRenderingContext2D, f: Effect, W: number, H: number) {
@@ -264,6 +293,19 @@ function drawEffect(ctx: CanvasRenderingContext2D, f: Effect, W: number, H: numb
     ctx.strokeStyle = `rgba(255,230,160,${1 - k})`; ctx.lineWidth = 5 * (1 - k) + 1; ctx.beginPath(); ctx.arc(x1, y1, 14 + 70 * f.size * k, 0, Math.PI * 2); ctx.stroke();
   } else if (f.kind === 'shout') {
     for (let i = 0; i < 4; i++) { const kk = Math.max(0, k - i * 0.1); ctx.strokeStyle = `rgba(255,214,120,${0.7 * (1 - kk)})`; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(W / 2, H, kk * W * 0.9, Math.PI, 0); ctx.stroke(); }
+  } else if (f.kind === 'incoming') {
+    // a shot coming at you: small and far, then rushing up large into the screen
+    const e = k * k;
+    const x = x0 + (x1 - x0) * e, y = y0 + (y1 - y0) * e;
+    if (f.style === 'arrow') {
+      const x2 = x0 + (x1 - x0) * Math.max(0, e - 0.12), y2 = y0 + (y1 - y0) * Math.max(0, e - 0.12);
+      ctx.strokeStyle = '#e9dcb8'; ctx.lineWidth = 2 + 5 * e; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x, y); ctx.stroke();
+    } else {
+      const r = 5 + 80 * e;
+      const c = f.style === 'fire' ? ['#fff6c8', '#ff9a3c', 'rgba(200,40,0,0)'] : f.style === 'ice' ? ['#ffffff', '#8fd0ff', 'rgba(40,100,200,0)'] : f.style === 'dark' ? ['#ffd0e8', '#c0386e', 'rgba(60,0,40,0)'] : ['#ffffff', '#bfa8ff', 'rgba(80,40,200,0)'];
+      const gr = ctx.createRadialGradient(x, y, 1, x, y, r); gr.addColorStop(0, c[0]); gr.addColorStop(0.4, c[1]); gr.addColorStop(1, c[2]);
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
   } else if (f.kind === 'number') {
     ctx.font = `bold ${Math.round(22 * f.size)}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = f.crit ? `rgba(255,214,120,${1 - k})` : `rgba(255,255,255,${1 - k})`; ctx.strokeStyle = `rgba(0,0,0,${1 - k})`; ctx.lineWidth = 3;
     ctx.strokeText(String(f.value), x1, y1 - k * 40); ctx.fillText(String(f.value), x1, y1 - k * 40);

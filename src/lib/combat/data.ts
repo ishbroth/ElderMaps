@@ -123,9 +123,9 @@ function poolFor(kind: string, worth: number, province: string): EnemyId[] {
   else if (kind === 'ruin' || kind === 'stones') pool.push('skeleton', 'wight', 'brassspider', raider, 'rathide');
   else if (kind === 'waterfall' || kind === 'spring' || kind === 'lighthouse') pool.push('marshcrab', raider, 'sabretiger');
   else if (kind === 'peak' || kind === 'glacier' || kind === 'pass' || kind === 'volcano' || kind === 'grove') pool.push('sabretiger', raider, 'skeleton');
-  else if (kind === 'fort' || kind === 'camp') pool.push(raider, 'skeleton', 'sorcerer');
+  else if (kind === 'fort' || kind === 'camp') pool.push(raider, 'skeleton', 'rathide');
   else pool.push(raider, 'skeleton', 'brassspider', 'rathide'); // cities, towns, mills, manors, landmarks
-  if (worth >= 15 && (kind === 'keep' || kind === 'tower' || kind === 'shrine' || kind === 'fort' || kind === 'crest' || kind === 'town')) pool.push('vampire', 'sorcerer');
+  if (worth >= 30 && (kind === 'fort' || kind === 'keep' || kind === 'tower' || kind === 'shrine' || kind === 'fort' || kind === 'crest' || kind === 'town')) pool.push('vampire', 'sorcerer');
   if (worth >= 20 && (kind === 'ruin' || kind === 'cave') && (province === 'morrowind' || province === 'orsinium' || province === 'skyrim')) pool.push('brasssphere');
   if (worth >= 20 && (kind === 'peak' || kind === 'glacier' || kind === 'pass' || kind === 'grove')) pool.push('troll');
   if (worth >= 30 && (kind === 'peak' || kind === 'glacier' || kind === 'pass' || kind === 'grove' || kind === 'volcano') && COLD.has(province)) pool.push('mammoth');
