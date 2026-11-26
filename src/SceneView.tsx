@@ -2,6 +2,7 @@ import Coin from './Coin';
 import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
 import { kindTitle, readableInk, type Province } from './lib/lore';
+import { db } from './lib/account';
 import { GLIMPSE_MESSAGES, requestGlimpse, type Glimpse } from './lib/glimpse';
 import CombatScreen from './CombatScreen';
 import { finishRun, startRun, type RunStart } from './lib/clear';
@@ -40,6 +41,14 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
   const [glimpse, setGlimpse] = useState<Glimpse | null>(null);
   const [problem, setProblem] = useState('');
+  // already glimpsed (paid for before): the button then shows no price, only an open lock
+  const [owned, setOwned] = useState(false);
+  useEffect(() => {
+    if (!signedIn) return;
+    let live = true;
+    void (async () => { const { data: u } = await db().auth.getUser(); const id = u.user?.id; if (!id) return; const { data } = await db().from('unlocks').select('place_id').eq('user_id', id).eq('place_id', spot.id).maybeSingle(); if (live && data) setOwned(true); })();
+    return () => { live = false; };
+  }, [signedIn, spot.id]);
   // clearing the place: the fight, and what it paid
   const [run, setRun] = useState<RunStart | null>(null);
   const [xpLine, setXpLine] = useState('');
@@ -54,7 +63,7 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
     for (let attempt = 0; attempt < 40 && alive.current; attempt++) {
       const r = await requestGlimpse({ id: spot.id, name: spot.real || spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: province.id });
       if (!alive.current) return;
-      if (r.kind === 'ready') { setGlimpse(r.glimpse); setState('ready'); if (r.glimpse.charged) onSpent(); return; }
+      if (r.kind === 'ready') { setGlimpse(r.glimpse); setState('ready'); setOwned(true); setOwned(true); if (r.glimpse.charged) onSpent(); return; }
       if (r.kind === 'error') { setProblem(GLIMPSE_MESSAGES[r.reason] ?? GLIMPSE_MESSAGES.failed); setState('idle'); return; }
       await new Promise((res) => setTimeout(res, 4000));
     }
@@ -102,7 +111,7 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
         <div className="em-card-buttons">
           {state !== 'ready' && (
             <button type="button" className="em-btn" disabled={state === 'working'} onClick={() => void look()} title="See this place as it might stand in the realm">
-              {state === 'working' ? 'GLIMPSING…' : <>GLIMPSE · <Coin size={15} /> {cost} <span aria-hidden="true">🔒</span></>}
+              {state === 'working' ? 'GLIMPSING…' : owned ? <>GLIMPSE <span aria-hidden="true">🔓</span></> : <>GLIMPSE · <Coin size={15} /> {cost} <span aria-hidden="true">🔒</span></>}
             </button>
           )}
           {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR</button>}

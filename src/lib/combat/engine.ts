@@ -128,6 +128,8 @@ export class Game {
   /** The finger: down or up, and where. */
   holding = false;
   aim = { u: 0.5, v: 0.6 };
+  /** The part of the picture that is on the screen (when it is zoomed in, its sides are cut off): enemies stay inside it. */
+  view = { u0: 0, u1: 1, v0: 0 };
   /** The enemy the drain is on now, if it is streaming. */
   drainOn: Enemy | null = null;
   ratio: (e: Enemy) => number;
@@ -327,12 +329,14 @@ export class Game {
       return;
     }
     const pts = this.spawns.points;
-    const point = pts[Math.floor(this.random() * pts.length)] ?? { u: 0.5, v: 0.64 };
-    const v0 = Math.max(this.spawns.horizon + 0.02, point.v);
+    const raw = pts[Math.floor(this.random() * pts.length)] ?? { u: 0.5, v: 0.64 };
+    const { u0: vu0, u1: vu1 } = this.view; const pad = Math.min(0.08, (vu1 - vu0) / 6);
+    const point = { u: Math.min(vu1 - pad, Math.max(vu0 + pad, raw.u)), v: raw.v };
+    const v0 = Math.max(this.spawns.horizon + 0.02, point.v, this.view.v0 + 0.1);
     const wavePace = Math.max(0.65, 1.2 - 0.07 * Math.max(0, this.wave));
     const travel = Math.min(24, Math.max(8, 6.5 * (0.065 / type.speed) * wavePace * (boss ? 1.2 : 1) * 1.7)) * (0.88 + this.random() * 0.24);
     this.enemies.push({
-      id: this.nextId++, type, boss, u0: point.u, v0, toU: 0.2 + this.random() * 0.6, u: point.u, v: v0, p: 0, travel, aim: 0, archer: !boss && /^bandit/.test(type.id) && this.random() < 0.4,
+      id: this.nextId++, type, boss, u0: point.u, v0, toU: vu0 + pad + this.random() * Math.max(0.05, vu1 - vu0 - 2 * pad), u: point.u, v: v0, p: 0, travel, aim: 0, archer: !boss && /^bandit/.test(type.id) && this.random() < 0.4,
       hp: Math.max(8, Math.round(type.hp * this.strength * (boss ? this.easyBoss : this.easy))), maxHp: Math.max(8, Math.round(type.hp * this.strength * (boss ? this.easyBoss : this.easy))), state: 'walking', t: 0, hurt: 0, phase: this.random() * 6.28, exit: this.random() < 0.5 ? -1 : 1, chill: 0, gait: 0, lift: 0,
     });
   }
@@ -343,7 +347,7 @@ export class Game {
     s.t += dt; e.gait += dt * 4.5;
     if (s.mode === 'circle') {
       e.p = 0.12 + 0.02 * Math.sin(s.t * 0.8);
-      e.u = 0.5 + 0.34 * Math.sin(s.t * 0.45); e.v = s.baseV + 0.03 * Math.sin(s.t * 0.9);
+      e.u = 0.5 + Math.min(0.34, Math.max(0.1, (this.view.u1 - this.view.u0) / 2 - 0.08)) * Math.sin(s.t * 0.45); e.v = s.baseV + 0.03 * Math.sin(s.t * 0.9);
       if (s.t >= s.next) { s.mode = 'swoop'; s.t = 0; }
     } else if (s.mode === 'swoop') {
       e.p = Math.min(0.86, e.p + dt / 2.4);

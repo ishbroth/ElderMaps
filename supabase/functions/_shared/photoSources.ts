@@ -57,8 +57,8 @@ interface CommonsPage {
 
 const json = async (url: string, headers: Headers) => {
   let res = await fetch(url, { headers, signal: AbortSignal.timeout(9000) });
-  // busy (rate limited): wait a moment and ask once more
-  if (res.status === 429 || res.status === 503) { await new Promise((r) => setTimeout(r, 1500)); res = await fetch(url, { headers, signal: AbortSignal.timeout(9000) }); }
+  // busy (rate limited): wait a little longer each time and ask again, up to three more times
+  for (let wait = 1500; (res.status === 429 || res.status === 503) && wait <= 6000; wait *= 2) { await new Promise((r) => setTimeout(r, wait)); res = await fetch(url, { headers, signal: AbortSignal.timeout(9000) }); }
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
 };
@@ -204,6 +204,9 @@ function skylineScore(page: CommonsPage & { imageinfo?: (NonNullable<CommonsPage
   return score;
 }
 
+/** Titles that are never a picture of a city as a whole: maps, people, animals, objects, signs, interiors, single buildings. */
+const NOT_A_CITY = /(locator|location|prefecture|administrative|division|district|province|map|harita|flag|logo|lambang|wallpaper|montage|collage|statue|mural|portrait|man|men|woman|women|boy|girl|people|police|president|secretary|zoo|monkeys?|cat|bird|heron|fish|plaque|market|store|shop|restaurant|airport|aeroport|aéroport|museum|mosque|temple|church|castle|slott|arch|bridge|bus|stops?|taxi|car|show|photoshoot|trails|code|screen|formation|tours|pakora|mansion|guard|jalan|road|highway|station|railway|hotel|school|college|stadium|courthouse|capitol|palace|assembly)|.svg|^File:/i;
+
 /** The best skyline or wide view of a city: from its skyline, panorama and cityscape categories on Commons, else its Wikidata picture, else the lead of its articles. */
 async function cityPhoto(name: string, lat: number | undefined, lng: number | undefined, headers: Headers): Promise<PhotoHit | null> {
   const ent = await entityByName(name, lat, lng, headers);
@@ -216,16 +219,18 @@ async function cityPhoto(name: string, lat: number | undefined, lng: number | un
       for (const m of (sub.query?.categorymembers ?? []) as { title: string }[]) if (/skyline|panorama|cityscape|views? of|view from/i.test(m.title)) cats.add(m.title.replace(/^Category:/, ''));
     } catch { /* the guessed names still stand */ }
   }
-  let best: { page: CommonsPage; score: number } | null = null;
+  let best: { page: CommonsPage; score: number } | null = null as { page: CommonsPage; score: number } | null;
   const consider = (page: CommonsPage, bonus: number) => {
     if (!hitFromPage(page, 'commons-category', 800)) return; // freely licensed, a JPEG or PNG
-    if (NOT_OUTSIDE.test(page.title ?? '') || /(nissan|gt-r|toyota|honda|bmw|airlines?|heron|bird|donation|rathaus|museum|station|division|prefecture|atlas|hand-?colou?red)/i.test(page.title ?? '')) return;
+    if ((NOT_A_CITY.test((page.title ?? '').replace(/^File:/, '')) && !/skyline|cityscape|skyscraper|panorama/i.test(page.title ?? '')) || NOT_OUTSIDE.test(page.title ?? '') || /(nissan|gt-r|toyota|honda|bmw|airlines?|heron|bird|donation|rathaus|museum|station|division|prefecture|atlas|hand-?colou?red)/i.test(page.title ?? '')) return;
     const sc = skylineScore(page as never) + bonus;
     if (!best || sc > best.score) best = { page, score: sc };
   };
   const bestScore = () => (best ? (best as { score: number }).score : -1e9);
   // 1. Commons' own search for "<city> skyline", "<city> panorama" and "<city> cityscape": the best-known pictures come first
-  await Promise.all(['skyline', 'panorama', 'cityscape', 'downtown', 'aerial', 'view from', 'skyscrapers', 'at night'].map(async (word) => {
+  for (const word of ['skyline', 'panorama', 'cityscape', 'skyscrapers', 'downtown', 'aerial']) {
+    if (bestScore() >= 5) break; // a clear skyline is found: no more asking
+
     try {
       const data = await json(COMMONS + new URLSearchParams({ action: 'query', format: 'json', origin: '*', generator: 'search', gsrsearch: '"' + name + '" ' + word + ' filetype:bitmap', gsrnamespace: '6', gsrlimit: '30', ...imageinfo }), headers);
       const first = name.split(/[ ,-]/).sort((x, y) => y.length - x.length)[0].toLowerCase();
@@ -235,7 +240,16 @@ async function cityPhoto(name: string, lat: number | undefined, lng: number | un
         consider(page, 1);
       }
     } catch { /* the categories follow */ }
-  }));
+  }
+  // 1b. nothing yet: the plainer words a city's pictures are named with
+  if (bestScore() < 1.2) for (const word of ['city', 'centre', 'view', 'town']) {
+    if (bestScore() >= 1.2) break;
+    try {
+      const data = await json(COMMONS + new URLSearchParams({ action: 'query', format: 'json', origin: '*', generator: 'search', gsrsearch: '"' + name + '" ' + word + ' filetype:bitmap', gsrnamespace: '6', gsrlimit: '30', ...imageinfo }), headers);
+      const first = name.split(/[ ,-]/).sort((x, y) => y.length - x.length)[0].toLowerCase();
+      for (const page of Object.values((data.query?.pages ?? {}) as Record<string, CommonsPage>)) { if (!(page.title ?? '').toLowerCase().includes(first)) continue; consider(page, 0); }
+    } catch { /* the categories follow */ }
+  }
   // 2. the skyline and panorama categories
   if (bestScore() < 5) {
     for (const cat of [...cats].slice(0, 6)) {
@@ -247,10 +261,10 @@ async function cityPhoto(name: string, lat: number | undefined, lng: number | un
   }
   // only a picture that is a skyline or panorama by name (or a featured one) is taken at once; otherwise the city's own article pictures are tried first
   if (bestScore() >= 1.2) return hitFromPage((best as { page: CommonsPage }).page, 'commons-category', 800);
-  if (ent?.p18) { const hit = await commonsFile(ent.p18, 'wikidata', headers).catch(() => null); if (hit) return hit; }
+  if (ent?.p18) { const hit = await commonsFile(ent.p18, 'wikidata', headers).catch(() => null); if (hit && !NOT_A_CITY.test(hit.title)) return hit; }
   for (const [lang, title] of Object.entries(ent?.wikis ?? {}).sort((a, b) => (a[0] === 'en' ? -1 : b[0] === 'en' ? 1 : 0)).slice(0, 8)) {
     const hit = await wikiLeadIn(lang, title, headers).catch(() => null);
-    if (hit) return hit;
+    if (hit && !NOT_A_CITY.test(hit.title)) return hit;
   }
   return bestScore() > 0 ? hitFromPage((best as { page: CommonsPage }).page, 'commons-category', 800) : null;
 }
@@ -302,7 +316,7 @@ const PHOTO_PICKS: Record<string, [string, number, number]> = {
   "osaka": ['Skyline view of Osaka.jpg', 34.7, 135.5],
   "moscow": ['Moscow skyline (8012910457).jpg', 55.8, 37.6],
   "mexico city": ['Mexico City Reforma skyline.jpg', 19.4, -99.1],
-  "paris": ['La Défense skyline from Eiffel Tower.jpg', 48.9, 2.3],
+  "paris": ['Paris skyline from the Centre Georges-Pompidou 2010.jpg', 48.9, 2.3],
   "kyiv": ['Kyiv skyline (15688086793).jpg', 50.5, 30.5],
   "pune": ['Pune West skyline - March 2017.jpg', 18.5, 73.9],
   "seoul": ['Han River Seoul skyline Pixabay 1214950.jpg', 37.6, 127.0],
@@ -317,7 +331,14 @@ const PHOTO_PICKS: Record<string, [string, number, number]> = {
   "surat": ['Surat Skyline 01.jpg', 21.2, 72.8],
 };
 
+/** The best photo; for a city, one that is plainly not a view of a city (a station, a temple, a map, a person) is refused, so the picture falls to Street View instead of showing nonsense. */
 export async function findPhotoFor(q: PhotoQuery, headers: Headers = {}): Promise<PhotoHit | null> {
+  const hit = await findPhotoInner(q, headers);
+  if (hit && q.city && NOT_A_CITY.test(hit.title) && !/skyline|cityscape|skyscraper|panorama/i.test(hit.title)) return null;
+  return hit;
+}
+
+async function findPhotoInner(q: PhotoQuery, headers: Headers): Promise<PhotoHit | null> {
   const pick = PHOTO_PICKS[q.name.trim().toLowerCase()];
   if (pick && (q.lat === undefined || (Math.abs(q.lat - pick[1]) < 1.2 && Math.abs((q.lng ?? pick[2]) - pick[2]) < 1.5))) { try { const hit = await commonsFile(pick[0], 'wikidata', headers); if (hit) return hit; } catch { /* the ordinary search follows */ } }
   let lat = q.lat;

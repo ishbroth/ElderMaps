@@ -192,16 +192,17 @@ button { font: inherit; }
 .em-glimpsed .em-ico { filter: drop-shadow(0 0 5px rgba(255, 220, 140, 0.95)); }
 
 /* the combat game */
-.em-combat { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; background: #0b0d10; color: var(--sky-ink, #f2f2ee); }
+.em-combat { position: fixed; inset: env(safe-area-inset-top) 0 0 0; z-index: 400; display: block; overflow: hidden; background: #0b0d10; color: var(--sky-ink, #f2f2ee); }
 .em-combat-msg { margin: auto; text-align: center; letter-spacing: 3px; display: grid; gap: 14px; }
-.em-combat-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(12, 16, 20, 0.92); font-size: 12px; letter-spacing: 2px; }
+.em-combat-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: linear-gradient(rgba(8, 10, 14, 0.85), rgba(8, 10, 14, 0)); font-size: 12px; letter-spacing: 2px; }
 .em-combat-name { flex: 0 1 auto; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .em-health { flex: 1; height: 10px; background: #2a1414; border: 1px solid rgba(255, 255, 255, 0.35); }
 .em-health i { display: block; height: 100%; background: linear-gradient(#d24a3a, #8c2218); transition: width 0.15s; }
-.em-combat-stage { position: relative; width: 100%; max-height: calc(100% - 100px); margin: auto 0; touch-action: none; }
+.em-combat-stage { position: absolute; inset: 0; touch-action: none; }
 .em-combat-canvas { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
 .em-combat-banner { position: absolute; left: 0; right: 0; top: 14%; text-align: center; font-size: 28px; letter-spacing: 6px; text-shadow: 0 0 10px #000, 0 0 4px #000; pointer-events: none; }
-.em-combat-tools { display: flex; gap: 8px; justify-content: center; padding: 8px; }
+.em-combat-tools { position: absolute; top: 38px; left: 0; right: 0; z-index: 5; display: flex; gap: 8px; justify-content: center; padding: 6px 8px; pointer-events: none; }
+.em-combat-tools button { pointer-events: auto; background: rgba(12, 16, 20, 0.7); }
 .em-combat-over { position: absolute; inset: 0; z-index: 3; display: grid; align-content: center; justify-items: center; gap: 10px; background: rgba(8, 10, 14, 0.8); text-align: center; padding: 20px; }
 .em-wheel { position: absolute; left: 50%; top: 50%; width: min(340px, 92%); transform: translate(-50%, -50%); z-index: 4; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; background: rgba(12, 16, 20, 0.96); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); }
 .em-wheel button { padding: 10px 6px; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); font-size: 12px; letter-spacing: 2px; cursor: pointer; display: grid; gap: 2px; }

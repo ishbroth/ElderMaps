@@ -1,5 +1,6 @@
 import { buzz } from './lib/haptics';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { analyzeSpawns } from './lib/combat/analyze';
 import { loadCombatAssets, type CombatAssets } from './lib/combat/art';
 import { CLASS_NAME, ENEMIES, BOSSES, ITEM_CLASSES, isSpell, weaponAt, type Arsenal, type ItemCls, type RaidPlan } from './lib/combat/data';
@@ -39,6 +40,13 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
   const [, tick] = useState(0);
   const [hands, setHands] = useState<ItemCls[]>(['onehand']);
   const [ratio, setRatio] = useState(16 / 9);
+  // the size of the whole fighting area (the screen below the phone's status bar): the canvas takes its shape
+  const [size, setSize] = useState({ w: Math.max(1, window.innerWidth), h: Math.max(1, window.innerHeight) });
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const ro = new ResizeObserver(() => { const r = el.getBoundingClientRect(); if (r.width > 10 && r.height > 10) setSize({ w: r.width, h: r.height }); });
+    ro.observe(el); return () => ro.disconnect();
+  }, [phase]);
   const doneSent = useRef(false);
   const zoomAt = useRef({ u: 0.5, v: 0.6 });
 
@@ -75,6 +83,8 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const g = game.current; const c = canvas.current; const img = bg.current;
       if (g && c && img) {
+        const vw = viewFor(img.naturalWidth / img.naturalHeight, c.width, c.height);
+        g.view = { u0: Math.max(0, -vw.x0 / vw.pw), u1: Math.min(1, (c.width - vw.x0) / vw.pw), v0: Math.max(0, -vw.y0 / vw.ph) };
         g.update(dt);
         draw(c, img, g, assets.current, zoomAt.current);
         if (++frame % 4 === 0) tick((n) => n + 1);
@@ -89,10 +99,12 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
 
   // the finger: down and moving charge it, up strikes (the picture's own coordinates, undoing the bow's zoom)
   const at = (e: React.PointerEvent): { u: number; v: number } => {
-    const r = canvas.current?.getBoundingClientRect(); if (!r) return { u: 0.5, v: 0.5 };
-    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-    const g = game.current; const z = g && g.slots.some((s) => s.weapon.cls === 'bow' && s.charging) ? 1 + 0.4 * (g.slots[0]?.charge ?? 0) : 1;
-    return z === 1 ? { u: px, v: py } : { u: zoomAt.current.u + (px - zoomAt.current.u) / z, v: zoomAt.current.v + (py - zoomAt.current.v) / z };
+    const c = canvas.current; const img = bg.current; const r = c?.getBoundingClientRect(); if (!c || !r || !img) return { u: 0.5, v: 0.5 };
+    const vw = viewFor(img.naturalWidth / img.naturalHeight, c.width, c.height);
+    let sx = ((e.clientX - r.left) / r.width) * c.width, sy = ((e.clientY - r.top) / r.height) * c.height;
+    const g = game.current; const z = g && g.slots.some((sl) => sl.weapon.cls === 'bow' && sl.charging) ? 1 + 0.4 * (g.slots[0]?.charge ?? 0) : 1;
+    if (z !== 1) { const zx = vw.x0 + zoomAt.current.u * vw.pw, zy = vw.y0 + zoomAt.current.v * vw.ph; sx = zx + (sx - zx) / z; sy = zy + (sy - zy) / z; }
+    return { u: (sx - vw.x0) / vw.pw, v: (sy - vw.y0) / vw.ph };
   };
   const down = (e: React.PointerEvent) => { if (wheel) return; try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* a pointer that cannot be captured */ } const p = at(e); zoomAt.current = p; game.current?.press(p.u, p.v); };
   const move = (e: React.PointerEvent) => { if (game.current?.holding) { const p = at(e); game.current.move(p.u, p.v); } };
@@ -109,7 +121,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
   };
   const openWheel = () => { if (g) { g.paused = !wheel; } setWheel(!wheel); };
 
-  return (
+  return createPortal(
     <div className="em-combat" role="dialog" aria-modal="true" aria-label={`The fight at ${title}`}>
       {phase === 'loading' && <div className="em-combat-msg">THE RIFT OPENS…</div>}
       {phase === 'error' && <div className="em-combat-msg">THE PICTURE WOULD NOT LOAD<br /><button type="button" className="em-btn" onClick={onExit}>BACK</button></div>}
@@ -120,8 +132,8 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
             <div className="em-health" aria-label="Health"><i style={{ width: `${Math.max(0, (g.health / g.maxHealth) * 100)}%` }} /></div>
             <span className="em-combat-left">{g.remaining} LEFT</span>
           </div>
-          <div ref={box} className="em-combat-stage" style={{ aspectRatio: String(ratio) }}>
-            <canvas ref={canvas} className="em-combat-canvas" width={960} height={Math.round(960 / ratio)} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onContextMenu={(e) => e.preventDefault()} />
+          <div ref={box} className="em-combat-stage">
+            <canvas ref={canvas} className="em-combat-canvas" width={960} height={Math.max(200, Math.round((960 * size.h) / size.w))} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onContextMenu={(e) => e.preventDefault()} />
             {g.bannerT > 0 && <div className="em-combat-banner">{g.banner}</div>}
           </div>
           <div className="em-combat-tools">
@@ -152,22 +164,49 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
           )}
         </>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // ---- drawing ----
 
+/** Where the picture sits on the screen: bottom-aligned (the hands rise from the bottom edge), and zoomed in a little when it would leave a lot of black (never so far that more than about half of it is cropped away). Sizes are in canvas pixels. */
+export function viewFor(ratio: number, cw: number, ch: number): { pw: number; ph: number; x0: number; y0: number } {
+  const contain = Math.min(cw / ratio, ch), cover = Math.max(cw / ratio, ch);
+  const st = Math.max(contain, Math.min(cover, cw / (0.5 * ratio), ch / 0.5));
+  const pw = ratio * st, ph = st;
+  return { pw, ph, x0: (cw - pw) / 2, y0: ch - ph };
+}
+
+/** What fills the screen around a picture that does not reach the edges: the same picture, enlarged, blurred and darkened. */
+let backCache: { img: HTMLImageElement; w: number; h: number; canvas: HTMLCanvasElement } | null = null;
+function backdrop(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
+  if (!backCache || backCache.img !== img || backCache.w !== cw || backCache.h !== ch) {
+    const small = document.createElement('canvas'); small.width = 40; small.height = Math.max(8, Math.round((40 * ch) / cw));
+    const sc = small.getContext('2d') as CanvasRenderingContext2D;
+    const k = Math.max(small.width / img.naturalWidth, small.height / img.naturalHeight);
+    sc.drawImage(img, (small.width - img.naturalWidth * k) / 2, (small.height - img.naturalHeight * k) / 2, img.naturalWidth * k, img.naturalHeight * k);
+    sc.fillStyle = 'rgba(8,10,14,0.55)'; sc.fillRect(0, 0, small.width, small.height);
+    backCache = { img, w: cw, h: ch, canvas: small };
+  }
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(backCache.canvas, 0, 0, cw, ch);
+}
+
 function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatAssets, zoomAt: { u: number; v: number }) {
   const ctx = c.getContext('2d') as CanvasRenderingContext2D;
-  const W = c.width, H = c.height;
+  const CW = c.width, CH = c.height;
+  const vw = viewFor(img.naturalWidth / img.naturalHeight, CW, CH);
+  const W = vw.pw, H = vw.ph; // the picture's own size on the screen
+  backdrop(ctx, img, CW, CH);
   ctx.save();
   // the bow draws in: the view closes in on the aim
   const bow = g.slots.find((s) => s.weapon.cls === 'bow' && s.charging);
   const zoom = bow ? 1 + 0.4 * bow.charge : 1;
-  if (zoom !== 1) { ctx.translate(zoomAt.u * W, zoomAt.v * H); ctx.scale(zoom, zoom); ctx.translate(-zoomAt.u * W, -zoomAt.v * H); }
+  if (zoom !== 1) { const zx = vw.x0 + zoomAt.u * W, zy = vw.y0 + zoomAt.v * H; ctx.translate(zx, zy); ctx.scale(zoom, zoom); ctx.translate(-zx, -zy); }
   const sh = g.shake > 0 ? g.shake * 5 : 0;
   ctx.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
+  ctx.translate(vw.x0, vw.y0);
   ctx.drawImage(img, 0, 0, W, H);
 
   // enemies, the farthest first
@@ -188,20 +227,20 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
   ctx.restore();
 
   // the strike flash and the shout's glow
-  if (g.hitFlash > 0) { ctx.fillStyle = `rgba(180,20,20,${0.38 * g.hitFlash})`; ctx.fillRect(0, 0, W, H); }
-  if (g.shoutT > 0) { ctx.fillStyle = `rgba(255,220,140,${0.25 * Math.min(1, g.shoutT)})`; ctx.fillRect(0, 0, W, H); }
-  if (g.slowLeft > 0) { ctx.fillStyle = 'rgba(120,150,255,0.07)'; ctx.fillRect(0, 0, W, H); }
+  if (g.hitFlash > 0) { ctx.fillStyle = `rgba(180,20,20,${0.38 * g.hitFlash})`; ctx.fillRect(0, 0, CW, CH); }
+  if (g.shoutT > 0) { ctx.fillStyle = `rgba(255,220,140,${0.25 * Math.min(1, g.shoutT)})`; ctx.fillRect(0, 0, CW, CH); }
+  if (g.slowLeft > 0) { ctx.fillStyle = 'rgba(120,150,255,0.07)'; ctx.fillRect(0, 0, CW, CH); }
 
   // the bow's aim: a dot, and the charge rings of everything charging
   if (g.holding) {
     for (const s of g.slots) {
       if (!s.charging) continue;
       ctx.strokeStyle = isSpell(s.weapon.cls) ? SPELL_COLOR[s.weapon.cls] : '#f4e8c6'; ctx.lineWidth = 4; ctx.globalAlpha = 0.9;
-      ctx.beginPath(); ctx.arc(g.aim.u * W, g.aim.v * H, 28 + 6 * g.slots.indexOf(s), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * s.charge); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(vw.x0 + g.aim.u * W, vw.y0 + g.aim.v * H, 28 + 6 * g.slots.indexOf(s), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * s.charge); ctx.stroke(); ctx.globalAlpha = 1;
     }
-    if (bow) { ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.arc(g.aim.u * W, g.aim.v * H, 3.5, 0, Math.PI * 2); ctx.fill(); }
+    if (bow) { ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.arc(vw.x0 + g.aim.u * W, vw.y0 + g.aim.v * H, 3.5, 0, Math.PI * 2); ctx.fill(); }
   }
-  drawHands(ctx, g, art, W, H);
+  drawHands(ctx, g, art, CW, CH);
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: CombatAssets, W: number, H: number) {
@@ -322,7 +361,7 @@ function drawHands(ctx: CanvasRenderingContext2D, g: Game, art: CombatAssets, W:
     const bothInPicture = s.weapon.cls === 'twohand' || s.weapon.cls === 'bow';
     const left = pair && i === 1;
     const baseX = bothInPicture ? W * 0.5 : pair ? (left ? W * 0.27 : W * 0.73) : W * 0.7;
-    const w = (bothInPicture ? 0.36 : pair ? 0.25 : 0.27) * W;
+    const w = (bothInPicture ? 0.36 : pair ? 0.25 : 0.27) * Math.min(W, H * 0.8);
     const h = img ? w * (img.naturalHeight / img.naturalWidth) : w * 0.9;
     // pulled back while charging, then a quick swing through
     let rot = -0.08 * s.charge, dy = 0.12 * h * s.charge, dx = 0;
