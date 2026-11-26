@@ -425,3 +425,7 @@ button { font: inherit; }
 .em-fog-note { position: absolute; left: 12px; right: 12px; bottom: 14px; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(11, 13, 16, 0.88); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); color: var(--sky-ink, #f2f2ee); font-size: 10px; letter-spacing: 0.14em; }
 .em-fog-note span { flex: 1; }
 .em-fog-note .em-btn { flex: 0 0 auto; padding: 8px 10px; font-size: 10px; }
+
+.em-ledger-tips { list-style: none; margin: 0 10px 4px; padding: 0; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); background: var(--sky-panel, #0c1014); max-height: 190px; overflow-y: auto; }
+.em-ledger-tips button { display: block; width: 100%; text-align: left; padding: 9px 10px; background: transparent; color: var(--sky-ink, #f2f2ee); border: 0; border-bottom: 1px solid rgba(201, 194, 176, 0.2); font: inherit; font-size: 14px; cursor: pointer; }
+.em-ledger-tips li:last-child button { border-bottom: 0; }

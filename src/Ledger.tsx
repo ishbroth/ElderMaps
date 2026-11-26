@@ -1,5 +1,5 @@
 import Coin from './Coin';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Spot } from './App';
 import { CHARACTER_TYPES, deleteAccount, type Account } from './lib/account';
 import { levelInfo } from './lib/points';
@@ -32,6 +32,8 @@ interface Props {
   query: string;
   onQuery: (q: string) => void;
   onSearch: (e: React.FormEvent) => void;
+  /** A suggestion from the list under the search was chosen: search for it. */
+  onPick: (text: string) => void;
   /** AUTO-DISCOVER: following where the phone is and finding places as they are reached. */
   following: boolean;
   onToggleFollow: () => void;
@@ -101,8 +103,25 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 }
 
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
-export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse, originName, nearby, legendSpots, legendName, invent }: Props) {
+export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, onPick, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse, originName, nearby, legendSpots, legendName, invent }: Props) {
   const [tab, setTab] = useState<Tab>('quests');
+  // the addresses and places Google suggests as you type, a short wait after the last key
+  const [tips, setTips] = useState<string[]>([]);
+  const tipToken = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+  useEffect(() => {
+    const q = placeQuery.trim();
+    if (q.length < 3) { setTips([]); return; }
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      try {
+        const { AutocompleteSuggestion, AutocompleteSessionToken } = (await google.maps.importLibrary('places')) as google.maps.PlacesLibrary;
+        tipToken.current ??= new AutocompleteSessionToken();
+        const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: q, sessionToken: tipToken.current });
+        if (!cancelled) setTips(suggestions.map((x) => x.placePrediction?.text.text).filter((x): x is string => !!x).slice(0, 5));
+      } catch { if (!cancelled) setTips([]); }
+    }, 300);
+    return () => { cancelled = true; window.clearTimeout(t); };
+  }, [placeQuery]);
   const [view, setView] = useState<'near' | 'found'>('near');
   const [query, setQuery] = useState('');
   const list = useMemo(() => {
@@ -120,10 +139,15 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
 
   return (
     <aside className="em-ledger" aria-label="The ledger">
-      <form className="em-ledger-search" onSubmit={onSearch}>
+      <form className="em-ledger-search" onSubmit={(e) => { setTips([]); onSearch(e); }}>
         <input value={placeQuery} onChange={(e) => onQuery(e.target.value)} placeholder="Seek a city, a keep, a waterfall…" aria-label="Search for a place" />
         <button type="submit" aria-label="Search">⌕</button>
       </form>
+      {tips.length > 0 && (
+        <ul className="em-ledger-tips" role="listbox" aria-label="Suggestions">
+          {tips.map((t) => <li key={t}><button type="button" role="option" aria-selected="false" onClick={() => { setTips([]); onPick(t); }}>{t}</button></li>)}
+        </ul>
+      )}
       <div className="em-ledger-switches">
         <button type="button" className={'em-switch-wide' + (following ? ' on' : '')} aria-pressed={following} onClick={onToggleFollow} title="Find places as you walk, drive or ride">{following ? '◉ AUTO-DISCOVER ON' : '○ AUTO-DISCOVER OFF'}</button>
         {voiceAvailable() && <button type="button" className={'em-switch' + (voiceOn ? ' on' : '')} aria-pressed={voiceOn} aria-label={voiceOn ? 'Mute the road\'s voice' : 'Unmute the road\'s voice'} title={voiceOn ? 'Mute the voice' : 'Unmute the voice'} onClick={onToggleVoice}>{voiceOn ? '♪' : '♪̸'}</button>}

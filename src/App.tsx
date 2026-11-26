@@ -367,6 +367,8 @@ export default function App() {
         }
       }
     }
+    // the traveller's hearth, when it stands out in the country (a hearth in a city is that city's own)
+    { const hh = accountRef.current?.home; if (hh && hh.lat !== undefined && hh.lng !== undefined && !hh.metro && hh.placeId && inView(hh.lat, hh.lng)) { seenRef.current.add(hh.placeId); add({ id: hh.placeId, kind: 'house', real: hh.address ?? 'Your hearth', name: (hh.address ?? 'Your hearth').split(',')[0], province: world.provinceAt(hh.lat, hh.lng), lat: hh.lat, lng: hh.lng, fame: 999, pic: 'hearth', note: 'Your hearth' }, false); } }
     // the countryside: waterfalls, caves, ruins, forts, camps, beacons, fire mountains, springs, passes, glaciers, groves, shrines and peaks
     const fameFloor = wildFame(zoom);
     if (zoom >= 3) {
@@ -437,9 +439,9 @@ export default function App() {
   useEffect(() => { refresh(); }, [look, seen, cleared, refresh]);
 
   // ---- search ----
-  const search = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = query.trim();
+  const search = async (e: React.FormEvent) => { e.preventDefault(); await searchFor(query); };
+  const searchFor = async (text: string) => {
+    const q = text.trim();
     const map = mapRef.current;
     if (!q || !map) return;
     const hit = await findPlace(q);
@@ -883,7 +885,7 @@ export default function App() {
       </div>
       {!trip && (
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
-          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)}
+          onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)} onPick={(t) => { setQuery(t); void searchFor(t); }}
           following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
           onHouse={() => setHouseOpen(true)} nearby={nearby} legendSpots={legend ? legendSpots : null} legendName={legend && world ? loreName(legend.name, world.provinceOfCountry(legend.country)) : null} invent={(name, iso) => (world ? loreName(name, world.provinceOfCountry(iso)) : name)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
       )}

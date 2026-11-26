@@ -83,7 +83,15 @@ function cluster(n: number): Part[] {
 }
 for (let n = 2; n <= 7; n++) MORE[`cluster${n}`] = cluster(n);
 Object.assign(MORE, SHIRES);
-MORE.house = MORE.cottage;
+// the hearth: a chateau lodge with a steep roof, a gable window and a tall stone chimney, a flame burning in the chimney's mouth
+MORE.hearth = [
+  fill('M2.6 21.5V13L10.6 7.4l8 5.6v8.5ZM8.9 21.5v-4a1.7 1.7 0 0 1 3.4 0v4Z'),
+  // the chimney, with a flame cut out of its stone, and a lick of fire and a curl of smoke above it
+  fill('M13.4 11.2V4.8h6.2v10.2h-6.2ZM16.5 6.2c.9.9 1.4 1.7 1 2.6.6-.1 1 .6 1 1.3a2 2 0 0 1-4 0c0-.9.6-1.2 1-1.6.2.4.5.5.8.4-.1-.9 0-1.8.2-2.7Z'),
+  fill('M12.8 5.2h7.4V3.8h-7.4Z'),
+  fill('M16.5 0.6c1.5 1.3 2.2 2.2 1.7 3.2h-3.4c-.5-1 .2-1.9 1.7-3.2Z'),
+];
+MORE.house = MORE.hearth;
 
 const hashOf = (text: string): number => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const pickBy = <T,>(list: T[], seed: string): T => list[hashOf(seed) % list.length];
