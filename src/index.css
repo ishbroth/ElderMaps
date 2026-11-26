@@ -1,5 +1,6 @@
 :root {
   --sky-ink: #f2f2ee;
+  --sky-on: #0c1014;
   --sky-dim: #9aa3a8;
   --sky-panel: rgba(12, 16, 20, 0.84);
   --sky-line: rgba(201, 194, 176, 0.45);
@@ -8,6 +9,7 @@
 }
 :root[data-look='oblivion'] {
   --sky-ink: #2f2316;
+  --sky-on: #f6edd2;
   --sky-dim: #6b563a;
   --sky-panel: rgba(226, 209, 164, 0.94);
   --sky-line: rgba(90, 65, 40, 0.6);
@@ -391,7 +393,7 @@ button { font: inherit; }
 
 .em-look-switch { display: flex; border: 1px solid var(--sky-line); background: var(--sky-panel); }
 .em-look-switch button { padding: 8px 12px; background: transparent; color: var(--sky-dim); border: 0; cursor: pointer; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-family: inherit; }
-.em-look-switch button.on { background: var(--sky-ink); color: #0c1014; }
+.em-look-switch button.on { background: var(--sky-ink); color: var(--sky-on, #0c1014); }
 @media (max-width: 520px) { .em-look-switch button { padding: 8px 7px; font-size: 10.5px; letter-spacing: 0.1em; } }
 
 .em-origin { text-align: left; margin: 2px 0; }

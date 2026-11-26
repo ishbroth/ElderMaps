@@ -16,9 +16,9 @@ export default function TornFrame() {
   // a ragged line round the inside of the page, the same every time
   let s = 7;
   const rand = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  const inset = 16;
+  const inset = 3;
   const pts: string[] = [];
-  const jag = (x: number, y: number, nx: number, ny: number) => `${(x + nx * rand() * 9).toFixed(1)},${(y + ny * rand() * 9).toFixed(1)}`;
+  const jag = (x: number, y: number, nx: number, ny: number) => `${(x + nx * rand() * 6).toFixed(1)},${(y + ny * rand() * 6).toFixed(1)}`;
   for (let x = inset; x < w - inset; x += 11) pts.push(jag(x, inset, 0, 1));
   for (let y = inset; y < h - inset; y += 11) pts.push(jag(w - inset, y, -1, 0));
   for (let x = w - inset; x > inset; x -= 11) pts.push(jag(x, h - inset, 0, -1));
@@ -36,7 +36,7 @@ export default function TornFrame() {
         <path d={`M0 0H${w}V${h}H0Z${hole}`} fillRule="evenodd" fill="#d8c7a0" />
         <path d={`M0 0H${w}V${h}H0Z${hole}`} fillRule="evenodd" filter="url(#em-paper)" opacity="0.8" />
         <path d={hole} fill="none" stroke="#5a4128" strokeWidth="2.2" strokeOpacity="0.8" />
-        <path d={hole} fill="none" stroke="#2f2316" strokeWidth="9" strokeOpacity="0.16" />
+        <path d={hole} fill="none" stroke="#2f2316" strokeWidth="6" strokeOpacity="0.16" />
       </svg>
     </div>
   );
