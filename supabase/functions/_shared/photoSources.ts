@@ -219,12 +219,13 @@ async function cityPhoto(name: string, lat: number | undefined, lng: number | un
   let best: { page: CommonsPage; score: number } | null = null;
   const consider = (page: CommonsPage, bonus: number) => {
     if (!hitFromPage(page, 'commons-category', 800)) return; // freely licensed, a JPEG or PNG
+    if (NOT_OUTSIDE.test(page.title ?? '') || /(nissan|gt-r|toyota|honda|bmw|airlines?|heron|bird|donation|rathaus|museum|station|division|prefecture|atlas|hand-?colou?red)/i.test(page.title ?? '')) return;
     const sc = skylineScore(page as never) + bonus;
     if (!best || sc > best.score) best = { page, score: sc };
   };
   const bestScore = () => (best ? (best as { score: number }).score : -1e9);
   // 1. Commons' own search for "<city> skyline", "<city> panorama" and "<city> cityscape": the best-known pictures come first
-  await Promise.all(['skyline', 'panorama', 'cityscape'].map(async (word) => {
+  await Promise.all(['skyline', 'panorama', 'cityscape', 'downtown', 'aerial', 'view from', 'skyscrapers', 'at night'].map(async (word) => {
     try {
       const data = await json(COMMONS + new URLSearchParams({ action: 'query', format: 'json', origin: '*', generator: 'search', gsrsearch: '"' + name + '" ' + word + ' filetype:bitmap', gsrnamespace: '6', gsrlimit: '30', ...imageinfo }), headers);
       const first = name.split(/[ ,-]/).sort((x, y) => y.length - x.length)[0].toLowerCase();
@@ -245,7 +246,7 @@ async function cityPhoto(name: string, lat: number | undefined, lng: number | un
     }
   }
   // only a picture that is a skyline or panorama by name (or a featured one) is taken at once; otherwise the city's own article pictures are tried first
-  if (bestScore() >= 3.2) return hitFromPage((best as { page: CommonsPage }).page, 'commons-category', 800);
+  if (bestScore() >= 1.2) return hitFromPage((best as { page: CommonsPage }).page, 'commons-category', 800);
   if (ent?.p18) { const hit = await commonsFile(ent.p18, 'wikidata', headers).catch(() => null); if (hit) return hit; }
   for (const [lang, title] of Object.entries(ent?.wikis ?? {}).sort((a, b) => (a[0] === 'en' ? -1 : b[0] === 'en' ? 1 : 0)).slice(0, 8)) {
     const hit = await wikiLeadIn(lang, title, headers).catch(() => null);
@@ -295,13 +296,30 @@ async function mapillary(lat: number, lng: number, headers: Headers): Promise<Ph
 
 /** The best freely licensed photo of a place, or null. Each source that fails or has nothing hands over to the next. */
 /** Cities whose automatic picture was not a good one: the photograph to use instead (a Commons file; all of them freely licensed). */
-const PHOTO_PICKS: Record<string, string> = {
-  miami: 'Miami - Skyline from Harbor.jpg',
+const PHOTO_PICKS: Record<string, [string, number, number]> = {
+  miami: ['Miami - Skyline from Harbor.jpg', 25.8, -80.2],
+  "tokyo": ['Tokio skyline from Tokyo Metropolitan Government Building.jpg', 35.7, 139.7],
+  "osaka": ['Skyline view of Osaka.jpg', 34.7, 135.5],
+  "moscow": ['Moscow skyline (8012910457).jpg', 55.8, 37.6],
+  "mexico city": ['Mexico City Reforma skyline.jpg', 19.4, -99.1],
+  "paris": ['La Défense skyline from Eiffel Tower.jpg', 48.9, 2.3],
+  "kyiv": ['Kyiv skyline (15688086793).jpg', 50.5, 30.5],
+  "pune": ['Pune West skyline - March 2017.jpg', 18.5, 73.9],
+  "seoul": ['Han River Seoul skyline Pixabay 1214950.jpg', 37.6, 127.0],
+  "busan": ['Skyline of Busan Including Gwangan Bridge, Marine City and LCT Skyscrapers.jpg', 35.1, 129.0],
+  "hamburg": ['Hamburg Skyline from Steinwerder (15148988569).jpg', 53.6, 10.0],
+  "budapest": ['Budapest skyline from Gellért Hill (3).jpg', 47.5, 19.0],
+  "barcelona": ['Barcelona Skyline as seen from Parc Güell.jpg', 41.4, 2.2],
+  "berlin": ['Skyline of Berlin Germany (54181381862).jpg', 52.5, 13.4],
+  "dubai": ['Dubai skyline (25901817975).jpg', 25.1, 55.3],
+  "ankara": ['Ankara Skyline (6225862196).jpg', 39.9, 32.9],
+  "tianjin": ['Tianjin Skyline 2009 by Nangua 1.jpg', 39.1, 117.2],
+  "surat": ['Surat Skyline 01.jpg', 21.2, 72.8],
 };
 
 export async function findPhotoFor(q: PhotoQuery, headers: Headers = {}): Promise<PhotoHit | null> {
   const pick = PHOTO_PICKS[q.name.trim().toLowerCase()];
-  if (pick && (q.lat === undefined || (Math.abs(q.lat - 25.77) < 0.5 && Math.abs((q.lng ?? -80.2) + 80.2) < 0.5))) { try { const hit = await commonsFile(pick, 'wikidata', headers); if (hit) return hit; } catch { /* the ordinary search follows */ } }
+  if (pick && (q.lat === undefined || (Math.abs(q.lat - pick[1]) < 1.2 && Math.abs((q.lng ?? pick[2]) - pick[2]) < 1.5))) { try { const hit = await commonsFile(pick[0], 'wikidata', headers); if (hit) return hit; } catch { /* the ordinary search follows */ } }
   let lat = q.lat;
   let lng = q.lng;
   let failed = false;

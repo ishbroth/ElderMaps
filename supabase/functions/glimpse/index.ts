@@ -160,8 +160,10 @@ Deno.serve(async (req) => {
 
     // 4. the picture, checked against the photograph (one more try if it is not the same structure)
     const prompt = glimpsePrompt(name, kind, kit, waterText);
+    const skyline = kind === 'crest' || kind === 'town';
     let png = await generate(photo, prompt);
-    if (!(await keepsBuilding(photo, png))) png = await generate(photo, prompt + ' Be stricter: keep the structure exactly as in the photograph.');
+    // a city is checked against the photograph's skyline, and made again (up to twice) if its towers have wandered
+    for (let tries = 0; tries < (skyline ? 2 : 1) && !(await keepsBuilding(photo, png, skyline)); tries++) png = await generate(photo, prompt + ' Be much stricter: copy the layout, the heights and the camera angle of the photograph exactly, changing only the style of the buildings.');
 
     const path = `${placeId.replace(/[^A-Za-z0-9_-]/g, '_')}.png`;
     const up = await db.storage.from('renders').upload(path, png, { contentType: 'image/png', upsert: true });

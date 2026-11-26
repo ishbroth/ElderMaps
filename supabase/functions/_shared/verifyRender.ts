@@ -3,7 +3,7 @@
 
 const toBase64 = (bytes: Uint8Array): string => { let t = ''; for (let i = 0; i < bytes.length; i += 0x8000) t += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(t); };
 
-export async function keepsBuilding(original: { bytes: Uint8Array; mime: string }, render: Uint8Array): Promise<boolean> {
+export async function keepsBuilding(original: { bytes: Uint8Array; mime: string }, render: Uint8Array, skyline = false): Promise<boolean> {
   const key = Deno.env.get('GEMINI_API_KEY');
   if (!key) return true;
   const model = Deno.env.get('GEMINI_TEXT_MODEL') ?? 'gemini-flash-latest';
@@ -12,7 +12,7 @@ export async function keepsBuilding(original: { bytes: Uint8Array; mime: string 
       method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [
-          { text: 'Picture 1 is a photograph of a place. Picture 2 is a fantasy-art render of that same place, rebuilt in a different architectural style (it should still be recognisably the same structure). Does the main building (or main structure) in picture 2 keep the recognizable shape, layout and features of the main building in picture 1 (its outline, number of floors, roofline, wings or towers, facade), only wrecked, or is picture 2 a different, generic ruined building? Answer with exactly one word: SAME or DIFFERENT.' },
+          { text: skyline ? 'Picture 1 is a photograph of a city skyline. Picture 2 is a fantasy-art render of that same skyline in a different architectural style. Compare the SILHOUETTE: are the tallest towers in the same positions across the picture, at the same relative heights, with the same horizon line and the same camera angle and framing? A different style on the same buildings is expected. Answer with exactly one word: SAME if the skyline layout and viewpoint match, DIFFERENT if towers were invented, moved or removed or the viewpoint changed.' : 'Picture 1 is a photograph of a place. Picture 2 is a fantasy-art render of that same place, rebuilt in a different architectural style (it should still be recognisably the same structure). Does the main building (or main structure) in picture 2 keep the recognizable shape, layout and features of the main building in picture 1 (its outline, number of floors, roofline, wings or towers, facade), only wrecked, or is picture 2 a different, generic ruined building? Answer with exactly one word: SAME or DIFFERENT.' },
           { inline_data: { mime_type: original.mime, data: toBase64(original.bytes) } },
           { inline_data: { mime_type: 'image/png', data: toBase64(render) } },
         ] }],
