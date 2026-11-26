@@ -35,7 +35,7 @@ export const CHARACTER_TYPES: { id: string; name: string; blurb: string }[] = [
 ];
 
 export interface Profile { characterName: string | null; characterType: string | null; /** 'm' or 'f' */ characterSex: 'm' | 'f' | null; /** The city whose shield is theirs, and its country. */ sigilCity: string | null; sigilIso: string | null }
-export interface Home { address?: string; lat?: number; lng?: number; placeId?: string; hearthNumber?: number; skipped: boolean }
+export interface Home { address?: string; lat?: number; lng?: number; placeId?: string; hearthNumber?: number; skipped: boolean; /** The city the hearth stands in (null in the open country), and how many times it has been set. */ metro?: string | null; changes?: number }
 
 export interface Account {
   session: Session | null;
@@ -79,7 +79,7 @@ export function useAccount(): Account {
     const [p, h, c, lb, pk, ds, cx] = await Promise.all([
 
       db().from('profiles').select('character_name,character_type,character_sex,sigil_city,sigil_iso').eq('user_id', s.user.id).maybeSingle(),
-      db().from('user_home').select('place_id,address,lat,lng,hearth_number,skipped').eq('user_id', s.user.id).maybeSingle(),
+      db().from('user_home').select('place_id,address,lat,lng,hearth_number,skipped,home_metro,home_changes').eq('user_id', s.user.id).maybeSingle(),
       db().from('credits').select('balance').eq('user_id', s.user.id).maybeSingle(),
       db().from('loot_bag').select('loot_id,qty').eq('user_id', s.user.id),
       db().from('pack').select('potions,shouts,dual').eq('user_id', s.user.id).maybeSingle(),
@@ -91,7 +91,7 @@ export function useAccount(): Account {
     setLoot(bag);
     setPack({ potions: pk.data?.potions ?? 0, shouts: pk.data?.shouts ?? 0, dual: !!pk.data?.dual });
     setProfile(p.data ? { characterName: p.data.character_name ?? null, characterType: p.data.character_type ?? null, characterSex: p.data.character_sex === 'f' ? 'f' : p.data.character_sex === 'm' ? 'm' : null, sigilCity: p.data.sigil_city ?? null, sigilIso: p.data.sigil_iso ?? null } : { characterName: null, characterType: null, characterSex: null, sigilCity: null, sigilIso: null });
-    setHome(h.data ? { placeId: h.data.place_id ?? undefined, address: h.data.address ?? undefined, lat: h.data.lat ?? undefined, lng: h.data.lng ?? undefined, hearthNumber: h.data.hearth_number ?? undefined, skipped: !!h.data.skipped } : null);
+    setHome(h.data ? { placeId: h.data.place_id ?? undefined, address: h.data.address ?? undefined, lat: h.data.lat ?? undefined, lng: h.data.lng ?? undefined, hearthNumber: h.data.hearth_number ?? undefined, skipped: !!h.data.skipped, metro: h.data.home_metro ?? null, changes: h.data.home_changes ?? 0 } : null);
     setBalance((c.data?.balance as number | undefined) ?? 0);
     setPoints(Math.floor(((ds.data ?? []) as { points: number }[]).reduce((n, r) => n + (r.points ?? 0), 0) + ((cx.data as { tenths?: number } | null)?.tenths ?? 0) / 10));
     setLoaded(true);
@@ -179,4 +179,14 @@ export async function completeSignInFromUrl(url: string): Promise<boolean> {
     return !error;
   }
   return false;
+}
+
+/** Makes a glimpsed address the home hearth. Null when it was done; else a message. */
+export async function setHearth(placeId: string): Promise<string | null> {
+  const { data, error } = await db().functions.invoke('set-hearth', { body: { placeId } });
+  if (!error && (data as { ok?: boolean } | null)?.ok) return null;
+  let reason = 'failed';
+  const response = (error as { context?: Response } | null)?.context;
+  if (response) { try { reason = ((await response.json()) as { error?: string }).error ?? 'failed'; } catch { /* no body */ } }
+  return reason === 'not_glimpsed' ? 'GLIMPSE THE ADDRESS FIRST.' : 'THE HEARTH COULD NOT BE SET. TRY AGAIN IN A MOMENT.';
 }

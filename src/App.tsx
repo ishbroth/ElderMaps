@@ -25,7 +25,7 @@ import { metroForSpot } from './lib/townLegend';
 import { bearingBetween, riderSvg } from './lib/rider';
 import { createVivid, type Vivid } from './lib/vivid';
 import AccountModal from './Account';
-import { accountsEnabled, db, loadFound, reportDiscovery, useAccount } from './lib/account';
+import { accountsEnabled, db, loadFound, reportDiscovery, setHearth, useAccount } from './lib/account';
 import { hapticsEnabled, setHapticsEnabled } from './lib/haptics';
 import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAvailable, voiceEnabled } from './lib/voice';
 import { loadWorld, type Metro, type World } from './lib/world';
@@ -841,7 +841,7 @@ export default function App() {
         )}
 
         {viewing && !trip && (
-          <SceneView level={levelInfo(account.points).level} homeCity={!!account.profile?.sigilCity && viewing?.kind === 'crest' && viewing.real === account.profile.sigilCity} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
+          <SceneView onHearth={account.session ? async () => { const r = await setHearth(viewing!.id); if (r) say(r); else { say('THIS IS NOW YOUR HEARTH'); void account.refresh(); } } : undefined} level={levelInfo(account.points).level} homeCity={!!viewing && !!world && !!account.home?.metro && (account.home.changes ?? 0) <= 3 && (viewing.kind === 'crest' || viewing.kind === 'town') && metroForSpot(world, viewing)?.id === account.home.metro} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
             signedIn={!!account.session} onSpent={() => void account.refresh()} onCleared={(id) => setCleared((prev) => new Set(prev).add(id))}
             onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
             onFoggedCity={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) return; setViewing(null); setSelected(null); void openFogged(m, { lat: m.lat, lng: m.lng }, 'card'); }}

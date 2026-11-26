@@ -25,6 +25,8 @@ interface Props {
   onCleared: (placeId: string) => void;
   /** Opens the Town Legend of the city this place belongs to. */
   onTownLegend: () => void;
+  /** Makes this glimpsed address the traveller's home hearth. */
+  onHearth?: () => void;
   /** Opens the fogged city (once its gate is cleared and an address glimpsed). */
   onFoggedCity?: () => void;
   onTravel: () => void;
@@ -32,7 +34,7 @@ interface Props {
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onTravel, onClose }: Props) {
+export default function SceneView({ level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onHearth, onTravel, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -105,6 +107,7 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
           )}
           {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR</button>}
           {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>THE STORY</button>}
+          {state === 'ready' && spot.kind === 'house' && onHearth && <button type="button" className="em-btn em-btn-ghost" onClick={onHearth} title="Make this address your home hearth">MAKE THIS MY HEARTH</button>}
           {hasTownLegend(spot.kind) && state !== 'ready' && (
             <>
               <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>

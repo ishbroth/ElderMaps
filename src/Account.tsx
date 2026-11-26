@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CHARACTER_TYPES, saveSetup, sendSignInLink, signInWithHearth, type Account } from './lib/account';
 import { loadWorld } from './lib/world';
-import { findPlace } from './lib/google';
 import { randomCharacterName } from './lib/names';
 import SigilPicker, { Quill, type SigilChoice } from './Sigil';
 import { db } from './lib/account';
@@ -84,7 +83,6 @@ export default function AccountModal({ account, onClose }: { account: Account; o
     if (problem) setNote(problem); else { await account.refresh(); onClose(); }
   };
   const [editAddr, setEditAddr] = useState(false);
-  const [addr, setAddr] = useState('');
   const saveEdit = async () => {
     if (!account.session) return;
     if (name.trim().length < 2) { setNote('Choose a name of at least two letters.'); return; }
@@ -92,12 +90,6 @@ export default function AccountModal({ account, onClose }: { account: Account; o
     const id = account.session.user.id;
     const prof = await db().from('profiles').update({ character_name: name.trim(), character_type: type, character_sex: sex, sigil_city: sigil?.city ?? null, sigil_iso: sigil?.iso ?? null, updated_at: new Date().toISOString() }).eq('user_id', id);
     if (prof.error) { setBusy(false); setNote(prof.error.code === '23505' ? 'That name is taken. Choose another.' : 'The changes could not be saved. Try again.'); return; }
-    if (editAddr && addr.trim()) {
-      const found = await findPlace(addr.trim()).catch(() => null);
-      if (!found) { setBusy(false); setNote('That address could not be found. Try the street, town and country.'); return; }
-      const home = await db().from('user_home').update({ address: found.name, lat: found.center.lat, lng: found.center.lng, updated_at: new Date().toISOString() }).eq('user_id', id);
-      if (home.error) { setBusy(false); setNote('The address could not be saved. Try again.'); return; }
-    }
     await account.refresh();
     setBusy(false);
     onClose();
@@ -194,7 +186,7 @@ export default function AccountModal({ account, onClose }: { account: Account; o
               <div className="em-edit-home">
                 <p className="em-fine em-edit-label">HEARTH ADDRESS <button type="button" className="em-quill" aria-label="Change your hearth address" title="Change your hearth address" onClick={() => setEditAddr((v) => !v)}><Quill size={16} /></button></p>
                 <p className="em-fine">{account.home.address}</p>
-                {editAddr && <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="the new address: street, town, country" aria-label="New hearth address" />}
+                {editAddr && <p className="em-fine">To move your hearth: look the new address up on the map, glimpse it, and press MAKE THIS MY HEARTH on its card.</p>}
               </div>
             )}
             {note && <p className="em-note">{note}</p>}
