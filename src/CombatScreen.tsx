@@ -39,7 +39,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
   const [wheel, setWheel] = useState(false);
   const [, tick] = useState(0);
   const [hands, setHands] = useState<ItemCls[]>(['onehand']);
-  const [ratio, setRatio] = useState(16 / 9);
+  const [, setRatio] = useState(16 / 9);
   // the size of the whole fighting area (the screen below the phone's status bar): the canvas takes its shape
   const [size, setSize] = useState({ w: Math.max(1, window.innerWidth), h: Math.max(1, window.innerHeight) });
   useEffect(() => {
