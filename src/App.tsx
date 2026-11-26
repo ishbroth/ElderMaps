@@ -863,7 +863,7 @@ export default function App() {
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}
         {typeof window !== 'undefined' && window.location.search.includes('housetest') && <HouseTest onClose={() => { window.location.href = window.location.pathname; }} />}
         {houseOpen && !trip && account.session && <House account={account} onClose={() => setHouseOpen(false)} />}
-        {buyOpen && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}
+        {(buyOpen || (import.meta.env.DEV && new URLSearchParams(window.location.search).has('buytest'))) && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}
         {shopOpen && !trip && <Shop onClose={() => setShopOpen(false)} onBought={() => void account.refresh()} />}
 
         {trip && step && (

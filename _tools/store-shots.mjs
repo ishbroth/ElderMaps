@@ -81,6 +81,7 @@ const OK = {
   'dragon-chicago': "!!window.__game && window.__game.enemies.length > 0",
   'house-room': "document.querySelectorAll('.em-piece').length >= 3",
   'house-plan': "document.querySelectorAll('.em-cell-room').length >= 4",
+  'buy-septims': "document.querySelectorAll('.em-packs button').length === 3",
 };
 const SUBJECTS = {
   'map-vivid': { url: () => `${URL}/?at=48,12,5`, wait: 11000 },
@@ -88,6 +89,7 @@ const SUBJECTS = {
   'town-legend': { url: () => `${URL}/?legendtest=us-ga-savannah`, wait: 9000, flow: `(async () => { const w = (ms) => new Promise((r) => setTimeout(r, ms)); for (let i = 0; i < 60 && !window.__legendMap; i++) await w(250); const m = window.__legendMap; m.setCenter({ lat: 32.0775, lng: -81.0925 }); m.setZoom(15); await w(7000); return 'ready'; })()` },
   'navigation': { url: () => `${URL}/?at=32.0809,-81.0912,13`, flow: NAV_FLOW, wait: 6000 },
   'dragon-chicago': { url: (land) => `${URL}/?combattest=crest&img=/_test-${land ? 'wide' : 'tall'}.png`, flow: COMBAT_FLOW, wait: 9000 },
+  'buy-septims': { url: () => `${URL}/?at=48,12,5&buytest`, wait: 9000 },
   'house-room': { url: () => `${URL}/?housetest`, style: 'imperial', flow: HOUSE_FLOW(['Great Hall'], ['CARVED CHAIR', 'BENCH SEATING', 'LOW TABLE', 'ENCHANTING TABLE'], false), wait: 5000 },
   'house-plan': { url: () => `${URL}/?housetest`, style: 'nordic', flow: HOUSE_FLOW(['Great Hall', 'Feast Hall', 'Bedchamber', 'Kitchen'], [], true), wait: 5000 },
 };
