@@ -429,3 +429,5 @@ button { font: inherit; }
 .em-ledger-tips { list-style: none; margin: 0 10px 4px; padding: 0; border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); background: var(--sky-panel, #0c1014); max-height: 190px; overflow-y: auto; }
 .em-ledger-tips button { display: block; width: 100%; text-align: left; padding: 9px 10px; background: transparent; color: var(--sky-ink, #f2f2ee); border: 0; border-bottom: 1px solid rgba(201, 194, 176, 0.2); font: inherit; font-size: 14px; cursor: pointer; }
 .em-ledger-tips li:last-child button { border-bottom: 0; }
+
+.em-try-arrow { flex: 0 0 auto; width: 28px; height: 30px; padding: 0; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); font-size: 20px; line-height: 1; cursor: pointer; font-family: inherit; }

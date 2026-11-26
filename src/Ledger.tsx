@@ -105,6 +105,7 @@ function DeleteLine({ onDeleted }: { onDeleted: () => void }) {
 /** The Wayfarer's Ledger: the places found, the traveller's record and what can be shared (the twin of WastelandMaps' Locations, Data and Share tabs). */
 export default function Ledger({ account, found, cleared, selected, onOpenSpot, onAccount, onBuy, onShareMap, query: placeQuery, onQuery, onSearch, onPick, following, onToggleFollow, voiceOn, onToggleVoice, hapticsOn, onToggleHaptics, onTryCity, onHouse, originName, nearby, legendSpots, legendName, invent }: Props) {
   const [tab, setTab] = useState<Tab>('quests');
+  const tryRow = useRef<HTMLDivElement>(null);
   // the addresses and places Google suggests as you type, a short wait after the last key
   const [tips, setTips] = useState<string[]>([]);
   const tipToken = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
@@ -154,8 +155,9 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
         {hapticsAvailable() && <button type="button" className={'em-switch' + (hapticsOn ? ' on' : '')} aria-pressed={hapticsOn} aria-label={hapticsOn ? 'Turn the buzz off' : 'Turn the buzz on'} title={hapticsOn ? 'Buzz on' : 'Buzz off'} onClick={onToggleHaptics}>{hapticsOn ? '≋' : '—'}</button>}
       </div>
       <div className="em-try">
-        <span>TRY</span>
-        <div className="em-try-row">{TRY_CITIES.map((c) => <button key={c.name} type="button" onClick={() => onTryCity(c)}>{invent(c.name, c.iso)}</button>)}</div>
+        <button type="button" className="em-try-arrow" aria-label="Scroll the cities left" onClick={() => tryRow.current?.scrollBy({ left: -220, behavior: 'smooth' })}>‹</button>
+        <div className="em-try-row" ref={tryRow}>{TRY_CITIES.map((c) => <button key={c.name} type="button" onClick={() => onTryCity(c)}>{invent(c.name, c.iso)}</button>)}</div>
+        <button type="button" className="em-try-arrow" aria-label="Scroll the cities right" onClick={() => tryRow.current?.scrollBy({ left: 220, behavior: 'smooth' })}>›</button>
       </div>
       <div className="em-ledger-tabs" role="tablist">
         {([['quests', 'QUESTS'], ['inventory', 'INVENTORY'], ['herald', 'HERALD']] as [Tab, string][]).map(([id, label]) => (
