@@ -16,6 +16,13 @@ export function spotById(world: World, id: string): Spot | null {
     const province = world.provinceAt(lat, lng);
     return { id, kind: type, real: name, name: ['peak', 'volcano', 'glacier', 'grove'].includes(type) ? name : loreName(name, province), province, lat, lng, fame, pic: wildPic(type, name), note: KIND_TITLE[type] ?? type };
   }
+  if (id.startsWith('a:')) {
+    const [, pos, ...rest] = id.split(':');
+    const [lat, lng] = pos.split(',').map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const real = decodeURIComponent(rest.join(':'));
+    return { id, kind: 'house', real, name: real.split(',')[0], province: world.provinceAt(lat, lng), lat, lng, fame: 0, note: real };
+  }
   if (id.startsWith('c:')) {
     const [, name, latText] = id.split(':');
     const lat = Number(latText);

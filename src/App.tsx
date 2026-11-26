@@ -444,6 +444,17 @@ export default function App() {
     if (!q || !map) return;
     const hit = await findPlace(q);
     if (!hit) { say('NO SUCH PLACE ON THE MAP'); return; }
+    // a house or a building (a small result) inside a city: the fogged city opens on it with its card
+    const spanKm = hit.bounds ? Math.hypot((hit.bounds.north - hit.bounds.south) * 111, (hit.bounds.east - hit.bounds.west) * 111 * Math.cos((hit.center.lat * Math.PI) / 180)) : 0;
+    if (world && spanKm < 1.2) {
+      const m = metroForSpot(world, { real: hit.name, lat: hit.center.lat, lng: hit.center.lng });
+      if (m && distanceMeters(hit.center, { lat: m.lat, lng: m.lng }) / 1000 <= m.radiusKm) {
+        const province = world.provinceOfCountry(m.country);
+        const addr: Spot = { id: `a:${hit.center.lat.toFixed(5)},${hit.center.lng.toFixed(5)}:${encodeURIComponent(hit.name.slice(0, 80))}`, kind: 'house', real: hit.name, name: hit.name.split(',')[0], province, lat: hit.center.lat, lng: hit.center.lng, fame: 0, note: hit.name };
+        await openFogged(m, hit.center, 'lookup', undefined, addr);
+        return;
+      }
+    }
     if (hit.bounds) map.fitBounds(hit.bounds, 0); else { map.setCenter(hit.center); map.setZoom(10); }
     if ((map.getZoom() ?? 0) > 10) map.setZoom(10);
     say(hit.name.toUpperCase());
@@ -547,10 +558,68 @@ export default function App() {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !local) return;
-    const hs = [map.addListener('zoom_changed', () => { if ((map.getZoom() ?? 15) < 12) leaveLocal(); else drawFog(); }), map.addListener('bounds_changed', drawFog), map.addListener('idle', drawFog)];
+    const hs = [map.addListener('drag', () => {
+      const c = fogCtx.current;
+      if (!c.canPan && c.lock) { map.setCenter(c.lock); flashNote(c.mode === 'me' ? NAV_NOTE : GATE_NOTE); } else flashNote(NAV_NOTE);
+    }), map.addListener('zoom_changed', () => { if ((map.getZoom() ?? 15) < 12) leaveLocal(); else drawFog(); }), map.addListener('bounds_changed', drawFog), map.addListener('idle', drawFog)];
     drawFog();
     return () => hs.forEach((h) => h.remove());
   }, [local, leaveLocal, drawFog]);
+
+  /** The rules of the fogged city for this person: the Town Legend bought; the city's own glimpse paid and its guard (the dragon or foes it gave) cleared; and the bubbles of what they have paid to have pictured. */
+  const gateOf = async (metro: Metro) => {
+    let cityId: string | null = null, gap = 30;
+    for (const c of [...world!.cities.crest, ...world!.cities.town]) { const d = distanceMeters({ lat: c[1], lng: c[2] }, { lat: metro.lat, lng: metro.lng }) / 1000; if (d < gap) { gap = d; cityId = `c:${c[0]}:${c[1]}`; } }
+    let owned = false;
+    const bubbles: { lat: number; lng: number; r: number }[] = [];
+    if (account.session) {
+      const uid = account.session.user.id;
+      const [mu, un] = await Promise.all([db().from('metro_unlocks').select('metro_id').eq('user_id', uid), db().from('unlocks').select('place_id').eq('user_id', uid)]);
+      owned = ((mu.data ?? []) as { metro_id: string }[]).some((r) => r.metro_id === metro.id);
+      for (const r of (un.data ?? []) as { place_id: string }[]) {
+        if (r.place_id === cityId) continue; // the city's own picture does not light up its streets
+        const sp = spotById(world!, r.place_id);
+        if (sp && distanceMeters({ lat: sp.lat, lng: sp.lng }, { lat: metro.lat, lng: metro.lng }) / 1000 <= metro.radiusKm * 1.1) bubbles.push({ lat: sp.lat, lng: sp.lng, r: 450 });
+      }
+    }
+    return { owned, cleared: !!cityId && cleared.has(cityId), bubbles, cityId };
+  };
+  /** How the open fogged view behaves: whether it may be panned, where it is held, and how it came about. */
+  const fogCtx = useRef<{ canPan: boolean; lock: { lat: number; lng: number } | null; mode: 'me' | 'lookup' | 'card'; lastNote: number }>({ canPan: false, lock: null, mode: 'me', lastNote: 0 });
+  const GATE_NOTE = 'CLEAR THE ENEMIES GUARDING THE CITY GATES FIRST, BEFORE YOU CAN WANDER THE TOWN FREELY';
+  const NAV_NOTE = 'TO SEE BEYOND, START NAVIGATION OR BUY THE TOWN LEGEND';
+  const flashNote = (text: string) => { const now = Date.now(); if (now - fogCtx.current.lastNote > 3500) { fogCtx.current.lastNote = now; say(text); } };
+
+  /** Opens the fogged city: ME (your neighbourhood), a looked-up address, or the city's card. The Town Legend, if bought, opens the whole city instead. */
+  const openFogged = async (metro: Metro, center: { lat: number; lng: number }, mode: 'me' | 'lookup' | 'card', here?: { lat: number; lng: number }, address?: Spot) => {
+    const map = mapRef.current;
+    if (!map || !world) return;
+    const gate = await gateOf(metro);
+    if (gate.owned) { setLegend(metro); return; }
+    const canPan = gate.cleared && (gate.bubbles.length > 0 || mode === 'me');
+    if (mode === 'card' && !canPan) { say(gate.cleared ? 'GLIMPSE AN ADDRESS IN THE CITY FIRST: THERE IS NOTHING LIT TO SEE' : GATE_NOTE); return; }
+    const region = world.provinceAt(center.lat, center.lng);
+    const kit = roadKitFor(region);
+    pins.current.forEach((p) => p.handle.setMap(null)); pins.current.clear();
+    labels.current.forEach((h) => h.setMap(null)); labels.current = [];
+    setSelected(null);
+    map.setOptions({ styles: localStyleFor(region), maxZoom: 19, backgroundColor: kit.ground });
+    map.setMapTypeId('roadmap'); map.overlayMapTypes.clear();
+    map.data.setStyle(() => ({ visible: false, clickable: false }));
+    streets.current?.detach();
+    streets.current = createStreetLayer(map, kit, roadKitName(region));
+    setNearby([]);
+    const circles = [...(here ? [{ ...here, r: 900 }] : []), ...gate.bubbles, ...(address ? [{ lat: address.lat, lng: address.lng, r: 450 }] : [])];
+    fogCircles.current = circles;
+    fogMetro.current = metro;
+    fogCtx.current = { canPan, lock: canPan ? null : center, mode, lastNote: 0 };
+    localRef.current = true; setLocal(true);
+    map.setCenter(center); map.setZoom(mode === 'lookup' ? 17 : 15);
+    if (address) setSelected(address);
+    if (mode === 'me' && !canPan) say('YOUR NEIGHBOURHOOD ONLY: CLEAR THE ENEMIES AT THE CITY GATES, OR START NAVIGATION, OR BUY THE TOWN LEGEND, TO SEE MORE');
+  };
+
+  useEffect(() => { if (local && fogCtx.current.mode === 'lookup' && !fogCtx.current.canPan && !selected && !viewing && !legend) leaveLocal(); }, [local, selected, viewing, legend, leaveLocal]);
 
   const locate = async () => {
     const map = mapRef.current;
@@ -559,36 +628,10 @@ export default function App() {
       const fix = await getFix();
       const here = { lat: fix.lat, lng: fix.lng };
       setFollowing(true);
-      // the city the traveller stands in (if any), and whether its Town Legend was bought
       let metro: Metro | null = null, best = Infinity;
       for (const m of world.metros) { const d = distanceMeters(here, { lat: m.lat, lng: m.lng }) / 1000; if (d <= m.radiusKm && d < best) { best = d; metro = m; } }
       if (!metro) { map.setCenter(here); map.setZoom(10); return; }
-      let owned = false;
-      const bought: { lat: number; lng: number; r: number }[] = [];
-      if (account.session) {
-        const uid = account.session.user.id;
-        const [mu, un] = await Promise.all([db().from('metro_unlocks').select('metro_id').eq('user_id', uid), db().from('unlocks').select('place_id').eq('user_id', uid)]);
-        owned = ((mu.data ?? []) as { metro_id: string }[]).some((r) => r.metro_id === metro?.id);
-        for (const r of (un.data ?? []) as { place_id: string }[]) { const sp = spotById(world, r.place_id); if (sp && distanceMeters({ lat: sp.lat, lng: sp.lng }, { lat: metro.lat, lng: metro.lng }) / 1000 <= metro.radiusKm * 1.1) bought.push({ lat: sp.lat, lng: sp.lng, r: 450 }); }
-      }
-      // the whole city, if its Town Legend is theirs
-      if (owned) { setLegend(metro); return; }
-      // otherwise the neighbourhood, and the surroundings of what they paid to have pictured
-      const region = world.provinceAt(here.lat, here.lng);
-      const kit = roadKitFor(region);
-      pins.current.forEach((p) => p.handle.setMap(null)); pins.current.clear();
-      labels.current.forEach((h) => h.setMap(null)); labels.current = [];
-      setSelected(null);
-      map.setOptions({ styles: localStyleFor(region), maxZoom: 19, backgroundColor: kit.ground });
-      map.setMapTypeId('roadmap'); map.overlayMapTypes.clear();
-      map.data.setStyle(() => ({ visible: false, clickable: false }));
-      streets.current?.detach();
-      streets.current = createStreetLayer(map, kit, roadKitName(region));
-      setNearby([]);
-      fogCircles.current = [{ ...here, r: 900 }, ...bought];
-      fogMetro.current = metro;
-      localRef.current = true; setLocal(true);
-      map.setCenter(here); map.setZoom(15);
+      await openFogged(metro, here, 'me', here);
     } catch { say('THE ROAD CANNOT FIND YOU: LOCATION IS OFF'); }
   };
 
@@ -801,6 +844,7 @@ export default function App() {
           <SceneView level={levelInfo(account.points).level} homeCity={!!account.profile?.sigilCity && viewing?.kind === 'crest' && viewing.real === account.profile.sigilCity} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
             signedIn={!!account.session} onSpent={() => void account.refresh()} onCleared={(id) => setCleared((prev) => new Set(prev).add(id))}
             onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
+            onFoggedCity={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) return; setViewing(null); setSelected(null); void openFogged(m, { lat: m.lat, lng: m.lng }, 'card'); }}
             onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
         )}
 

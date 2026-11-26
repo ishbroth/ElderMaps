@@ -83,6 +83,7 @@ function cluster(n: number): Part[] {
 }
 for (let n = 2; n <= 7; n++) MORE[`cluster${n}`] = cluster(n);
 Object.assign(MORE, SHIRES);
+MORE.house = MORE.cottage;
 
 const hashOf = (text: string): number => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const pickBy = <T,>(list: T[], seed: string): T => list[hashOf(seed) % list.length];
