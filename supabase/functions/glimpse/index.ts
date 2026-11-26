@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
 
     // 3. the photograph: a freely licensed one first, Street View as the last resort
     let hit: PhotoHit | null = null;
-    try { hit = await findPhotoFor({ entityId: /^w:Q\d+$/.test(placeId) ? placeId.slice(2) : undefined, name, lat, lng, throwOnFailure: true }); } catch { /* a search failed: try the last resort */ }
+    try { hit = await findPhotoFor({ entityId: /^w:Q\d+$/.test(placeId) ? placeId.slice(2) : undefined, name, lat, lng, city: kind === 'crest' || kind === 'town' || kind === 'village', throwOnFailure: true }); } catch { /* a search failed: try the last resort */ }
     let photo: { bytes: Uint8Array; mime: string } | null = null;
     let credit: Record<string, string> | null = null;
     let beforeUrl: string | null = null;
