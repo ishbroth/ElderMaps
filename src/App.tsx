@@ -345,6 +345,8 @@ export default function App() {
         shown++;
       }
     }
+    // the traveller's own hearth (only theirs: other addresses inside a city belong to the city map). It is placed right after the cities, so inside a city it shows only where it has come out from under the shield or icon of the city as the map closes in
+    { const hh = accountRef.current?.home; if (hh && hh.lat !== undefined && hh.lng !== undefined && hh.placeId && inView(hh.lat, hh.lng)) { add({ id: hh.placeId, kind: 'house', real: hh.address ?? 'Your hearth', name: (hh.address ?? 'Your hearth').split(',')[0], province: world.provinceAt(hh.lat, hh.lng), lat: hh.lat, lng: hh.lng, fame: 999, pic: 'hearth', note: 'Your hearth' }, false); if (wanted.has(hh.placeId)) seenRef.current.add(hh.placeId); } }
     // the key places round a city: the keep, the best-known landmarks, the towns and villages about it
     // the key places only gather round the cities marked as crests or towns
     const anchors = new Set([...world.cities.crest, ...world.cities.town].map((c) => `${c[0]}|${c[5]}`));
@@ -367,8 +369,6 @@ export default function App() {
         }
       }
     }
-    // the traveller's hearth, when it stands out in the country (a hearth in a city is that city's own)
-    { const hh = accountRef.current?.home; if (hh && hh.lat !== undefined && hh.lng !== undefined && !hh.metro && hh.placeId && inView(hh.lat, hh.lng)) { seenRef.current.add(hh.placeId); add({ id: hh.placeId, kind: 'house', real: hh.address ?? 'Your hearth', name: (hh.address ?? 'Your hearth').split(',')[0], province: world.provinceAt(hh.lat, hh.lng), lat: hh.lat, lng: hh.lng, fame: 999, pic: 'hearth', note: 'Your hearth' }, false); } }
     // the countryside: waterfalls, caves, ruins, forts, camps, beacons, fire mountains, springs, passes, glaciers, groves, shrines and peaks
     const fameFloor = wildFame(zoom);
     if (zoom >= 3) {
