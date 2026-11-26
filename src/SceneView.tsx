@@ -1,4 +1,5 @@
 import Coin from './Coin';
+import Padlock from './Padlock';
 import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
 import { kindTitle, readableInk, type Province } from './lib/lore';
@@ -111,7 +112,7 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
         <div className="em-card-buttons">
           {state !== 'ready' && (
             <button type="button" className="em-btn" disabled={state === 'working'} onClick={() => void look()} title="See this place as it might stand in the realm">
-              {state === 'working' ? 'GLIMPSING…' : owned ? <>GLIMPSE <span aria-hidden="true">🔓</span></> : <>GLIMPSE · <Coin size={15} /> {cost} <span aria-hidden="true">🔒</span></>}
+              {state === 'working' ? 'GLIMPSING…' : owned ? <>GLIMPSE <Padlock open size={16} /></> : <>GLIMPSE · <Coin size={15} /> {cost} <Padlock size={16} /></>}
             </button>
           )}
           {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR</button>}

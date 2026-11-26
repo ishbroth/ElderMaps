@@ -432,3 +432,4 @@ button { font: inherit; }
 .em-ledger-tips li:last-child button { border-bottom: 0; }
 
 .em-try-arrow { flex: 0 0 auto; width: 28px; height: 30px; padding: 0; background: transparent; color: var(--sky-ink, #f2f2ee); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); font-size: 20px; line-height: 1; cursor: pointer; font-family: inherit; }
+.em-padlock { display: inline-block; vertical-align: -0.22em; }

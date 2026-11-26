@@ -63,5 +63,7 @@ for (const p of picked) tiers[p.tier]++;
 console.log(tiers);
 const show = (n) => picked.filter((p) => p.name === n).map((p) => `${p.name} ${p.tier}`).join(', ') || `${n}: none`;
 console.log(['Cleveland', 'Akron', 'Youngstown', 'Canton', 'Parma', 'Lorain', 'Los Angeles', 'Anaheim', 'Long Beach', 'San Diego'].map(show).join(' | '));
-writeFileSync('public/data/cities.json', JSON.stringify(picked.map((p) => [p.name, Math.round(p.lat * 1e4) / 1e4, Math.round(p.lng * 1e4) / 1e4, p.pop, p.tier, p.iso2])));
+// cities left out on purpose (no picture could be found for them)
+const LEFT_OUT = ['Al Mawşil al Jadīdah', 'Budta', 'Rasapūdipalem', 'Lomé', 'Zhu Cheng City', 'New South Memphis', 'São Luís'];
+writeFileSync('public/data/cities.json', JSON.stringify(picked.filter((p) => !LEFT_OUT.includes(p.name)).map((p) => [p.name, Math.round(p.lat * 1e4) / 1e4, Math.round(p.lng * 1e4) / 1e4, p.pop, p.tier, p.iso2])));
 console.log('written', picked.length, villages);
