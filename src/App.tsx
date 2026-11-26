@@ -19,6 +19,7 @@ import Shop from './Shop';
 import Ledger from './Ledger';
 import { spotById } from './lib/spots';
 import BuySeptims from './BuySeptims';
+import { startPurchases } from './lib/iap';
 import CombatScreen from './CombatScreen';
 import { planFor } from './lib/combat/data';
 import { metroForSpot } from './lib/townLegend';
@@ -205,6 +206,9 @@ export default function App() {
   }, [selected, viewing]);
   // signed in, the places found on the account fill in on the map (with what this device already knew)
   const accountRef = useRef(account);
+  // in the iPhone app: a purchase that was paid for but never reached the server is picked up again here
+  const signedInUser = account.session?.user.id;
+  useEffect(() => (signedInUser ? startPurchases(() => void accountRef.current?.refresh()) : undefined), [signedInUser]);
   useEffect(() => { accountRef.current = account; }, [account]);
   useEffect(() => {
     const id = account.session?.user.id;
@@ -863,7 +867,7 @@ export default function App() {
         {accountOpen && !trip && <AccountModal account={account} onClose={() => setAccountOpen(false)} />}
         {typeof window !== 'undefined' && window.location.search.includes('housetest') && <HouseTest onClose={() => { window.location.href = window.location.pathname; }} />}
         {houseOpen && !trip && account.session && <House account={account} onClose={() => setHouseOpen(false)} />}
-        {(buyOpen || (import.meta.env.DEV && new URLSearchParams(window.location.search).has('buytest'))) && !trip && <BuySeptims onClose={() => setBuyOpen(false)} />}
+        {(buyOpen || (import.meta.env.DEV && new URLSearchParams(window.location.search).has('buytest'))) && !trip && <BuySeptims onBought={() => void account.refresh()} onClose={() => setBuyOpen(false)} />}
         {shopOpen && !trip && <Shop onClose={() => setShopOpen(false)} onBought={() => void account.refresh()} />}
 
         {trip && step && (

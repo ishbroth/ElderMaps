@@ -1,24 +1,19 @@
 import Coin from './Coin';
 import { useState } from 'react';
-import { db } from './lib/account';
-import { goTo, purchasesAvailable } from './lib/native';
-
-const PACKS = [
-  { id: 'septims400', septims: 400, price: '$0.99' },
-  { id: 'septims1800', septims: 1800, price: '$3.99' },
-  { id: 'septims4400', septims: 4400, price: '$9.99' },
-];
+import { purchasesAvailable } from './lib/native';
+import { PACKS, purchasePack, usePackPrices } from './lib/iap';
 
 /** Buying septims: a pack is paid for on Stripe's own page (Apple Pay and Google Pay appear there), and the septims arrive a moment after. */
-export default function BuySeptims({ onClose }: { onClose: () => void }) {
+export default function BuySeptims({ onClose, onBought }: { onClose: () => void; /** Called when septims were added (in the iPhone app, where the purchase finishes here). */ onBought?: () => void }) {
+  const prices = usePackPrices();
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
   const buy = async (pack: string) => {
     setBusy(pack); setNote('');
-    const { data, error } = await db().functions.invoke('create-checkout', { body: { pack } });
-    const url = (data as { url?: string } | null)?.url;
-    if (error || !url) { setBusy(''); setNote('PAYMENT IS NOT OPEN YET OR COULD NOT START: NOTHING WAS TAKEN'); return; }
-    await goTo(url);
+    const { bought, problem } = await purchasePack(pack);
+    if (problem) setNote(problem);
+    if (bought) { onBought?.(); onClose(); return; }
+    setBusy('');
   };
   return (
     <div className="em-scene-back" role="dialog" aria-modal="true" aria-label="Exchange tender" onClick={onClose}>
@@ -28,7 +23,7 @@ export default function BuySeptims({ onClose }: { onClose: () => void }) {
         <p className="em-fine">A glimpse costs <Coin size={13} /> 100 (<Coin size={13} /> 400 for a great city); a Town Legend <Coin size={13} /> 4,800. The coin is the septim.</p>
         {!purchasesAvailable() && <p className="em-fine">Septims cannot be bought inside the app yet. The ones you have, and any bought on eldermaps.com, work here once you sign in.</p>}
         {purchasesAvailable() && <div className="em-packs">
-          {PACKS.map((p) => <button key={p.id} type="button" className="em-btn" disabled={!!busy} onClick={() => void buy(p.id)}>{busy === p.id ? 'OPENING…' : <><Coin size={18} /> {p.septims.toLocaleString('en-US')} · {p.price}</>}</button>)}
+          {PACKS.map((p) => <button key={p.id} type="button" className="em-btn" disabled={!!busy} onClick={() => void buy(p.id)}>{busy === p.id ? 'OPENING…' : <><Coin size={18} /> {p.septims.toLocaleString('en-US')} · {prices[p.id] ?? p.price}</>}</button>)}
         </div>}
         {note && <p className="em-note">{note}</p>}
       </article>

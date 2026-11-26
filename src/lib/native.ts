@@ -11,10 +11,10 @@ export const isNative = (): boolean => Capacitor.isNativePlatform();
 export const platform = (): 'ios' | 'android' | 'web' => Capacitor.getPlatform() as 'ios' | 'android' | 'web';
 
 /**
- * Can septims be bought here? On the website, yes (Stripe). Apple and Google require their own in-app purchase for digital goods like these, so until that is added the apps do not
- * offer the purchase (septims bought on the website still work in the app after signing in).
+ * Can septims be bought here? On the website, yes (Stripe); in the iPhone app, with the App Store's In-App Purchase (see lib/iap.ts). The Android app does not offer it yet
+ * (septims bought elsewhere still work there after signing in).
  */
-export const purchasesAvailable = (): boolean => !isNative();
+export const purchasesAvailable = (): boolean => !isNative() || platform() === 'ios';
 
 /** The custom address the sign-in email's link opens the app with. It is in the project's allowed redirect URLs, and registered by the iOS and Android projects. */
 export const APP_SCHEME = 'com.eldermaps.app';

@@ -41,3 +41,10 @@ export const PACKS: Record<string, { credits: number; cents: number; label: stri
   septims1800: { credits: 18, cents: 399, label: '1,800 septims' },
   septims4400: { credits: 44, cents: 999, label: '4,400 septims' },
 };
+
+/** The App Store products (made in App Store Connect) and the credits each gives (1 credit = 100 septims); they match the packs above. The server decides this, never the phone. */
+export const IAP_PRODUCTS: Record<string, number> = {
+  'com.eldermaps.app.septims400': 4,
+  'com.eldermaps.app.septims1800': 18,
+  'com.eldermaps.app.septims4400': 44,
+};
