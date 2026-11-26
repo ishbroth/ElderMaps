@@ -41,7 +41,7 @@ export const PROVINCES: Record<ProvinceId, Province> = {
   shivering: { id: 'shivering', name: 'The Fever Isles', real: 'Australia and Indonesia', tint: '#c15a9c', ink: '#fbe6f5', label: { lat: -24, lng: 134 }, blurb: 'A mad god\'s realm where nothing is quite as it was.',
     patterns: ['{b} Bliss', 'New {b}', '{b}-Split', '{b}nettle', 'Crooked {b}', '{b} Crucible'] },
   cyrodiil: { id: 'cyrodiil', name: 'Aurelia', real: 'North America', tint: '#a9863f', ink: '#2c2412', label: { lat: 42, lng: -100 }, blurb: 'The imperial heartland: marble, rivers and roads that all lead to one city.',
-    patterns: ['{b}ia', '{b}um', '{b}us', '{b}icus', 'Fort {b}', '{b}anium'] },
+    patterns: ['{b}ia', '{b}um', '{b}us', '{b}icus', 'Fort {b}', '{b}ium'] },
   blackmarsh: { id: 'blackmarsh', name: 'The Sunken Mire', real: 'South America', tint: '#3f6a5a', ink: '#d9efe3', label: { lat: -12, lng: -60 }, blurb: 'Mangrove and hist-tree swamp, home of the lizard-folk.',
     patterns: ['{b} Hist', 'Shadow {b}', '{b}hill', '{b}moor', '{b}-Tava', 'Hist {b}'] },
   solstheim: { id: 'solstheim', name: 'Rimeholm', real: 'Greenland', tint: '#a8b8c4', ink: '#f2f2ee', label: { lat: 73, lng: -41 }, blurb: 'Snow in the north, ash in the south. An island of old stone and a long winter.',
@@ -91,15 +91,26 @@ function stem(name: string): string {
   return (words.length > 1 && first.length <= 4 ? `${first} ${words[1]}` : first).slice(0, 14);
 }
 
+/** A real name cut back so a suffix joins it smoothly (a single word; longer names are cut at nine letters). */
+export function blend(base: string, suffix: string): string {
+  if (/[ -]/.test(base) || base.length <= 4) return base;
+  let g = base.replace(/gh$/i, 'g').replace(/h$/i, '');
+  if (g.length > 5) g = g.replace(/(us|um|ia|on|an|ey|ay|ie)$/i, '');
+  while (g.length > 4 && /[aeiouy]$/i.test(g)) g = g.slice(0, -1);
+  if (g.length > 9) { g = g.slice(0, 9); while (g.length > 4 && /[aeiouy]$/i.test(g)) g = g.slice(0, -1); }
+  if (g.slice(-1).toLowerCase() === suffix[0].toLowerCase()) g = g.slice(0, -1);
+  return g;
+}
+
 /** The lore name of a real place in a province. Famous names stay recognisable; it only adds the flavour of the land. */
 export function loreName(real: string, province: ProvinceId): string {
   const p = PROVINCES[province];
   const base = stem(real);
   if (!base) return real;
   const pattern = p.patterns[hash(real) % p.patterns.length];
-  // a pattern that glues a suffix on reads better without the name's own closing vowel
-  const glued = /\{b\}[a-z-]/.test(pattern) || /[a-z]\{b\}/.test(pattern);
-  const b = glued && /[aeiou]$/i.test(base) && base.length > 4 ? base.slice(0, -1) : base;
+  // a pattern that glues a suffix on is joined by blending: the name is cut back to its bones (Sydney + nettle = Sydnettle, Columbus + icus = Columbicus, Pittsburgh + ium = Pittsburgium)
+  const suffix = pattern.match(/{b}([a-z-]+)/)?.[1];
+  const b = suffix ? blend(base, suffix) : base;
   const out = pattern.replace('{b}', b);
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
