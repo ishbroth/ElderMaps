@@ -1,3 +1,4 @@
+import { purgedTag } from './lib/purge';
 import Coin from './Coin';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Spot } from './App';
@@ -184,7 +185,7 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
                           <span className="em-ledger-ico" dangerouslySetInnerHTML={{ __html: iconOf(s) }} />
                           <span className="em-ledger-name">
                             <b>{s.name}</b>
-                            <small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small>
+                            <small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ` · ${purgedTag(s.kind)}` : ''}</small>
                             {!cleared.has(s.id) && <small>FOES: {q.foes}</small>}
                             {!cleared.has(s.id) && <small>SPOILS: {q.spoils}</small>}
                           </span>
@@ -202,7 +203,7 @@ export default function Ledger({ account, found, cleared, selected, onOpenSpot, 
                     <li key={s.id}>
                       <button type="button" onClick={() => onOpenSpot(s)}>
                         <span className="em-ledger-ico" dangerouslySetInnerHTML={{ __html: iconOf(s) }} />
-                        <span className="em-ledger-name"><b>{s.name}</b><small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ' · [Cleared]' : ''}</small></span>
+                        <span className="em-ledger-name"><b>{s.name}</b><small>{kindTitle(s.kind, s.province, s.real)}{cleared.has(s.id) ? ` · ${purgedTag(s.kind)}` : ''}</small></span>
                       </button>
                     </li>
                   ))}

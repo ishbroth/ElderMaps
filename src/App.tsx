@@ -14,6 +14,7 @@ import { flightsUrl, formatDistance, formatMinutes, isOverseas, progressAlong, r
 import { LOCAL_STYLE, PALETTE, WORLD_STYLES, localStyleFor, roadKitFor, roadKitName, type LookId } from './lib/styles';
 import { createStreetLayer, type StreetLayer } from './lib/streets';
 import SceneView, { Reveal } from './SceneView';
+import { purgedTag } from './lib/purge';
 import TownLegend from './TownLegend';
 import Shop from './Shop';
 import Ledger from './Ledger';
@@ -84,7 +85,7 @@ function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, c
   icon.className = 'em-ico';
   icon.innerHTML = spot.kind === 'crest' ? crestSvg(spot.real, spot.iso2, seen) : glyph(spot.pic ?? (spot.kind === 'landmark' ? glyphForCategory(spot.note) : spot.kind), seen);
   el.appendChild(icon);
-  if (cleared) { const c = document.createElement('span'); c.className = 'em-cleared'; c.textContent = '[Cleared]'; el.appendChild(c); }
+  if (cleared) { const c = document.createElement('span'); c.className = 'em-cleared'; c.textContent = purgedTag(spot.kind); el.appendChild(c); }
   if (labelled) {
     const label = document.createElement('span');
     label.className = 'em-lab';
@@ -148,6 +149,9 @@ export default function App() {
   };
   // the places this person has cleared (a small [Cleared] shows under their marks)
   const [cleared, setCleared] = useState<Set<string>>(new Set());
+  // the places this person has had glimpsed (their PURGE button shows on the first card until they are cleared)
+  const [glimpsed, setGlimpsed] = useState<Set<string>>(new Set());
+  const [purgeNow, setPurgeNow] = useState(false);
   const clearedRef = useRef(cleared);
   // the Town Legend (the map of a whole city) that is open, if any
   const [legend, setLegend] = useState<Metro | null>(null);
@@ -219,6 +223,7 @@ export default function App() {
   useEffect(() => {
     const id = account.session?.user.id;
     if (!id) { setCleared(new Set()); return; }
+    void db().from('unlocks').select('place_id').eq('user_id', id).then((r) => setGlimpsed(new Set(((r.data ?? []) as { place_id: string }[]).map((x) => x.place_id))));
     void db().from('raid_runs').select('place_id').eq('user_id', id).eq('won', true).then((r) => setCleared(new Set(((r.data ?? []) as { place_id: string }[]).map((x) => x.place_id))));
   }, [account.session?.user.id]);
   useEffect(() => { seenRef.current = seen; try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch { /* storage unavailable */ } }, [seen]);
@@ -226,7 +231,7 @@ export default function App() {
   useEffect(() => onAppUrl((url) => { void completeSignInFromUrl(url).then((ok) => { if (ok) void account.refresh(); }); }), [account]);
 
   // anything opened from the info section (a place, the account, the shop, the house...) shows on the map: the page is brought back up to it
-  useEffect(() => { if (selected || viewing || legend || accountOpen || shopOpen || buyOpen || houseOpen) document.querySelector('.em-app')?.scrollTo({ top: 0, behavior: 'smooth' }); }, [selected, viewing, legend, accountOpen, shopOpen, buyOpen, houseOpen]);
+  useEffect(() => { if (selected || viewing || legend || accountOpen || shopOpen || buyOpen || houseOpen || toast || trip) document.querySelector('.em-app')?.scrollTo({ top: 0, behavior: 'smooth' }); }, [selected, viewing, legend, accountOpen, shopOpen, buyOpen, houseOpen, toast, trip]);
 
   const say = useCallback((text: string) => {
     setToast(text);
@@ -841,17 +846,18 @@ export default function App() {
             <p className="em-card-blurb">{placeLine(province.id, regionName)}</p>
             <div className="em-card-buttons">
               <button type="button" className="em-btn" onClick={() => void startTravel(selected)}>FAST TRAVEL</button>
-              <button type="button" className="em-btn em-btn-ghost" onClick={() => setViewing(selected)}>VIEW</button>
+              {glimpsed.has(selected.id) && !cleared.has(selected.id) && <button type="button" className="em-btn" onClick={() => { setPurgeNow(true); setViewing(selected); }}>PURGE</button>}
+              <button type="button" className="em-btn em-btn-ghost" onClick={() => { setPurgeNow(false); setViewing(selected); }}>CHRONICLE</button>
             </div>
           </aside>
         )}
 
         {viewing && !trip && (
-          <SceneView onHearth={account.session ? async () => { const r = await setHearth(viewing!.id); if (r) say(r); else { say('THIS IS NOW YOUR HEARTH'); void account.refresh(); } } : undefined} level={levelInfo(account.points).level} homeCity={!!viewing && !!world && !!account.home?.metro && (account.home.changes ?? 0) <= 3 && (viewing.kind === 'crest' || viewing.kind === 'town') && metroForSpot(world, viewing)?.id === account.home.metro} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
+          <SceneView key={viewing.id + (purgeNow ? ':p' : '')} gateCleared={cleared.has(viewing.id)} purged={cleared.has(viewing.id)} autoPurge={purgeNow} onGlimpsed={(id) => setGlimpsed((prev) => new Set(prev).add(id))} onHearth={account.session ? async () => { const r = await setHearth(viewing!.id); if (r) say(r); else { say('THIS IS NOW YOUR HEARTH'); void account.refresh(); } } : undefined} level={levelInfo(account.points).level} homeCity={!!viewing && !!world && !!account.home?.metro && (account.home.changes ?? 0) <= 3 && (viewing.kind === 'crest' || viewing.kind === 'town') && metroForSpot(world, viewing)?.id === account.home.metro} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
             signedIn={!!account.session} onSpent={() => void account.refresh()} onCleared={(id) => setCleared((prev) => new Set(prev).add(id))}
             onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
             onFoggedCity={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) return; setViewing(null); setSelected(null); void openFogged(m, { lat: m.lat, lng: m.lng }, 'card'); }}
-            onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onTravel={() => { const v = viewing; setViewing(null); setSelected(null); void startTravel(v); }} onClose={() => setViewing(null)} />
+            onNeedsAccount={(what) => { if (accountsEnabled && !account.session) { setViewing(null); setAccountOpen(true); } else say(`${what} IS NOT OPEN YET: IT COMES NEXT`); }} onClose={() => { setViewing(null); setPurgeNow(false); }} />
         )}
 
         {legend && world && !trip && (

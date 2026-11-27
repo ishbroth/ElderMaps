@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import Coin from './Coin';
 import Padlock from './Padlock';
 import { useEffect, useRef, useState } from 'react';
@@ -27,16 +28,23 @@ interface Props {
   onCleared: (placeId: string) => void;
   /** Opens the Town Legend of the city this place belongs to. */
   onTownLegend: () => void;
+  /** This city's gates are cleared (the fogged city may be entered). */
+  gateCleared?: boolean;
+  /** This place was purged already. */
+  purged?: boolean;
+  /** Open straight into the fight (the place was glimpsed before). */
+  autoPurge?: boolean;
+  /** The glimpse of this place is on screen: the map remembers it as glimpsed. */
+  onGlimpsed?: (placeId: string) => void;
   /** Makes this glimpsed address the traveller's home hearth. */
   onHearth?: () => void;
   /** Opens the fogged city (once its gate is cleared and an address glimpsed). */
   onFoggedCity?: () => void;
-  onTravel: () => void;
   onClose: () => void;
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onHearth, onTravel, onClose }: Props) {
+export default function SceneView({ gateCleared = false, purged = false, autoPurge = false, onGlimpsed, level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onHearth, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -64,18 +72,25 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
     for (let attempt = 0; attempt < 40 && alive.current; attempt++) {
       const r = await requestGlimpse({ id: spot.id, name: spot.real || spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: province.id });
       if (!alive.current) return;
-      if (r.kind === 'ready') { setGlimpse(r.glimpse); setState('ready'); setOwned(true); setOwned(true); if (r.glimpse.charged) onSpent(); return; }
+      if (r.kind === 'ready') { setGlimpse(r.glimpse); setState('ready'); setOwned(true); onGlimpsed?.(spot.id); if (r.glimpse.charged) onSpent(); return; }
       if (r.kind === 'error') { setProblem(GLIMPSE_MESSAGES[r.reason] ?? GLIMPSE_MESSAGES.failed); setState('idle'); return; }
       await new Promise((res) => setTimeout(res, 4000));
     }
     if (alive.current) { setProblem('IT IS TAKING A LONG TIME: OPEN IT AGAIN IN A MINUTE. YOU WILL NOT BE CHARGED TWICE'); setState('idle'); }
   };
 
+  // opened from the PURGE button of a place already glimpsed: the picture is fetched (free, it is owned) and the fight begins
+  const auto = useRef(autoPurge);
+  useEffect(() => { if (auto.current && signedIn) void look(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { if (auto.current && state === 'ready' && glimpse) { auto.current = false; void clearOut(); } // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, glimpse]);
+
   const clearOut = async () => {
     if (!glimpse) return;
     setProblem(''); setPaidLine('');
     const r = await startRun({ id: spot.id, kind: spot.kind });
-    if (!r.ok) { setProblem(r.reason === 'cleared' ? 'YOU HAVE ALREADY CLEARED THIS PLACE' : r.reason === 'locked' ? 'GLIMPSE THE PLACE FIRST' : 'THE FIGHT COULD NOT BEGIN: TRY AGAIN'); return; }
+    if (!r.ok) { setProblem(r.reason === 'cleared' ? 'YOU HAVE ALREADY PURGED THIS PLACE' : r.reason === 'locked' ? 'GLIMPSE THE PLACE FIRST' : 'THE FIGHT COULD NOT BEGIN: TRY AGAIN'); return; }
     setRun(r.run);
   };
   const lootName = (id: string) => LOOT.find((l) => l.id === id)?.name ?? REGIONAL_HERBS.find((h) => h.loot.id === id)?.loot.name ?? id;
@@ -109,22 +124,21 @@ export default function SceneView({ level = 0, homeCity = false, spot, province,
             onExit={() => setRun(null)} />
         )}
         {problem && <p className="em-note">{problem}</p>}
-        <div className="em-card-buttons">
+        <div className="em-card-buttons em-scene-buttons">
           {state !== 'ready' && (
-            <button type="button" className="em-btn" disabled={state === 'working'} onClick={() => void look()} title="See this place as it might stand in the realm">
-              {state === 'working' ? 'GLIMPSING…' : owned ? <>GLIMPSE <Padlock open size={16} /></> : <>GLIMPSE · <Coin size={15} /> {cost} <Padlock size={16} /></>}
+            <button type="button" className="em-btn em-glimpse-btn" disabled={state === 'working'} onClick={() => void look()} title="See this place as it might stand in the realm">
+              {state === 'working' ? 'GLIMPSING…' : owned ? <>GLIMPSE <Padlock open size={14} /></> : <>GLIMPSE · <Coin size={13} /> {cost} <Padlock size={14} /></>}
             </button>
           )}
-          {state === 'ready' && <button type="button" className="em-btn" onClick={() => void clearOut()}>CLEAR</button>}
-          {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>THE STORY</button>}
-          {state === 'ready' && spot.kind === 'house' && onHearth && <button type="button" className="em-btn em-btn-ghost" onClick={onHearth} title="Make this address your home hearth">MAKE THIS MY HEARTH</button>}
           {hasTownLegend(spot.kind) && state !== 'ready' && (
             <>
+              {onFoggedCity && <button type="button" className={'em-btn em-btn-ghost' + (gateCleared ? '' : ' em-subdued')} onClick={() => { if (gateCleared) onFoggedCity(); else setProblem('CLEAR THE ENEMIES GUARDING THE CITY GATES FIRST: GLIMPSE THE CITY, THEN PURGE IT'); }} title="The fogged city: what you have had pictured, once the city's gate is cleared">ENTER THE FOG</button>}
               <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>
-              {onFoggedCity && <button type="button" className="em-btn em-btn-ghost" onClick={onFoggedCity} title="The fogged city: what you have had pictured, once the city's gate is cleared">ENTER THE FOG</button>}
             </>
           )}
-          <button type="button" className="em-btn em-btn-ghost" onClick={onTravel}>FAST TRAVEL</button>
+          {state === 'ready' && !purged && <button type="button" className="em-btn" onClick={() => void clearOut()}>PURGE</button>}
+          {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>CHRONICLE</button>}
+          {state === 'ready' && spot.kind === 'house' && onHearth && <button type="button" className="em-btn em-btn-ghost" onClick={onHearth} title="Make this address your home hearth">MAKE THIS MY HEARTH</button>}
         </div>
       </article>
     </div>
@@ -142,6 +156,7 @@ export function Reveal({ glimpse, name }: { glimpse: Glimpse; name: string }) {
   const after = useRef<HTMLImageElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const by = glimpse.discovered?.by;
+  const [big, setBig] = useState(false);
 
   useEffect(() => {
     const box = frame.current, img = after.current, cv = canvas.current;
@@ -238,12 +253,19 @@ export function Reveal({ glimpse, name }: { glimpse: Glimpse; name: string }) {
 
   return (
     <figure className="em-reveal">
-      <div className="em-reveal-frame" ref={frame}>
+      <div className="em-reveal-frame" ref={frame} onClick={() => setBig(true)} role="button" aria-label={`${name}: tap to enlarge`}>
         {glimpse.before && <img className="em-reveal-before" src={glimpse.before} alt="" draggable={false} crossOrigin="anonymous" />}
         <img ref={after} className="em-reveal-after" src={glimpse.url} alt={`${name}, as it might stand in the realm`} draggable={false} onLoad={() => setLoaded(true)} />
         <canvas ref={canvas} className="em-reveal-portal" aria-hidden="true" />
         {glimpse.discovered && <span className="em-discovered-by">DISCOVERED BY {(by ?? 'A TRAVELLER').toUpperCase()}</span>}
       </div>
+      {big && createPortal(
+        <div className="em-lightbox" role="dialog" aria-label={`${name}, full size`} onClick={() => setBig(false)}>
+          <img src={glimpse.url} alt={`${name}, as it might stand in the realm`} />
+          <button type="button" className="em-lightbox-x" aria-label="Close">×</button>
+        </div>,
+        document.body,
+      )}
       <figcaption>
         <b>{name}</b>
         {glimpse.credit && glimpse.credit.photo && glimpse.credit.author !== 'Google' && (

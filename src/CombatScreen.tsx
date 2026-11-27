@@ -171,26 +171,12 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
 
 // ---- drawing ----
 
-/** Where the picture sits on the screen: bottom-aligned (the hands rise from the bottom edge), and zoomed in a little when it would leave a lot of black (never so far that more than about half of it is cropped away). Sizes are in canvas pixels. */
+/** Where the picture sits on the screen: in the middle, and zoomed in a little when it would leave a lot of black (never so far that more than about half of it is cropped away). Sizes are in canvas pixels. */
 export function viewFor(ratio: number, cw: number, ch: number): { pw: number; ph: number; x0: number; y0: number } {
   const contain = Math.min(cw / ratio, ch), cover = Math.max(cw / ratio, ch);
   const st = Math.max(contain, Math.min(cover, cw / (0.5 * ratio), ch / 0.5));
   const pw = ratio * st, ph = st;
-  return { pw, ph, x0: (cw - pw) / 2, y0: ch - ph };
-}
-
-/** What fills the screen around a picture that does not reach the edges: the same picture, enlarged, blurred and darkened. */
-let backCache: { img: HTMLImageElement; w: number; h: number; canvas: HTMLCanvasElement } | null = null;
-function backdrop(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
-  if (!backCache || backCache.img !== img || backCache.w !== cw || backCache.h !== ch) {
-    const small = document.createElement('canvas'); small.width = 40; small.height = Math.max(8, Math.round((40 * ch) / cw));
-    const sc = small.getContext('2d') as CanvasRenderingContext2D;
-    const k = Math.max(small.width / img.naturalWidth, small.height / img.naturalHeight);
-    sc.drawImage(img, (small.width - img.naturalWidth * k) / 2, (small.height - img.naturalHeight * k) / 2, img.naturalWidth * k, img.naturalHeight * k);
-    sc.fillStyle = 'rgba(8,10,14,0.55)'; sc.fillRect(0, 0, small.width, small.height);
-    backCache = { img, w: cw, h: ch, canvas: small };
-  }
-  ctx.imageSmoothingEnabled = true; ctx.drawImage(backCache.canvas, 0, 0, cw, ch);
+  return { pw, ph, x0: (cw - pw) / 2, y0: (ch - ph) / 2 };
 }
 
 function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatAssets, zoomAt: { u: number; v: number }) {
@@ -198,7 +184,7 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
   const CW = c.width, CH = c.height;
   const vw = viewFor(img.naturalWidth / img.naturalHeight, CW, CH);
   const W = vw.pw, H = vw.ph; // the picture's own size on the screen
-  backdrop(ctx, img, CW, CH);
+  ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, CW, CH);
   ctx.save();
   // the bow draws in: the view closes in on the aim
   const bow = g.slots.find((s) => s.weapon.cls === 'bow' && s.charging);
@@ -213,14 +199,14 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
   const list = [...g.enemies].sort((a, b) => a.v - b.v);
   for (const e of list) drawEnemy(ctx, e, g, art, W, H);
   // effects
-  for (const f of g.effects) drawEffect(ctx, f, W, H);
+  for (const f of g.effects) drawEffect(ctx, f, W, H, CH - vw.y0);
   drawBreath(ctx, g, W, H);
   // the drain: a beam from the hand to what it is draining
   const drain = g.drainOn;
   if (drain) {
     const h = g.heightOf(drain);
     ctx.strokeStyle = SPELL_COLOR.drain; ctx.lineWidth = 3 + Math.sin(performance.now() / 60) * 1.5; ctx.shadowColor = '#ff3b8a'; ctx.shadowBlur = 14;
-    ctx.beginPath(); ctx.moveTo(0.3 * W, H);
+    ctx.beginPath(); ctx.moveTo(0.3 * W, CH - vw.y0);
     for (let i = 1; i <= 12; i++) { const t = i / 12; ctx.lineTo((0.3 + (drain.u - 0.3) * t) * W + Math.sin(performance.now() / 70 + i) * 8, (1 + (drain.v - h * 0.5 - 1) * t) * H); }
     ctx.stroke(); ctx.shadowBlur = 0;
   }
@@ -302,9 +288,11 @@ function drawBreath(ctx: CanvasRenderingContext2D, g: Game, W: number, H: number
   ctx.restore();
 }
 
-function drawEffect(ctx: CanvasRenderingContext2D, f: Effect, W: number, H: number) {
+function drawEffect(ctx: CanvasRenderingContext2D, f: Effect, W: number, H: number, bottomY: number) {
   const k = Math.min(1, f.t / f.life);
-  const x0 = f.u0 * W, y0 = f.v0 * H, x1 = f.u * W, y1 = f.v * H;
+  // what starts at, or runs down to, the foot of the picture starts at, or reaches, the bottom of the screen (where the hands are)
+  const yOf = (v: number) => (v >= 1 ? bottomY + (v - 1) * H : v * H);
+  const x0 = f.u0 * W, y0 = yOf(f.v0), x1 = f.u * W, y1 = yOf(f.v);
   ctx.save();
   if (f.kind === 'slash') {
     ctx.strokeStyle = `rgba(255,255,255,${1 - k})`; ctx.lineWidth = 7 * f.size * (1 - k); ctx.lineCap = 'round'; ctx.shadowColor = '#fff'; ctx.shadowBlur = 10;
@@ -361,14 +349,16 @@ function drawHands(ctx: CanvasRenderingContext2D, g: Game, art: CombatAssets, W:
     const bothInPicture = s.weapon.cls === 'twohand' || s.weapon.cls === 'bow';
     const left = pair && i === 1;
     const baseX = bothInPicture ? W * 0.5 : pair ? (left ? W * 0.27 : W * 0.73) : W * 0.7;
-    const w = (bothInPicture ? 0.36 : pair ? 0.25 : 0.27) * Math.min(W, H * 0.8);
+    const w = (bothInPicture ? 0.44 : pair ? 0.31 : 0.34) * Math.min(W, H * 0.8);
     const h = img ? w * (img.naturalHeight / img.naturalWidth) : w * 0.9;
     // pulled back while charging, then a quick swing through
-    let rot = -0.08 * s.charge, dy = 0.12 * h * s.charge, dx = 0;
-    if (s.swing > 0) { const k = s.swing; const a = Math.sin(k * Math.PI); rot = (s.weapon.melee ? -0.7 : -0.12) * a * (1 - k * 0.2); dy = -0.1 * h * a; dx = s.weapon.melee ? -0.1 * w * a : 0; }
+    // at rest only the tops of the hands show above the bottom edge; they rise as the weapon is readied and come up fully into a strike
+    let rot = -0.08 * s.charge, dy = 0, dx = 0;
+    const rest = 0.5 * h - 0.18 * h * s.charge;
+    if (s.swing > 0) { const k = s.swing; const a = Math.sin(k * Math.PI); rot = (s.weapon.melee ? -0.7 : -0.12) * a * (1 - k * 0.2); dy = -0.4 * h * a; dx = s.weapon.melee ? -0.1 * w * a : 0; }
     ctx.save();
     // lower on the screen: the forearms rise from the bottom edge, with the hand and weapon in the lower part of the picture
-    ctx.translate(baseX + (left ? -dx : dx), H + 0.03 * h + dy); ctx.rotate(left ? -rot : rot);
+    ctx.translate(baseX + (left ? -dx : dx), H + rest + dy); ctx.rotate(left ? -rot : rot);
     if (left && !bothInPicture) ctx.scale(-1, 1);
     if (img) ctx.drawImage(img, -w / 2, -h * 0.92, w, h);
     else { ctx.fillStyle = isSpell(s.weapon.cls) ? SPELL_COLOR[s.weapon.cls] : '#aaa'; ctx.fillRect(-w * 0.1, -h * 0.9, w * 0.2, h * 0.9); }
