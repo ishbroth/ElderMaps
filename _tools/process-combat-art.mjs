@@ -63,6 +63,11 @@ for (const name of names) {
     for (let q = 0; q < 4; q++) {
       const region = { left: (q % 2) * qw + pad, top: Math.floor(q / 2) * qh + pad, width: qw - pad * 2, height: qh - pad * 2 };
       const k = await keyed(file, region);
+      if (name === 'dragonh' || name === 'dragonb') {
+        // no magenta left in the edges: blue is held to the level of green, and the neck of a head fades out before the end of its picture
+        for (let i = 0; i < k.data.length; i += 4) { const g = k.data[i + 1]; if (k.data[i + 2] > g + 12) k.data[i + 2] = g + 12; if (k.data[i] > g + 90 && k.data[i + 2] > 120) k.data[i] = g + 90; }
+        if (name === 'dragonh') for (let y = Math.floor(k.height * 0.78); y < k.height; y++) { const a = Math.max(0, 1 - (y - k.height * 0.78) / (k.height * 0.17)); for (let x = 0; x < k.width; x++) k.data[(y * k.width + x) * 4 + 3] = Math.round(k.data[(y * k.width + x) * 4 + 3] * a); }
+      }
       const box = bounds(k);
       frames.push({ k, box });
     }

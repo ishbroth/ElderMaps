@@ -70,11 +70,34 @@ const KIND_HINT: Record<string, string> = {
   stones: 'It is a circle or group of standing stones: keep their arrangement, with a faint magical glow.',
   spring: 'It is a spring or pool: keep its shape, with steam or clear water, in a fantasy-game landscape.',
   pass: 'It is a mountain pass: keep the lie of the land and the road, in a fantasy-game landscape.',
-  crest: 'It is a large city. TRACE THE PHOTOGRAPH: redraw this same skyline tower for tower, with every tall building in the same place, the same height against its neighbours, the same width and the same silhouette, on the same horizon line, from the same camera angle and with the same crop and framing. Do not add, remove, move or invent towers, and do not change the viewpoint. Only restyle each building (its walls, crown, roof, spire, banners and ornament) in the style above, and the sky and the water or land at its foot. It is not a different city: an inhabitant must still know it at a glance. Original note:  recreate the general shape of its skyline or its main street from the photograph, with every building completely reimagined in this style (rooftops, towers, walls, bridges), keeping the layout and the sense of scale.',
+  crest: 'It is a large city. TRACE THE PHOTOGRAPH: redraw this same skyline tower for tower, with every tall building in the same place, the same height against its neighbours, the same width and the same silhouette, on the same horizon line, from the same camera angle and with the same crop and framing. Do not move towers, add new ones or change the viewpoint. Restyle each building (its walls, crown, roof, spire, banners and ornament) in the style above, and the sky and the water or land at its foot. It is not a different city: an inhabitant must still know it at a glance. Original note:  recreate the general shape of its skyline or its main street from the photograph, with every building completely reimagined in this style (rooftops, towers, walls, bridges), keeping the layout and the sense of scale.',
   town: 'It is a large town. TRACE THE PHOTOGRAPH: keep every main building where it is, at the same size, from the same camera angle and framing; only restyle them in the style above. Original note:  recreate the general shape of its skyline or its main street from the photograph, with every building completely reimagined in this style, keeping the layout and the sense of scale.',
   village: 'It is a small town: keep the layout and the main buildings, rebuilt in this style.',
   landmark: 'It is a landmark building: keep its exact outline and proportions, rebuilt in this style.',
 };
+
+/** The buildings of each land that may stand in for a few real ones in a city's skyline (a few are picked for each city, by its name, so every city has its own mix). */
+const CITY_SWAPS: Record<string, string[]> = {
+  nordic: ['a tall timber windmill with great turning sails like the one at Solitude', 'a long carved-timber great hall with dragon-head gables and a steep shingled roof like Dragonsreach', 'a round stone watchtower with a conical turf roof and a banner', 'a stave-church style tower of stacked, steeply pitched timber roofs', 'a ruined Nordic stone tower half swallowed by ivy and snow'],
+  breton: ['a many-turreted grey stone castle with steep slate roofs and pennants', 'a Gothic spired cathedral with flying buttresses', 'a ruined keep with a broken tower and ivy', 'a slender round stone tower with a conical slate cap and a banner'],
+  imperial: ['a slender white-gold tower like a smaller White-Gold Tower, with a tiered spire', 'a domed Imperial temple with columns and red tile roofs', 'a pale, fluted Ayleid ruin tower with a faint blue glow, overgrown with ivy', 'a stone Imperial watchtower with a red-tiled cap and a banner', 'a round Roman-style amphitheatre or arena wall in weathered stone'],
+  redguard: ['a sandstone palace with a great onion dome and slender minarets like the ones in Sentinel', 'a tall sun-bleached minaret with a gilded crown', 'a layered white dome with a spire and striped awnings'],
+  khajiit: ['an eroded, stepped sandstone ziggurat temple with moon motifs', 'an ancient layered ruin with a newer pointed-roof house built on top of it', 'a tall slender tower with a crescent-moon finial and silk awnings'],
+  ashland: ['a huge living mushroom tower like the Telvanni towers of Sadrith Mora: a bulbous, organic stalk and cap with spiral stairs and glowing fungus lights', 'a great domed Redoran-style building of dark chitin-like shell, curved and banded', 'a massive stepped Velothi temple of dark carved stone with a domed courtyard on top', 'a giant hollow shell or bone arch, with a red glow in its mouth'],
+  altmer: ['a golden-white spired tower with flowing curved walls and crystal crowns', 'a tall crystalline spire with a golden lattice crown', 'a graceful domed pavilion on slender columns'],
+  bosmer: ['a living tree as tall as the real building it replaces, with homes, platforms and rope bridges grown into its trunk and crown', 'a great tree-trunk tower wound with a spiral stair and lanterns', 'a leaf-roofed tower grown from woven branches'],
+  argonian: ['a tall hist-tree with a hollowed trunk and woven reed platforms', 'a moss-draped stepped stone ziggurat, old and half sunk', 'a stilted tower of reed, mud and dark wood with hanging totems and lanterns'],
+  orcish: ['a heavy iron-bound stone stronghold tower with jagged tusk-like spikes and a glowing forge', 'a tall palisade watchtower of black timber and iron'],
+  ayleid: ['a tall pale white-stone Ayleid tower with fluted columns and glowing blue welkynd lights', 'a twisting golden-and-crimson tower of a mad god, leaning and ornate', 'a ruined Ayleid arch and spire overgrown with vines'],
+};
+
+/** For a city's skyline: a few ornate, ancient and ruined touches, and up to one building in five swapped for a building of the realm of the same height and size, blended in. */
+function citySeasoning(name: string, kit: string): string {
+  const list = CITY_SWAPS[kit] ?? CITY_SWAPS.imperial;
+  const h = flavorHash(name);
+  const picks = [list[h % list.length], list[(h >>> 4) % list.length], list[(h >>> 8) % list.length]].filter((x, i, a) => a.indexOf(x) === i).slice(0, 2);
+  return `FANTASY TOUCHES, kept in proportion: the real skyline is still the main thing and most buildings are simply restyled as above. But, so that it reads as a place in the realm and not only a re-skinned city, you MAY replace a few of the real buildings (never more than one in five, and only one or two in a small skyline) with buildings of this land standing exactly where the real building stood and at about the SAME HEIGHT, width and footprint, so they sit in the skyline as if they had always been there, matching its light, scale and perspective. Choose from: ${picks.join('; or ')}. Never replace the most famous, tallest landmark of the skyline: it stays recognisable. Also add a few ornate, ancient or ruined touches in the style of this land (weathered statues and carved crowns on rooftops, broken arches, ivy-grown ruined towers, banners, braziers, old stone ornament) without crowding the picture, and without changing the camera angle, the horizon or the overall silhouette.`;
+}
 
 export function glimpsePrompt(name: string, kind: string, kit: string, water?: string): string {
   const style = KITS[kit] ?? KITS.imperial;
@@ -82,6 +105,7 @@ export function glimpsePrompt(name: string, kind: string, kit: string, water?: s
   return [
     `Re-imagine this real photograph as a scene from a high-fantasy realm, in ${style}`,
     `This is "${name}". ${hint}`,
+    kind === 'crest' || kind === 'town' ? citySeasoning(name, kit) : '',
     NATURAL.has(kind) ? `This is a natural place, and the landform itself stays the star: keep its exact shape and most of the frame natural. Give it just ONE touch of the ancient, in the style above and sized to the feature (small against a mountain, larger beside a stream): ${NATURAL_FLAVORS[kind][flavorHash(name) % NATURAL_FLAVORS[kind].length]}. Never hide or replace the natural feature; do not add a town or modern buildings.` : '',
     'IMPORTANT: keep the exact composition, camera angle and framing of the photograph, and keep the overall shape, size, proportions and layout of the main building or landscape, so anyone who knows the place would still recognise it; only its materials, roofs, details and surroundings are rebuilt in the fantasy style. Do NOT replace it with a generic building.',
     water ? `${water} Keep it in the same style as the rest, and keep it modest so it sits naturally with the building.` : '',

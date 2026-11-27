@@ -179,22 +179,27 @@ export function drawDragon(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art
   if (e.hurt > 0 && Math.floor(e.hurt * 40) % 2 === 0) ctx.globalAlpha = 0.65;
 
   // ---- the body (and, when it turns for the tail, the sideways pictures)
-  let a0 = 1, a2 = 0, a3 = 0, bodyA = 1, cx = x, cy = base + bob, boost = 1, tilt = bank;
+  let a0 = 1, a2 = 0, a3 = 0, sx = 1, cx = x, cy = base + bob, boost = 1, tilt = bank;
   if (atk === 'tail') {
-    const w2 = seg(at, 0.1, 0.5), w3 = seg(at, 0.95, 1.2), back = seg(at, 1.4, 2.05);
-    a2 = w2 * (1 - w3); a3 = w3 * (1 - back); a0 = (1 - w2) + back;
-    const sum = a0 + a2 + a3 || 1; a0 /= sum; a2 /= sum; a3 /= sum;
-    const near = w2 * (1 - back);
-    boost = 1 + 0.35 * near + 0.25 * w3 * (1 - back); cx = lerp(x, W * 0.5, 0.65 * near); cy = base + bob + H * 0.1 * near;
-    tilt = lerp(bank, lerp(-0.1, 0.2, w3), near);
-  } else if (atk === 'bite' || atk === 'breath') {
-    bodyA = 1 - 0.75 * seg(at, 0.2, 0.7) + 0.75 * seg(at, atk === 'bite' ? 1.45 : 2.5, atk === 'bite' ? 1.95 : 3.0);
+    // it turns by going edge-on (squeezed narrow) and coming out as the sideways picture, and turns back the same way: two pictures are never shown over each other, except for the quick lash
+    const T = at;
+    if (T < 0.1) { a0 = 1; }
+    else if (T < 0.3) { a0 = 1; sx = 1 - 0.88 * seg(T, 0.1, 0.3); }
+    else if (T < 0.5) { a0 = 0; a2 = 1; sx = 0.12 + 0.88 * seg(T, 0.3, 0.5); }
+    else if (T < 0.95) { a0 = 0; a2 = 1; }
+    else if (T < 1.08) { a0 = 0; const w3 = seg(T, 0.95, 1.08); a2 = 1 - w3; a3 = w3; }
+    else if (T < 1.45) { a0 = 0; a3 = 1; }
+    else if (T < 1.65) { a0 = 0; a3 = 1; sx = 1 - 0.88 * seg(T, 1.45, 1.65); }
+    else if (T < 1.9) { a0 = 1; sx = 0.12 + 0.88 * seg(T, 1.65, 1.9); }
+    const near = seg(T, 0.2, 0.6) * (1 - seg(T, 1.5, 1.9)), lash = seg(T, 0.95, 1.2) * (1 - seg(T, 1.45, 1.85));
+    boost = 1 + 0.35 * near + 0.25 * lash; cx = lerp(x, W * 0.5, 0.65 * near); cy = base + bob + H * 0.1 * near;
+    tilt = lerp(bank, lerp(-0.1, 0.2, seg(T, 0.95, 1.2)), near);
   }
   const place = (img: HTMLImageElement, alpha: number, rigged: boolean) => {
     if (alpha <= 0.005) return;
     const w = img.naturalWidth * k * boost, dh = img.naturalHeight * k * boost;
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(tilt);
-    if (rigged) drawRigged(ctx, img, w, dh, wingUp, alpha * bodyA); else { ctx.globalAlpha *= alpha * bodyA; ctx.drawImage(img, -w / 2, -dh, w, dh); }
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(tilt); ctx.scale(sx, 1);
+    if (rigged) drawRigged(ctx, img, w, dh, wingUp, alpha); else { ctx.globalAlpha *= alpha; ctx.drawImage(img, -w / 2, -dh, w, dh); }
     ctx.restore();
   };
   // a shadow on the ground
@@ -205,7 +210,7 @@ export function drawDragon(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art
   if (a3 > 0) {
     place(body[3], a3, false);
     // a streak behind the lash
-    if (a3 > 0.4) { ctx.save(); ctx.translate(-24 * a3, 0); place(body[3], 0.22 * a3, false); ctx.restore(); }
+    if (a3 > 0.4 && sx === 1) { ctx.save(); ctx.translate(-22 * a3, 0); place(body[3], 0.14 * a3, false); ctx.restore(); }
   }
 
   // ---- breathing fire or frost down onto the city (for show)
@@ -225,7 +230,7 @@ export function drawDragon(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art
       let sc = (0.14 + 0.86 * ease(come)) * (hh / home.naturalHeight);
       let open: number, shut = 0, rot = 0;
       if (atk === 'bite') {
-        open = seg(at, 0.42, 0.78) * (1 - seg(at, 1.05, 1.12)); shut = seg(at, 1.05, 1.12) * (1 - seg(at, 1.3, 1.6));
+        open = seg(at, 0.52, 0.66) * (1 - seg(at, 1.05, 1.11)); shut = seg(at, 1.05, 1.11) * (1 - seg(at, 1.3, 1.6));
         rot = lerp(0, -0.07, seg(at, 0.3, 0.8)) + (seg(at, 1.05, 1.12) > 0 ? 0.1 : 0);
         sc *= 1 + 0.12 * seg(at, 0.8, 1.1) * (1 - seg(at, 1.12, 1.4));              // it lunges in as it snaps
       } else {

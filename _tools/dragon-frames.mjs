@@ -27,6 +27,6 @@ await set(`s.mode='circle'; s.t=3; s.next=99; s.far={kind:'fire',t:1.3}`); await
 await set(`s.mode='circle'; s.t=3; s.next=99; s.far={kind:'ice',t:1.3}`); await shot('3-far-ice');
 await set(`s.mode='hover'; s.t=1; s.far=null; e.p=0.86; e.u=0.5; e.v=0.84; s.atk=null; s.cool=99`); await shot('4-hover');
 for (const [n, t] of [['5-bite-in', 0.4], ['6-bite-open', 0.95], ['7-bite-snap', 1.14], ['8-bite-out', 1.5]]) { await set(`s.mode='hover'; s.t=2; s.atk='bite'; s.atkT=${t}; s.dealt=true`); await shot(n); }
-for (const [n, t] of [['9-tail-turn', 0.5], ['10-tail-wind', 0.9], ['11-tail-whip', 1.2], ['12-tail-back', 1.7]]) { await set(`s.mode='hover'; s.t=2; s.atk='tail'; s.atkT=${t}; s.dealt=true`); await shot(n); }
+for (const [n, t] of [['9-tail-turn', 0.2], ['9b-tail-edge', 0.3], ['9c-tail-out', 0.42], ['10-tail-wind', 0.8], ['11-tail-whip', 1.2], ['12-tail-back', 1.55], ['12b-tail-back', 1.75]]) { await set(`s.mode='hover'; s.t=2; s.atk='tail'; s.atkT=${t}; s.dealt=true`); await shot(n); }
 for (const [n, t, br] of [['13-breath-in', 0.5, null], ['14-breath-open', 0.9, null], ['15-breath-blast', 1.5, 0.5], ['16-breath-ice', 1.7, 0.9]]) { await set(`s.mode='hover'; s.t=2; s.atk='breath'; s.atkT=${t}; s.dealt=true; s.kind='${n.endsWith('ice') ? 'ice' : 'fire'}'; g.breath=${br === null ? 'null' : `{t:${br},kind:'${n.endsWith('ice') ? 'ice' : 'fire'}'}`}`); await shot(n); }
 ws.close(); chrome.kill();
