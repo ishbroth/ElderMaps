@@ -75,6 +75,9 @@ function loadSeen(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as string[]); } catch { return new Set(); }
 }
 
+/** Back up to the map (the page scrolls, upright): used whenever a map icon is tapped, even when its card was already the open one. */
+const showMap = () => { const app = document.querySelector('.em-app'); if (app && app.scrollTop > 4) app.scrollTo({ top: 0, behavior: 'smooth' }); };
+
 function pinElement(spot: Spot, ink: string, seen: boolean, labelled: boolean, cleared: boolean, onPick: () => void): HTMLElement {
   const el = document.createElement('button');
   el.type = 'button';
@@ -404,7 +407,7 @@ export default function App() {
       if (pins.current.has(id)) continue;
       const isSeen = seenRef.current.has(id);
       const isCleared = clearedRef.current.has(id);
-      const handle = createHtmlMarker({ position: { lat: spot.lat, lng: spot.lng }, element: pinElement(spot, ink, isSeen, labelled, isCleared, () => setSelected(spot)), zIndex: spot.kind === 'crest' ? 8 : 5 });
+      const handle = createHtmlMarker({ position: { lat: spot.lat, lng: spot.lng }, element: pinElement(spot, ink, isSeen, labelled, isCleared, () => { setSelected(spot); showMap(); }), zIndex: spot.kind === 'crest' ? 8 : 5 });
       handle.setMap(map);
       pins.current.set(id, { handle, key: `${labelled}|${isSeen}|${isCleared}|${lookRef.current}` });
     }
@@ -894,7 +897,7 @@ export default function App() {
         )}
       </div>
       {!trip && (
-        <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
+        <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); showMap(); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
           onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)} onPick={(t) => { setQuery(t); void searchFor(t); }}
           following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
           onHouse={() => setHouseOpen(true)} nearby={nearby} legendSpots={legend ? legendSpots : null} legendName={legend && world ? loreName(legend.name, world.provinceOfCountry(legend.country)) : null} invent={(name, iso) => (world ? loreName(name, world.provinceOfCountry(iso)) : name)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />

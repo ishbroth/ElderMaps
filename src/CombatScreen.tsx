@@ -179,12 +179,26 @@ export function viewFor(ratio: number, cw: number, ch: number): { pw: number; ph
   return { pw, ph, x0: (cw - pw) / 2, y0: (ch - ph) / 2 };
 }
 
+/** What fills the screen around a picture that does not reach the edges: the same picture, enlarged, blurred and darkened. */
+let backCache: { img: HTMLImageElement; w: number; h: number; canvas: HTMLCanvasElement } | null = null;
+function backdrop(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
+  if (!backCache || backCache.img !== img || backCache.w !== cw || backCache.h !== ch) {
+    const small = document.createElement('canvas'); small.width = 40; small.height = Math.max(8, Math.round((40 * ch) / cw));
+    const sc = small.getContext('2d') as CanvasRenderingContext2D;
+    const k = Math.max(small.width / img.naturalWidth, small.height / img.naturalHeight);
+    sc.drawImage(img, (small.width - img.naturalWidth * k) / 2, (small.height - img.naturalHeight * k) / 2, img.naturalWidth * k, img.naturalHeight * k);
+    sc.fillStyle = 'rgba(8,10,14,0.55)'; sc.fillRect(0, 0, small.width, small.height);
+    backCache = { img, w: cw, h: ch, canvas: small };
+  }
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(backCache.canvas, 0, 0, cw, ch);
+}
+
 function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatAssets, zoomAt: { u: number; v: number }) {
   const ctx = c.getContext('2d') as CanvasRenderingContext2D;
   const CW = c.width, CH = c.height;
   const vw = viewFor(img.naturalWidth / img.naturalHeight, CW, CH);
   const W = vw.pw, H = vw.ph; // the picture's own size on the screen
-  ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, CW, CH);
+  backdrop(ctx, img, CW, CH);
   ctx.save();
   // the bow draws in: the view closes in on the aim
   const bow = g.slots.find((s) => s.weapon.cls === 'bow' && s.charging);
