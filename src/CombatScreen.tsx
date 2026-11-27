@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { analyzeSpawns } from './lib/combat/analyze';
 import { loadCombatAssets, type CombatAssets } from './lib/combat/art';
 import { CLASS_NAME, ENEMIES, BOSSES, ITEM_CLASSES, isSpell, weaponAt, type Arsenal, type ItemCls, type RaidPlan } from './lib/combat/data';
+import { drawDragon } from './lib/combat/dragonDraw';
 import { DEFAULT_SPAWNS, Game, type Effect, type Enemy, type Spawns } from './lib/combat/engine';
 
 export interface CombatResult { won: boolean; kills: Record<string, number>; killed: number; escaped: number; potionsUsed: number; shoutsUsed: number }
@@ -59,7 +60,7 @@ export default function CombatScreen({ title, imageUrl, plan, spawns, arsenal, d
       if (off) return;
       if (!loaded) { setPhase('error'); return; }
       bg.current = img; setRatio(img.naturalWidth / img.naturalHeight);
-      const ids = [...new Set([...plan.enemies, ...(plan.boss ? [plan.boss] : []), 'dragon', ...(plan.boss === 'giantchief' ? ['giant'] : [])].map((id) => (id === 'giantchief' ? 'giant' : id)))];
+      const ids = [...new Set([...plan.enemies, ...(plan.boss ? [plan.boss] : []), 'dragon', 'dragonb', 'dragonh', ...(plan.boss === 'giantchief' ? ['giant'] : [])].map((id) => (id === 'giantchief' ? 'giant' : id)))];
       assets.current = await loadCombatAssets(ids, ITEM_CLASSES.map((c) => weaponAt(c, (arsenal[c] || 1) as 1 | 2 | 3 | 4).art));
       if (off) return;
       const looked = analyzeSpawns(img, { ...spawns, ...DEFAULT_SPAWNS, ...spawns });
@@ -193,8 +194,13 @@ function backdrop(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: numb
   ctx.imageSmoothingEnabled = true; ctx.drawImage(backCache.canvas, 0, 0, cw, ch);
 }
 
+let lastFrame = 0; let frameDt = 0.016;
+/** How far each enemy is into its attack pose (eased, so the pose is a move and not a flip). */
+const poseMix = new WeakMap<Enemy, number>();
+
 function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatAssets, zoomAt: { u: number; v: number }) {
   const ctx = c.getContext('2d') as CanvasRenderingContext2D;
+  const nowMs = performance.now(); frameDt = Math.min(0.05, Math.max(0.001, (nowMs - (lastFrame || nowMs - 16)) / 1000)); lastFrame = nowMs;
   const CW = c.width, CH = c.height;
   const vw = viewFor(img.naturalWidth / img.naturalHeight, CW, CH);
   const W = vw.pw, H = vw.ph; // the picture's own size on the screen
@@ -214,7 +220,7 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
   for (const e of list) drawEnemy(ctx, e, g, art, W, H);
   // effects
   for (const f of g.effects) drawEffect(ctx, f, W, H, CH - vw.y0);
-  drawBreath(ctx, g, W, H);
+  if (!art.enemies.dragonb) drawBreath(ctx, g, W, H); // (the new dragon draws its own breath)
   // the drain: a beam from the hand to what it is draining
   const drain = g.drainOn;
   if (drain) {
@@ -246,32 +252,48 @@ function draw(c: HTMLCanvasElement, img: HTMLImageElement, g: Game, art: CombatA
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, g: Game, art: CombatAssets, W: number, H: number) {
   const sprites = art.enemies[e.type.art ?? e.type.id];
   const h = g.heightOf(e) * H;
+  const bar = (x: number, y: number, w: number) => {
+    if ((e.boss || e.type.size >= 1.5) && e.state !== 'dying') { const bw = Math.max(40, w * 0.8); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - bw / 2, y - h - 10, bw, 5); ctx.fillStyle = e.boss ? '#d8a23a' : '#b53a3a'; ctx.fillRect(x - bw / 2, y - h - 10, bw * Math.max(0, e.hp / e.maxHp), 5); }
+  };
+  // the dragon over a city has its own way of moving (flapping, gliding, turning, biting, breathing)
+  if (e.sky && e.state === 'walking' && drawDragon(ctx, e, g, art, W, H, performance.now() / 1000)) { bar(e.u * W, (e.v - e.lift) * H, h * 1.1); return; }
   const bite = e.sky ? e.sky.bite : 0;
   const biteK = bite > 0 ? Math.sin(Math.min(1, bite) * Math.PI * 0.5) : 0;
-  let frame = Math.floor(e.gait * 2) % 2;
-  if (e.state === 'striking' || e.sky?.attacking || g.breath && e.sky || (e.state === 'aiming' && Math.floor(e.t * 2) % 2 === 1)) frame = 2; else if (e.state === 'dying') frame = 3;
-  const img = sprites?.frames[frame];
-  // every pose is drawn at the same scale (the one that makes the first pose h tall), so a lunge is bigger and a corpse lower, and a flapping wing keeps its size
+  // which pictures, and how much of each: the two walking pictures blend with the stride, and the attack picture is eased in and out
+  const dying = e.state === 'dying';
+  const target = e.state === 'striking' || e.sky?.attacking || (g.breath && e.sky) ? 1 : e.state === 'aiming' ? 0.5 + 0.5 * Math.sin(e.t * Math.PI * 2) : 0;
+  const prev = poseMix.get(e) ?? 0; const attackMix = prev + (target - prev) * Math.min(1, frameDt * 11); poseMix.set(e, attackMix);
+  const stride = 0.5 - 0.5 * Math.cos(e.gait * Math.PI * 2);
   const base = sprites?.frames[0];
-  const sc = (img && base ? h / base.naturalHeight : 1) * (1 + 1.5 * biteK);
-  const w = img ? img.naturalWidth * sc : h * 0.45;
-  const dh = img ? img.naturalHeight * sc : h;
-  const snap = bite > 0.9 ? 1 : 0;
-  const x = (e.u + (0.5 - e.u) * biteK * 0.8) * W, y = (e.v - e.lift) * H + biteK * H * 0.2;
+  const first = sprites?.frames[dying ? 3 : 0], second = sprites?.frames[1], strike = sprites?.frames[2];
+  const scaleOf = (img: HTMLImageElement | undefined) => (img && base ? h / base.naturalHeight : 1) * (1 + 1.5 * biteK);
+  const sc0 = scaleOf(first);
+  const w = first ? first.naturalWidth * sc0 : h * 0.45;
+  const walkBob = e.state === 'walking' ? Math.abs(Math.sin(e.gait * Math.PI)) * h * 0.012 : 0;
+  const x = (e.u + (0.5 - e.u) * biteK * 0.8) * W, y = (e.v - e.lift) * H + biteK * H * 0.2 - walkBob;
   // its shadow stays on the ground
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x, e.v * H, w * 0.4, h * 0.06, 0, 0, Math.PI * 2); ctx.fill();
   ctx.save();
-  if (e.state === 'dying') ctx.globalAlpha = Math.max(0, 1 - Math.max(0, e.t - 0.7) / 0.9);
+  if (dying) ctx.globalAlpha = Math.max(0, 1 - Math.max(0, e.t - 0.7) / 0.9);
   else if (e.state === 'leaving') ctx.globalAlpha = Math.max(0, 1 - e.t / 1.1);
   if (e.hurt > 0 && Math.floor(e.hurt * 40) % 2 === 0) ctx.globalAlpha *= 0.65;
   const lean = e.state === 'walking' ? Math.sin(e.gait * Math.PI) * 0.03 : 0;
-  ctx.translate(x + (snap ? (Math.random() - 0.5) * 10 : 0), y); ctx.rotate(lean + (biteK > 0 ? Math.sin(biteK * 14) * 0.03 : 0));
-  if (img) ctx.drawImage(img, -w / 2, -dh, w, dh);
-  else { ctx.fillStyle = e.boss ? '#5a2a2a' : '#2a2f36'; ctx.fillRect(-w / 2, -h, w, h); }
+  ctx.translate(x + (bite > 0.9 ? (Math.random() - 0.5) * 10 : 0), y); ctx.rotate(lean + (biteK > 0 ? Math.sin(biteK * 14) * 0.03 : 0));
+  const put = (img: HTMLImageElement, a: number) => {
+    if (a <= 0.004) return;
+    const sc = scaleOf(img), iw = img.naturalWidth * sc, ih = img.naturalHeight * sc;
+    ctx.save(); ctx.globalAlpha *= a; ctx.drawImage(img, -iw / 2, -ih, iw, ih); ctx.restore();
+  };
+  if (first) {
+    if (dying) put(first, 1);
+    else {
+      put(first, 1); if (second) put(second, stride);
+      if (strike) put(strike, attackMix);
+    }
+  } else { ctx.fillStyle = e.boss ? '#5a2a2a' : '#2a2f36'; ctx.fillRect(-w / 2, -h, w, h); }
   if (e.chill > 0) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(140,200,255,0.35)'; ctx.fillRect(-w / 2, -h, w, h); }
   ctx.restore();
-  // health bar for the bigger ones
-  if ((e.boss || e.type.size >= 1.5) && e.state !== 'dying') { const bw = Math.max(40, w * 0.8); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - bw / 2, y - h - 10, bw, 5); ctx.fillStyle = e.boss ? '#d8a23a' : '#b53a3a'; ctx.fillRect(x - bw / 2, y - h - 10, bw * Math.max(0, e.hp / e.maxHp), 5); }
+  bar(x, y, w);
 }
 
 /** The dragon's breath: a roaring cone of fire or ice from its mouth that swells until it fills the screen. */

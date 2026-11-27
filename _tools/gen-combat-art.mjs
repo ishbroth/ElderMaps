@@ -42,6 +42,10 @@ const ENEMIES = {
   dragon: SHEET('a great dragon: a huge winged reptile with horned head, scaled dark grey-bronze body, spined back, massive leathery wings and a jaw full of teeth, seen from the front, ancient and terrifying, drawn SMALLER in each frame so that the whole dragon including both wing tips and the tail sits fully inside its own quadrant with a wide empty magenta margin on every side (nothing touches or crosses the edge of a quadrant)', FLY),
 };
 
+// the dragon's other poses (made with the first dragon sheet as the reference, so it is the same dragon): the body, and the head close up
+const SAME = 'It must be exactly the same dragon as in the reference picture: the same dark grey-bronze scales, the same horns, the same leathery wing membranes and bones.';
+const DRAGON_BODY = SHEET('a great dragon (' + SAME + ') in four poses. Each pose is drawn SMALLER so that the whole dragon including both wing tips and the tail sits fully inside its own quadrant with a wide empty magenta margin on every side', 'Top-left: GLIDING toward the camera, seen from the front and slightly below, both wings spread FULLY OUT, STRAIGHT AND LEVEL to each side like a soaring eagle, perfectly symmetrical, head forward with the mouth closed, legs tucked, tail trailing behind. Top-right: EXACTLY the same pose and wings as top-left (wings spread fully out, straight and level, perfectly symmetrical) but the neck bent so the head points DOWN and forward with the jaws wide open, roaring, about to breathe fire downward. Bottom-left: the dragon turned about 70 degrees to the left, seen from the side and slightly in front, wings half raised, the long tail drawn far back to one side and curled, coiled ready to whip, head turned toward the camera. Bottom-right: the same sideways pose, the body twisted, the long tail whipping hard ACROSS and TOWARD the camera in a wide arc, tail tip large and near, wings swept back.');
+const DRAGON_HEAD = SHEET('the HEAD and upper neck of a great dragon, close up (' + SAME + '), each head drawn at about 70% of its quadrant with a clear empty magenta margin on every side, the horns and the whole head fully inside the quadrant, with the neck going down and ending in a soft fade-out (not a hard straight cut) before the bottom edge', 'Top-left: the head seen straight from the front, looking at the camera, mouth CLOSED, menacing. Top-right: the head tilted about 25 degrees to one side, the mouth OPEN WIDE with every fang and the tongue showing, snarling, about to bite. Bottom-left: the head seen straight from the front with NO tilt, lowered a little, the mouth OPEN WIDE straight at the camera, a glowing throat, about to breathe fire. Bottom-right: the head tilted about 25 degrees to the OTHER side, the jaws snapping SHUT with the teeth interlocked, in the instant of the bite.');
 const HANDS = (what) => `${STYLE} A first-person video game view of the player's gloved hands holding ${what}, seen from behind and slightly above, the weapon pointing away from the camera and up, centred, cropped at the forearms, on a perfectly flat solid magenta (#FF00FF) background with no floor and no shadow, no text.`;
 const HAND1 = (what) => `${STYLE} A first-person video game view of the player's SINGLE right gloved hand and forearm holding ${what}, seen from behind and slightly above, the weapon pointing away from the camera and up, the arm coming up from the bottom right, only ONE hand and ONE arm in the picture, centred, cropped at the forearm, on a perfectly flat solid magenta (#FF00FF) background with no floor and no shadow, no text.`;
 const WEAPONS = {
@@ -63,7 +67,8 @@ const WEAPONS = {
   drain: HANDS('an open hand with a stream of dark red-and-violet swirling energy, fingers spread'),
 };
 
-const PROMPTS = { ...ENEMIES, ...WEAPONS };
+const PROMPTS = { ...ENEMIES, ...WEAPONS, dragonb: DRAGON_BODY, dragonh: DRAGON_HEAD };
+const REFS = { dragonb: 'dragon', dragonh: 'dragon' };
 const wanted = process.argv.slice(2);
 const names = wanted.length ? wanted : Object.keys(PROMPTS);
 for (const name of names) {
@@ -75,7 +80,7 @@ for (const name of names) {
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST', headers: { 'x-goog-api-key': KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1' } } }),
+      body: JSON.stringify({ contents: [{ parts: [...(REFS[name] ? [{ inlineData: { mimeType: 'image/png', data: fs.readFileSync(path.join(OUT, REFS[name] + '.png')).toString('base64') } }, { text: 'The reference picture above shows the design of the dragon to draw.' }] : []), { text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1' } } }),
     });
     if (!res.ok) { console.log(name, 'failed', res.status, (await res.text()).slice(0, 160)); continue; }
     const body = await res.json();

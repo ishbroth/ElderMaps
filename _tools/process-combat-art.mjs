@@ -14,7 +14,7 @@ fs.mkdirSync(path.join(OUT, 'weapons'), { recursive: true });
 const manifestFile = path.join(OUT, 'manifest.json');
 const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : { enemies: {}, weapons: {} };
 
-const ENEMY = new Set(['skeleton','wight','bandit','banditmaned','banditscale','brassspider','brasssphere','marshcrab','rathide','troll','sabretiger','mammoth','giant','vampire','sorcerer','gjenganger','vampirelord','colossus','dragon']);
+const ENEMY = new Set(['skeleton','wight','bandit','banditmaned','banditscale','brassspider','brasssphere','marshcrab','rathide','troll','sabretiger','mammoth','giant','vampire','sorcerer','gjenganger','vampirelord','colossus','dragon','dragonb','dragonh']);
 
 /** Raw RGBA of an image region with the magenta background made transparent. */
 async function keyed(input, region) {
@@ -68,7 +68,7 @@ for (const name of names) {
     }
     // one scale for the whole sheet: the tallest frame (a walking pose) becomes 340 px high
     const tallest = Math.max(...frames.map((f) => f.box?.height ?? 0));
-    const scale = Math.min(1, 340 / tallest);
+    const scale = Math.min(1, (name === 'dragonh' ? 500 : 340) / tallest);
     const list = [];
     for (let q = 0; q < 4; q++) {
       const { k, box } = frames[q];

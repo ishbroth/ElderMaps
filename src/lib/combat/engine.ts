@@ -17,7 +17,9 @@ export interface Spawns {
 export const DEFAULT_SPAWNS: Spawns = { horizon: 0.56, points: [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 0.18, 0.5, 0.78].map((u, i) => ({ u, v: 0.62 + (i % 3) * 0.05 })) };
 
 const PERSON_HEIGHT = 0.3;
-const STRIKE_V = 1.2; // the feet are below the bottom of the screen when it is on you: you see the chest, not the whole body
+const STRIKE_V = 1.2;
+/** The attack timings of the dragon close up (seconds): when the blow lands, when a breath starts to blast, and how long the whole attack is. */
+export const ATTACK = { bite: { hit: 1.12, total: 2.0 }, tail: { hit: 1.2, total: 2.1 }, breath: { hit: 0, blast: 0.95, total: 3.0 } }; // the feet are below the bottom of the screen when it is on you: you see the chest, not the whole body
 const strikeHeight = (size: number) => Math.min(1.3, 0.85 * Math.pow(size, 0.6));
 export const SLOW_FACTOR = 0.3;
 export const SLOW_SECONDS = 8;
@@ -51,7 +53,13 @@ export interface Enemy {
   gait: number;
   lift: number;
   /** A dragon in the sky of a city picture: circling far off, swooping in close and pausing to strike, then back up. */
-  sky?: { mode: 'circle' | 'swoop' | 'hover' | 'retreat'; t: number; next: number; baseV: number; hit: number; attacking: boolean; /** 0 to 1: how far the head has come out of the picture at the player (the bite). */ bite: number };
+  sky?: {
+    mode: 'circle' | 'swoop' | 'hover' | 'retreat'; t: number; next: number; baseV: number; hit: number; attacking: boolean; /** 0 to 1: how far the head has come out of the picture at the player (the bite). */ bite: number;
+    /** The attack under way while it hovers close: a bite (the head comes in, tilts, opens and snaps), a tail whip (it turns and lashes) or a breath (the head comes in and blasts). */
+    atk?: 'bite' | 'tail' | 'breath' | null; /** Seconds into that attack. */ atkT?: number; /** What a breath is made of. */ kind?: 'fire' | 'ice'; /** The attack before this one (never the same twice running). */ last?: string; /** Seconds before the next attack. */ cool?: number; /** The blow of this attack has landed. */ dealt?: boolean;
+    /** Breathing fire or frost down onto the city while it circles far off (for show): its kind and the seconds it has been going, and when the next is. */
+    far?: { kind: 'fire' | 'ice'; t: number } | null; nextFar?: number;
+  };
 }
 
 export interface Effect {
@@ -348,29 +356,39 @@ export class Game {
     if (s.mode === 'circle') {
       e.p = 0.12 + 0.02 * Math.sin(s.t * 0.8);
       e.u = 0.5 + Math.min(0.34, Math.max(0.1, (this.view.u1 - this.view.u0) / 2 - 0.08)) * Math.sin(s.t * 0.45); e.v = s.baseV + 0.03 * Math.sin(s.t * 0.9);
-      if (s.t >= s.next) { s.mode = 'swoop'; s.t = 0; }
+      // now and then it breathes fire or frost down onto the city, for show
+      if (s.far) { s.far.t += dt; if (s.far.t >= 2.8) { s.far = null; s.nextFar = s.t + 3 + this.random() * 4; } }
+      else if (s.t >= (s.nextFar ?? 2.2) && s.next - s.t > 4) s.far = { kind: this.random() < 0.5 ? 'fire' : 'ice', t: 0 };
+      if (s.t >= s.next && !s.far) { s.mode = 'swoop'; s.t = 0; s.far = null; }
     } else if (s.mode === 'swoop') {
       e.p = Math.min(0.86, e.p + dt / 2.4);
       e.u += (0.5 - e.u) * Math.min(1, dt * 2.2); e.v = s.baseV + (0.84 - s.baseV) * ((e.p - 0.12) / 0.74);
       if (e.p >= 0.86) { s.mode = 'hover'; s.t = 0; s.hit = 0; }
     } else if (s.mode === 'hover') {
-      // it pauses in front, in reach of a sword, and strikes
-      e.p = 0.86; e.u = 0.5 + 0.06 * Math.sin(s.t * 1.6); e.v = 0.84 + 0.01 * Math.sin(s.t * 3);
-      const cycle = e.type.every;
-      const phase = s.t - s.hit * cycle;
-      s.attacking = phase > cycle - 0.7;
-      // the head comes out of the picture at the player, and snaps shut at the moment of the bite
-      s.bite = s.attacking ? Math.min(1, (phase - (cycle - 0.7)) / 0.62) : Math.max(0, s.bite - dt * 2.6);
-      if (phase >= cycle && s.hit % 3 === 2 && !this.breath) {
-        // not a bite: it fills its chest and breathes fire or ice at the screen
-        this.breath = { t: 0, kind: this.random() < 0.5 ? 'fire' : 'ice' };
-        s.hit++;
-      } else if (phase >= cycle) {
-        const [lo, hi] = STRIKE_SHARE.medium;
-        this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; s.hit++; this.onBuzz?.('hurt');
-        if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
+      // it holds in front, in reach of a sword, and attacks: a bite, a tail whip or a breath, picked at random (never the same twice running)
+      e.p = 0.86; e.u = 0.5 + 0.06 * Math.sin(s.t * 1.2); e.v = 0.84 + 0.01 * Math.sin(s.t * 2.1);
+      if (!s.atk) {
+        s.cool = (s.cool ?? 0.7) - dt;
+        if (s.cool <= 0) {
+          const options = (['bite', 'tail', 'breath'] as const).filter((k) => k !== s.last);
+          s.atk = options[Math.floor(this.random() * options.length)]; s.atkT = 0; s.dealt = false; s.last = s.atk; s.kind = this.random() < 0.5 ? 'fire' : 'ice';
+        }
+      } else {
+        s.atkT = (s.atkT ?? 0) + dt;
+        const hitAt = s.atk === 'bite' ? ATTACK.bite.hit : s.atk === 'tail' ? ATTACK.tail.hit : ATTACK.breath.hit;
+        if (s.atk === 'breath' && !this.breath && !s.dealt && s.atkT >= ATTACK.breath.blast) this.breath = { t: 0, kind: s.kind ?? 'fire' }; // (it lands its own blow when the blast ends)
+        if (s.atk !== 'breath' && !s.dealt && s.atkT >= hitAt) {
+          s.dealt = true;
+          const [lo, hi] = STRIKE_SHARE.medium;
+          this.health -= this.maxHealth * (lo + this.random() * (hi - lo)) * this.strength; this.shake = 0.7; this.hitFlash = 1; this.onBuzz?.('hurt');
+          if (this.health <= 0) { if (this.potions > 0) { this.health = 0; this.downed = true; } else { this.health = 0; this.outcome = 'lost'; } }
+        }
+        if (s.atk === 'breath' && this.breath) s.dealt = true;
+        if (s.atkT >= (s.atk === 'bite' ? ATTACK.bite.total : s.atk === 'tail' ? ATTACK.tail.total : ATTACK.breath.total)) { s.atk = null; s.cool = 0.8 + this.random() * 0.9; s.hit++; }
       }
-      if (s.t >= 5.5) { s.mode = 'retreat'; s.t = 0; s.attacking = false; s.bite = 0; }
+      s.attacking = !!s.atk; s.bite = s.atk === 'bite' ? Math.min(1, (s.atkT ?? 0) / 1.2) : 0;
+      // it leaves when it has had its few attacks (never half way through one)
+      if (!s.atk && s.t >= 8.5) { s.mode = 'retreat'; s.t = 0; s.attacking = false; s.bite = 0; }
     } else {
       e.p = Math.max(0.12, e.p - dt / 2.2);
       e.v = s.baseV + (0.84 - s.baseV) * ((e.p - 0.12) / 0.74); e.u += (0.5 + 0.34 * Math.sin(s.t) - e.u) * Math.min(1, dt);
