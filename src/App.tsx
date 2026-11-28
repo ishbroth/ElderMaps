@@ -173,7 +173,7 @@ export default function App() {
   const [regionName, setRegionName] = useState<string | null>(null);
   const regionCache = useRef(new Map<string, string | null>());
   const account = useAccount();
-  const originName = (() => { const c = account.profile?.sigilCity; if (!c) return null; return world ? loreName(c, world.provinceOfCountry(account.profile?.sigilIso ?? '')) : null; })();
+  const originName = (() => { const c = account.profile?.sigilCity; if (!c) return null; if (!world) return null; const iso = account.profile?.sigilIso ?? ''; const hit = [...world.cities.crest, ...world.cities.town, ...world.cities.village].find((x) => x[0] === c && x[5] === iso); return loreName(c, hit ? world.provinceOfSpot(`c:${hit[0]}:${hit[1]}`, hit[1], hit[2], hit[5]) : world.provinceOfCountry(iso)); })();
   const [accountOpen, setAccountOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
@@ -354,7 +354,7 @@ export default function App() {
       for (let i = 0; i < list.length && i < allowed && shown < cap; i++) {
         const [name, lat, lng, pop, , iso2] = list[i];
         if (!inView(lat, lng) || (kind === 'crest' && !crestOk(zoom, pop, iso2, name))) continue;
-        const province = world.provinceOfCountry(iso2);
+        const province = world.provinceOfSpot(`c:${name}:${lat}`, lat, lng, iso2);
         const pic = kind === 'village' || kind === 'town' ? settlementPic(kind, name, pop, province) : undefined;
         add({ id: `c:${name}:${lat}`, kind, real: name, name: loreName(name, province), province, lat, lng, fame: pop, pic, iso2,
           note: kind === 'village' ? 'A settlement of farms, mills and mines about a bigger place' : `${Math.round(pop / 1000).toLocaleString('en-US')} thousand souls` }, kind !== 'village' || zoom >= 7);
@@ -373,7 +373,7 @@ export default function App() {
       for (const m of world.metros) {
         if (count > 160) break;
         if (!anchors.has(`${m.name}|${m.country}`) || !inView(m.lat, m.lng)) continue;
-        const province = world.provinceOfCountry(m.country);
+        const province = world.provinceOfSpot('', m.lat, m.lng, m.country);
         const used = { landmark: 0, town: 0, keep: 0 };
         for (const [name, lat, lng, kind, category, fame] of world.keys[m.id] ?? []) {
           if (kind === 'town' || used[kind] >= room) continue;
@@ -427,6 +427,7 @@ export default function App() {
     const pal = PALETTE[look];
     if (zoomShown <= 6) {
       for (const p of Object.values(PROVINCES)) {
+        if (!p.label) continue;
         const el = document.createElement('div');
         el.className = 'em-province';
         el.style.color = look !== 'oblivion' ? '#f2f2ee' : '#3b2a1a';
@@ -467,7 +468,7 @@ export default function App() {
     if (world && spanKm < 1.2) {
       const m = metroForSpot(world, { real: hit.name, lat: hit.center.lat, lng: hit.center.lng });
       if (m && distanceMeters(hit.center, { lat: m.lat, lng: m.lng }) / 1000 <= m.radiusKm) {
-        const province = world.provinceOfCountry(m.country);
+        const province = world.provinceOfSpot('', m.lat, m.lng, m.country);
         const addr: Spot = { id: `a:${hit.center.lat.toFixed(5)},${hit.center.lng.toFixed(5)}:${encodeURIComponent(hit.name.slice(0, 80))}`, kind: 'house', real: hit.name, name: hit.name.split(',')[0], province, lat: hit.center.lat, lng: hit.center.lng, fame: 0, note: hit.name };
         await openFogged(m, hit.center, 'lookup', undefined, addr);
         return;
@@ -503,7 +504,7 @@ export default function App() {
           let anchor: [string, number, number, number, 'crest' | 'town' | 'village', string] | null = null; let gap = 25_000;
           for (const c of [...world.cities.crest, ...world.cities.town]) { const d = distanceMeters({ lat: c[1], lng: c[2] }, { lat: m.lat, lng: m.lng }); if (d < gap) { gap = d; anchor = c; } }
           if (!anchor) continue;
-          const prov = world.provinceOfCountry(anchor[5]);
+          const prov = world.provinceOfSpot(`c:${anchor[0]}:${anchor[1]}`, anchor[1], anchor[2], anchor[5]);
           discover({ id: `c:${anchor[0]}:${anchor[1]}`, kind: anchor[4], real: anchor[0], name: loreName(anchor[0], prov), province: prov, lat: anchor[1], lng: anchor[2], fame: anchor[3], note: '', iso2: anchor[5] }, here, m.id);
         }
       }
@@ -868,7 +869,7 @@ export default function App() {
         )}
 
         {legend && world && !trip && (
-          <TownLegend onPlaces={setLegendSpots} metro={legend} province={world.provinceOfCountry(legend.country)} world={world} signedIn={!!account.session} septims={account.septims}
+          <TownLegend onPlaces={setLegendSpots} metro={legend} province={world.provinceOfSpot('', legend.lat, legend.lng, legend.country)} world={world} signedIn={!!account.session} septims={account.septims}
             onNeedsAccount={() => { setLegend(null); setAccountOpen(true); }} onSpent={() => void account.refresh()} onOpenSpot={(s) => setViewing(s)} onClose={() => setLegend(null)} />
         )}
 
@@ -904,7 +905,7 @@ export default function App() {
         <Ledger account={account} found={foundSpots} cleared={cleared} selected={selected} onOpenSpot={(sp) => { setSelected(sp); setViewing(sp); showMap(); mapRef.current?.panTo({ lat: sp.lat, lng: sp.lng }); }}
           onAccount={() => setAccountOpen(true)} onShop={() => setShopOpen(true)} onBuy={() => setBuyOpen(true)} onShareMap={() => void shareMap()} query={query} onQuery={setQuery} onSearch={(e) => void search(e)} onPick={(t) => { setQuery(t); void searchFor(t); }}
           following={following} onToggleFollow={() => { if (following) setFollowing(false); else void locate(); }} voiceOn={voiceOn} onToggleVoice={() => { setVoiceEnabled(!voiceOn); setVoiceOn(!voiceOn); }}
-          onHouse={() => setHouseOpen(true)} nearby={nearby} legendSpots={legend ? legendSpots : null} legendName={legend && world ? loreName(legend.name, world.provinceOfCountry(legend.country)) : null} invent={(name, iso) => (world ? loreName(name, world.provinceOfCountry(iso)) : name)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
+          onHouse={() => setHouseOpen(true)} nearby={nearby} legendSpots={legend ? legendSpots : null} legendName={legend && world ? loreName(legend.name, world.provinceOfSpot('', legend.lat, legend.lng, legend.country)) : null} invent={(name, iso) => (world ? loreName(name, world.provinceOfCountry(iso)) : name)} originName={originName} hapticsOn={hapticsOn} onToggleHaptics={() => { setHapticsEnabled(!hapticsOn); setHapticsOn(!hapticsOn); }} onTryCity={(c) => { const m = mapRef.current; if (!m) return; m.panTo({ lat: c.lat, lng: c.lng }); m.setZoom(Math.min(MAX_ZOOM, 9)); }} />
       )}
     </div>
   );

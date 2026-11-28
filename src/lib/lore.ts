@@ -3,7 +3,11 @@
 // "Seattle-mont" in High Rock. The bending is by a hash of the name, so a place is always called the same thing.
 
 export type ProvinceId =
-  | 'skyrim' | 'highrock' | 'hammerfell' | 'orsinium' | 'elsweyr' | 'valenwood' | 'morrowind' | 'summerset' | 'shivering' | 'cyrodiil' | 'blackmarsh' | 'solstheim' | 'atmora';
+  | 'skyrim' | 'highrock' | 'hammerfell' | 'orsinium' | 'elsweyr' | 'valenwood' | 'morrowind' | 'summerset' | 'shivering' | 'cyrodiil' | 'blackmarsh' | 'solstheim' | 'atmora'
+  // the great houses of the ash country: each has the voice of Morrowind in its own way (no label of their own on the map: the realm's name there is Morrowind)
+  | 'telvanni' | 'redoran' | 'hlaalu' | 'velothi';
+
+type House = 'telvanni' | 'redoran' | 'hlaalu' | 'velothi';
 
 export interface Province {
   id: ProvinceId;
@@ -13,15 +17,17 @@ export interface Province {
   /** The tint laid over the land, and the ink of its labels and crests. */
   tint: string;
   ink: string;
-  /** Where its name is written on the world map. */
-  label: { lat: number; lng: number };
+  /** Where its name is written on the world map (none for the houses of the ash country). */
+  label?: { lat: number; lng: number };
+  /** Our own name for the realm (kept for going back: see REALM_NAMES). */
+  ownName?: string;
   /** How names are made: {b} is the real name, cut to a stem. */
   patterns: string[];
   /** One line of what the land is like. */
   blurb: string;
 }
 
-export const PROVINCES: Record<ProvinceId, Province> = {
+const REALMS: Record<Exclude<ProvinceId, House>, Province> = {
   skyrim: { id: 'skyrim', name: 'Hoarfell', real: 'Scandinavia', tint: '#8fa3b5', ink: '#f2f2ee', label: { lat: 63, lng: 15 }, blurb: 'Snow, pine and old stone. Home of the northern clans.',
     patterns: ['{b}stead', '{b}helm', '{b}hold', 'Fort {b}', '{b}winter', '{b}fall', '{b}wood', '{b} Watch'] },
   highrock: { id: 'highrock', name: 'Highmere', real: 'Europe and the British Isles', tint: '#7c5a8a', ink: '#e6dff0', label: { lat: 49, lng: 9 }, blurb: 'Castles, fog and fjords. Knights and mages of the misty keeps.',
@@ -49,6 +55,23 @@ export const PROVINCES: Record<ProvinceId, Province> = {
   atmora: { id: 'atmora', name: 'Old Rime', real: 'Antarctica', tint: '#d4e3ee', ink: '#1d2a36', label: { lat: -78, lng: 20 }, blurb: 'The frozen homeland the northern clans left behind.',
     patterns: ['{b}thar', '{b}mor', '{b}ur', 'Old {b}'] },
 };
+
+/** The realms, and the four houses of the ash country (which take their place on the map from the style regions, not from a country). */
+export const PROVINCES: Record<ProvinceId, Province> = {
+  ...REALMS,
+  telvanni: { id: 'telvanni', name: 'Morrowind', real: 'Russia and the far north', tint: '#5f9a9c', ink: '#e0f0ee', blurb: 'Towers grown from living fungus, and wizard-lords who plan in centuries.', patterns: ['Tel {b}', '{b} Mora', '{b}ruhn', 'Tel {b}ora', '{b}vos', 'Tel {b}naga'] },
+  redoran: { id: 'redoran', name: 'Morrowind', real: 'The mountains of the Caucasus and Central Asia', tint: '#9a4a3c', ink: '#f3dcd2', blurb: 'Domed halls of dark shell and mudbrick, and a people who put duty before comfort.', patterns: ['Ald {b}', '{b} Gan', 'Maar {b}', '{b}nis', "Ald'{b}", '{b}ruhn Gan'] },
+  hlaalu: { id: 'hlaalu', name: 'Morrowind', real: 'The trading coasts and borderlands', tint: '#c49a78', ink: '#2e2012', blurb: 'Plank walkways, canals and counting-houses, where everything is for sale at a fair price.', patterns: ['Hla {b}', '{b} Oad', 'Gnaar {b}', '{b}mora', '{b}ran', 'Port {b}'] },
+  velothi: { id: 'velothi', name: 'Morrowind', real: 'The old temple lands', tint: '#58566f', ink: '#e4e2ee', blurb: 'Massive stepped stone, incense and the long memory of the ancestors.', patterns: ['Molag {b}', '{b} Mar', 'Sad {b}', '{b}gate', 'Kogo {b}', '{b}ras'] },
+};
+
+/** Whether the realms show the games' own names on the map and the cards ('elder'), or our own ('own'). Set it to 'own' to go back at once. */
+export const REALM_NAMES: 'elder' | 'own' = 'elder';
+const ELDER_NAMES: Partial<Record<ProvinceId, string>> = {
+  skyrim: 'Skyrim', highrock: 'High Rock', hammerfell: 'Hammerfell', orsinium: 'Orsinium', elsweyr: 'Elsweyr', valenwood: 'Valenwood', morrowind: 'Morrowind', summerset: 'Summerset Isle', shivering: 'The Shivering Isles',
+  cyrodiil: 'Cyrodiil', blackmarsh: 'Black Marsh', solstheim: 'Solstheim', atmora: 'Atmora',
+};
+for (const id of Object.keys(ELDER_NAMES) as ProvinceId[]) { PROVINCES[id].ownName = PROVINCES[id].name; if (REALM_NAMES === 'elder') PROVINCES[id].name = ELDER_NAMES[id] as string; }
 
 const SCANDI = new Set(['NOR', 'SWE', 'FIN', 'DNK', 'ISL']);
 const NORTH_AFRICA_ARABIA = new Set(['SAU', 'YEM', 'OMN', 'ARE', 'QAT', 'KWT', 'BHR', 'JOR', 'IRQ', 'SYR', 'LBN', 'ISR', 'PSX', 'PSE', 'CYP']);
@@ -130,6 +153,10 @@ const CAPITAL_TITLE: Record<ProvinceId, string[]> = {
   atmora: ['Winter Seat', 'Rime Capital'],
   highrock: ['Principality', 'Regent Capital', "Duke's Seat", "Count's Seat"],
   cyrodiil: ['Provincial Capital', 'Imperial Seat', 'Palatine City'],
+  telvanni: ["Wizard-Lord's Tower", 'Grown Citadel', 'Spire of the Council'],
+  redoran: ['Fortress Hall', 'Hall of Honour', 'Shell-Keep'],
+  hlaalu: ['Counting-House', 'Merchant Seat', 'Canal Capital'],
+  velothi: ['Temple Canton', 'Seat of the Ancestors', 'Pilgrim City'],
   hammerfell: ["Sultan's Seat", 'Emirate Capital', "Caliph's Seat"],
   elsweyr: ['Khanate Capital', 'Warren Seat', 'Sunmane Court'],
   valenwood: ['Grove Capital', 'Canopy Seat', 'Verdant Court'],
@@ -169,7 +196,7 @@ export const SEAS: { name: string; at: { lat: number; lng: number }; big: boolea
 /** A short name for what each province is like, said after its name on a place's card. */
 export const EPITHET: Record<ProvinceId, string> = {
   skyrim: 'the Frozen North', highrock: 'the Misty Marches', hammerfell: 'the Sunlit Sands', orsinium: 'the Stronghold Lands', elsweyr: 'the Sunmane Plains', valenwood: 'the Living Canopy',
-  morrowind: 'the Ashen Lands', summerset: 'the Crystal Isle', shivering: 'the Mad Isles', cyrodiil: 'the Imperial Heartland', blackmarsh: 'the Drowned Marsh', solstheim: 'the Ash and Ice Isle', atmora: 'the Frozen Homeland',
+  morrowind: 'the Ashen Lands', telvanni: 'the Grown Towers', redoran: 'the Shell Halls', hlaalu: 'the Counting Coasts', velothi: 'the Temple Stone', summerset: 'the Crystal Isle', shivering: 'the Mad Isles', cyrodiil: 'the Imperial Heartland', blackmarsh: 'the Drowned Marsh', solstheim: 'the Ash and Ice Isle', atmora: 'the Frozen Homeland',
 };
 
 /**
@@ -183,6 +210,10 @@ export const REGION_TITLES: Record<ProvinceId, string[]> = {
   orsinium: ['Clanlands of {x}', '{x} Stronghold', 'Warhold of {x}', 'The {x} Crags', 'Chiefdom of {x}', '{x} Iron March', 'Tuskhold of {x}'],
   elsweyr: ['Reach of {x}', 'Moonfields of {x}', 'The {x} Plains', 'Warren of {x}', '{x} Savanna', 'Caravanate of {x}', 'Pride of {x}'],
   valenwood: ['Canopy of {x}', 'Grove of {x}', 'The {x} Wilds', 'Heartwood of {x}', '{x} Glade', 'Bough of {x}', 'Woodland of {x}'],
+  telvanni: ['Tower of {x}', 'The {x} Spores', 'Wizard-fief of {x}', '{x} Fungal Reach', 'Grown Court of {x}', 'The Fungus of {x}', 'Spire of {x}'],
+  redoran: ['Shell-hold of {x}', 'The {x} Dome', 'Stronghold of {x}', '{x} Watch', 'Duty-march of {x}', 'Hall of {x}', 'The {x} Barrow-wall'],
+  hlaalu: ['Counting-house of {x}', 'The {x} Docks', 'Charter of {x}', '{x} Boardwalk', 'Trade-march of {x}', 'Exchange of {x}', 'Canalside of {x}'],
+  velothi: ['Canton of {x}', 'The {x} Ziggurat', 'Temple-land of {x}', '{x} Shrine-march', 'Ancestor-hold of {x}', 'Pilgrimage of {x}', 'The {x} Stair'],
   morrowind: ['Houselands of {x}', 'The {x} Ashlands', 'Stronghold of {x}', '{x} Caldera', 'Fief of {x}', 'Cinder-march of {x}', 'Council Seat of {x}'],
   summerset: ['Court of {x}', 'Spire of {x}', 'The {x} Gardens', 'Isle of {x}', 'Crystal March of {x}', 'Conclave of {x}', 'Gilded Reach of {x}'],
   shivering: ['Fancy of {x}', 'The {x} Folly', 'Madness of {x}', '{x} Whimsy', 'Realm of {x}', 'Dream of {x}', 'The Curious {x}'],

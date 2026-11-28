@@ -105,7 +105,7 @@ const marsh: Kit = {
 const KITS: Record<string, Kit> = { nord, imperial, highrock, redguard, khajiit, woodelf, cinder, orc, gilded, marsh };
 export const KIT_OF: Record<ProvinceId, string> = {
   skyrim: 'nord', shivering: 'nord', atmora: 'nord', solstheim: 'nord', cyrodiil: 'imperial', highrock: 'highrock', hammerfell: 'redguard', elsweyr: 'khajiit',
-  valenwood: 'woodelf', morrowind: 'cinder', orsinium: 'orc', summerset: 'gilded', blackmarsh: 'marsh',
+  valenwood: 'woodelf', morrowind: 'cinder', telvanni: 'cinder', redoran: 'cinder', hlaalu: 'cinder', velothi: 'cinder', orsinium: 'orc', summerset: 'gilded', blackmarsh: 'marsh',
 };
 
 type Slot = [keyof Kit, number, number, number];

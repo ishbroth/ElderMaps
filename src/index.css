@@ -82,10 +82,11 @@ button { font: inherit; }
 
 /* ---- a picked place ---- */
 .em-card { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: max(40px, calc(env(safe-area-inset-bottom) + 30px)); z-index: 12; width: min(340px, calc(100% - 28px)); padding: 16px 18px 14px; background: var(--sky-panel); border: 1px solid var(--sky-line); border-top: 2px solid var(--prov, var(--sky-ink)); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
-.em-card h2 { margin: 6px 0 2px; font-family: var(--font-ui); font-weight: 400; font-size: 22px; letter-spacing: 0.14em; text-transform: uppercase; }
+.em-card h2 { margin: 6px 0 2px; font-family: var(--font-ui); font-weight: 400; font-size: 20px; letter-spacing: 0.14em; text-transform: uppercase; }
 .em-oblivion .em-card h2 { font-family: var(--font-old); font-weight: 700; text-transform: none; letter-spacing: 0.04em; }
-.em-card p { margin: 3px 0; font-size: 13px; line-height: 1.4; }
-.em-card-kind { color: var(--prov, var(--sky-ink)); letter-spacing: 0.22em; text-transform: uppercase; font-size: 9px !important; font-weight: 700; }
+.em-card p { margin: 3px 0; font-size: 12px; line-height: 1.4; }
+.em-card-kind { color: var(--prov, var(--sky-ink)); letter-spacing: 0.16em; text-transform: uppercase; font-size: 8px !important; font-weight: 600; line-height: 1.3; }
+.em-card-kind, .em-card-real, .em-card-note, .em-card-blurb { text-align: inherit; }
 .em-card-real { color: var(--sky-dim); font-style: italic; }
 .em-card-blurb { color: var(--sky-dim); }
 .em-card-icon { width: 34px; height: 34px; color: var(--prov, var(--sky-ink)); }

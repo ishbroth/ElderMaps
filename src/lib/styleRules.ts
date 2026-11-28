@@ -43,7 +43,8 @@ export function styleFor(p: Pt): StyleId {
   if (near(p, 22.32, 114.17, 28)) return 'imperial';                 // Hong Kong
   if (near(p, 19.43, -99.13, 140)) return 'imperial';                // Mexico City
   if (near(p, 38.08, 46.29, 250) && c === 'IR') return 'hlaalu';     // Tabriz
-  if (near(p, -12.97, -38.5, 230) || near(p, -2.53, -44.3, 230)) return 'orcish'; // Salvador and Sao Luis, Brazil
+  if (near(p, -12.97, -38.5, 230) || near(p, -2.53, -44.3, 230) || near(p, -1.46, -48.5, 230)) return 'orcish'; // Salvador, Sao Luis and Belem, Brazil
+  if (near(p, 38.63, -90.2, 35)) return 'breton';                    // St. Louis (its river border with Illinois sits just beside the point)
   if (near(p, 35.69, -105.94, 75)) return 'redoran';                // Santa Fe
   if (near(p, 31.76, -106.49, 130)) return 'hlaalu';                 // El Paso
   if (near(p, 43.12, 131.9, 380) || near(p, 53.04, 158.65, 420)) return 'velothi'; // Vladivostok and Petropavlovsk
@@ -89,7 +90,7 @@ export function styleFor(p: Pt): StyleId {
   // ===== Canada
   if (c === 'CA') {
     if (any(a, ['nova scotia', 'newfoundland and labrador', 'prince edward island'])) return 'nordic';
-    if (a === 'ontario') return p.lat >= 46.9 ? 'breton' : 'imperial';
+    if (a === 'ontario') return p.lat >= 45.9 ? 'breton' : 'imperial';
     if (a === 'alberta') return p.lat < 55.5 ? 'imperial' : 'breton';
     if (any(a, ['british columbia', 'yukon'])) return 'telvanni';
     return 'breton';                                                   // Quebec, New Brunswick, Manitoba, Saskatchewan, the north
@@ -229,10 +230,10 @@ export const STYLES: { id: StyleId; tint: string; name: string }[] = [
   { id: 'argonian', tint: '#2f6b55', name: 'Argonian' },
   { id: 'redguard', tint: '#d0873a', name: 'Redguard' },
   { id: 'khajiit', tint: '#e3bf4a', name: 'Khajiit' },
-  { id: 'hlaalu', tint: '#c8ae8c', name: 'Hlaalu' },
-  { id: 'telvanni', tint: '#3f86a6', name: 'Telvanni' },
-  { id: 'redoran', tint: '#8c3f33', name: 'Redoran' },
-  { id: 'velothi', tint: '#4d4a63', name: 'Velothi' },
+  { id: 'hlaalu', tint: '#c49a78', name: 'Hlaalu' },
+  { id: 'telvanni', tint: '#5f9a9c', name: 'Telvanni' },
+  { id: 'redoran', tint: '#9a4a3c', name: 'Redoran' },
+  { id: 'velothi', tint: '#58566f', name: 'Velothi' },
   { id: 'bosmer', tint: '#4d8a3a', name: 'Bosmer' },
   { id: 'altmer', tint: '#efe3a0', name: 'Altmer' },
   { id: 'ayleid', tint: '#d44fa0', name: 'Fever Isles' },

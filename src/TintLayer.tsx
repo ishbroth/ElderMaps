@@ -34,6 +34,7 @@ export default function TintLayer({ map, world, look, styleMap }: { map: google.
       const world256 = 256 * 2 ** zoom;
       const mercY = (lat: number) => { const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
       const cx = ((center.lng() + 180) / 360) * world256, cy = mercY(center.lat()) * world256;
+      ctx.globalAlpha = look === 'vivid' ? 0.62 : 1;
       for (const copy of [-1, 0, 1]) {
         if (styleMap) {
           // the washes of the building styles, from the picture of the world (one pixel of it is a slice of the Mercator square, so it is laid straight onto the map)

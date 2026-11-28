@@ -40,7 +40,7 @@ export default function SigilPicker({ value, onChange }: { value: SigilChoice | 
   useEffect(() => { void Promise.all([loadWorld(), loadCrests()]).then(([w]) => setWorld(w)); }, []);
   const cities = world?.cities.crest ?? [];
   const chosen = useMemo(() => cities.find((c) => value && c[0] === value.city && c[5] === value.iso) ?? null, [cities, value]);
-  const shown = (c: City): string => (world ? loreName(c[0], world.provinceOfCountry(c[5])) : c[0]);
+  const shown = (c: City): string => (world ? loreName(c[0], world.provinceOfSpot(`c:${c[0]}:${c[1]}`, c[1], c[2], c[5])) : c[0]);
 
   // the suggestions drop down as you type (a short wait after the last key, so Google is asked once and not for every letter)
   useEffect(() => {

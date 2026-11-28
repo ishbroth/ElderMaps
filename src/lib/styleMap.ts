@@ -1,6 +1,7 @@
 // The map of building styles over the world (built by _tools/build-styles.mts from the rules in styleRules.ts): which style a place is rendered in, and the colour wash on the map.
 // To go back to the older layout (one style for each country's realm), set STYLE_MODE to 'legacy'.
 
+import type { ProvinceId } from './lore';
 import { STYLES, type StyleId } from './styleRules';
 
 export const STYLE_MODE: 'regions' | 'legacy' = 'regions';
@@ -17,6 +18,12 @@ export interface StyleMap {
 
 /** The colour of each style on the map: its realm-free wash. */
 export const STYLE_TINT: Record<StyleId, string> = Object.fromEntries(STYLES.map((s) => [s.id, s.tint])) as Record<StyleId, string>;
+
+/** The realm (name, voice, titles, loot, colours) each style stands for. A place takes these from the style of the ground it stands on, not from its continent. */
+export const PROVINCE_OF_STYLE: Record<StyleId, ProvinceId> = {
+  nordic: 'skyrim', breton: 'highrock', imperial: 'cyrodiil', argonian: 'blackmarsh', redguard: 'hammerfell', khajiit: 'elsweyr', hlaalu: 'hlaalu', telvanni: 'telvanni', redoran: 'redoran', velothi: 'velothi',
+  bosmer: 'valenwood', altmer: 'summerset', ayleid: 'shivering', orcish: 'orsinium',
+};
 
 let loading: Promise<StyleMap | null> | null = null;
 
@@ -70,6 +77,24 @@ function gridAt(sm: StyleMap, lat: number, lng: number): number {
     if (rr >= 0 && rr < H && cc >= 0 && cc < W && sm.grid[rr * W + cc]) return sm.grid[rr * W + cc];
   }
   return 0;
+}
+
+/** The realm of a point on the map, by the style of the ground (null in the older layout, before the map has loaded, or where the grid has nothing). The icy north keeps the names of its own lands. */
+export function realmAt(sm: StyleMap | null, lat: number, lng: number, legacy?: ProvinceId): ProvinceId | null {
+  if (STYLE_MODE !== 'regions' || !sm) return null;
+  const n = gridAt(sm, lat, lng);
+  if (!n) return null;
+  const p = PROVINCE_OF_STYLE[STYLES[n - 1].id];
+  return p === 'skyrim' && (legacy === 'solstheim' || legacy === 'atmora') ? legacy : p;
+}
+
+/** The realm of a place: a shield or town by its own exact style, anything else by where it lies. */
+export function realmOfSpot(sm: StyleMap | null, id: string, lat: number, lng: number, legacy?: ProvinceId): ProvinceId | null {
+  if (STYLE_MODE !== 'regions' || !sm) return null;
+  const n = sm.cities[id];
+  if (!n) return realmAt(sm, lat, lng, legacy);
+  const p = PROVINCE_OF_STYLE[STYLES[n - 1].id];
+  return p === 'skyrim' && (legacy === 'solstheim' || legacy === 'atmora') ? legacy : p;
 }
 
 /** The building style a place is rendered in: a shield or town by its own exact entry, anything else by where it lies. Null in the older layout (or before the map has loaded). */

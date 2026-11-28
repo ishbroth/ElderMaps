@@ -1,6 +1,7 @@
 // The data of the map: countries (and so provinces), the cities (as hold capitals), the few key places round each city, and the wild places of the countryside.
 
 import { provinceOf, type ProvinceId } from './lore';
+import { loadStyleMap, realmAt, realmOfSpot } from './styleMap';
 
 export interface Metro { id: string; name: string; country: string; lat: number; lng: number; pop: number; radiusKm: number }
 /** [name, lat, lng, kind (keep, landmark, town), category, fame] */
@@ -24,6 +25,8 @@ export interface World {
   keys: Record<string, KeyPlace[]>;
   wild: WildPlace[];
   provinceAt: (lat: number, lng: number) => ProvinceId;
+  /** The realm of a place (a shield or town by its exact style, else by where it lies), falling back to its country's realm. */
+  provinceOfSpot: (id: string, lat: number, lng: number, iso2?: string) => ProvinceId;
   provinceOfCountry: (iso2: string) => ProvinceId;
 }
 
@@ -52,12 +55,13 @@ let world: Promise<World> | null = null;
 
 export function loadWorld(): Promise<World> {
   world ??= (async () => {
-    const [countriesJson, metros, keys, wild, cityList] = await Promise.all([
+    const [countriesJson, metros, keys, wild, cityList, styleMap] = await Promise.all([
       fetch(`${BASE}data/countries.json`).then((r) => r.json() as Promise<GeoJSON.FeatureCollection>),
       fetch(`${BASE}data/metros-index.json`).then((r) => r.json() as Promise<Metro[]>),
       fetch(`${BASE}data/keys.json`).then((r) => r.json() as Promise<Record<string, KeyPlace[]>>),
       fetch(`${BASE}data/wild.json`).then((r) => r.json() as Promise<WildPlace[]>),
       fetch(`${BASE}data/cities.json`).then((r) => r.json() as Promise<City[]>),
+      loadStyleMap(),
     ]);
     const countries: Country[] = countriesJson.features.map((f) => {
       const p = f.properties as Record<string, string>;
@@ -69,13 +73,16 @@ export function loadWorld(): Promise<World> {
       return { iso2, iso3, name: p.NAME, province, rings, centre: [(big.box[1] + big.box[3]) / 2, (big.box[0] + big.box[2]) / 2], feature: { ...f, properties: { province } } };
     });
     const byIso2 = new Map(countries.map((c) => [c.iso2, c]));
-    const provinceAt = (lat: number, lng: number): ProvinceId => {
+    const countryProvinceAt = (lat: number, lng: number): ProvinceId => {
       for (const c of countries) for (const r of c.rings) if (lng >= r.box[0] && lng <= r.box[2] && lat >= r.box[1] && lat <= r.box[3] && inRing(r.pts, lng, lat)) return c.province;
       // not on any country's outline (a coast, an island): the nearest country's middle
       let best: Country = countries[0], bestD = Infinity;
       for (const c of countries) { const d = (c.centre[0] - lat) ** 2 + ((c.centre[1] - lng) * Math.cos((lat * Math.PI) / 180)) ** 2; if (d < bestD) { bestD = d; best = c; } }
       return best.province;
     };
+    // a point's realm: from the style of the ground (the building styles drawn on the map), or, where there is none, from its country
+    const provinceAt = (lat: number, lng: number): ProvinceId => { const legacy = countryProvinceAt(lat, lng); return realmAt(styleMap, lat, lng, legacy) ?? legacy; };
+    const provinceOfSpot = (id: string, lat: number, lng: number, iso2?: string): ProvinceId => { const legacy = iso2 ? byIso2.get(iso2)?.province ?? countryProvinceAt(lat, lng) : countryProvinceAt(lat, lng); return realmOfSpot(styleMap, id, lat, lng, legacy) ?? legacy; };
     // lighthouses: the famous ones stay; the rest only where someone could get to them, near a city (an easy road or ferry away). The far ones out in the water are dropped.
     const keepLight = (w: WildPlace): boolean => {
       if (w[4] !== 'lighthouse' || w[5] >= 8) return true;
@@ -90,7 +97,7 @@ export function loadWorld(): Promise<World> {
     return {
       cities, provinceRings: countries.flatMap((c) => c.rings.map((r) => ({ province: c.province, pts: r.pts }))),
       countries, geojson: { type: 'FeatureCollection', features: countries.map((c) => c.feature) }, metros: metros.sort((a, b) => b.pop - a.pop), keys, wild: wildKept,
-      provinceAt, provinceOfCountry: (iso2) => byIso2.get(iso2)?.province ?? 'cyrodiil',
+      provinceAt, provinceOfSpot, provinceOfCountry: (iso2) => byIso2.get(iso2)?.province ?? 'cyrodiil',
     };
   })();
   return world;

@@ -33,12 +33,12 @@ export const LOOT: Loot[] = [
 export const REGIONAL_HERBS: { loot: Loot; provinces: ProvinceId[] }[] = [
   { loot: { id: 'snowberry', name: 'Rimeberry', kind: 'herb', blurb: 'A frost-bitten red berry.', inspiredBy: 'snowberries' }, provinces: ['skyrim', 'solstheim', 'atmora'] },
   { loot: { id: 'nirnroot', name: 'Chimeroot', kind: 'herb', blurb: 'A root that rings faintly in the dark.', inspiredBy: 'nirnroot' }, provinces: ['cyrodiil', 'highrock', 'summerset'] },
-  { loot: { id: 'ash_yam', name: 'Cinder Yam', kind: 'herb', blurb: 'A yam that grows in volcanic ash.', inspiredBy: 'ash yam' }, provinces: ['morrowind'] },
-  { loot: { id: 'comberry', name: 'Marshberry', kind: 'herb', blurb: 'A swollen berry from the wet ground.', inspiredBy: 'comberry' }, provinces: ['morrowind', 'blackmarsh'] },
+  { loot: { id: 'ash_yam', name: 'Cinder Yam', kind: 'herb', blurb: 'A yam that grows in volcanic ash.', inspiredBy: 'ash yam' }, provinces: ['morrowind', 'telvanni', 'redoran', 'hlaalu', 'velothi'] },
+  { loot: { id: 'comberry', name: 'Marshberry', kind: 'herb', blurb: 'A swollen berry from the wet ground.', inspiredBy: 'comberry' }, provinces: ['morrowind', 'blackmarsh', 'hlaalu', 'telvanni'] },
   { loot: { id: 'hist_sap', name: 'Heartwood Sap', kind: 'herb', blurb: 'A bitter sap from the great marsh trees.', inspiredBy: 'hist sap' }, provinces: ['blackmarsh', 'valenwood'] },
-  { loot: { id: 'moon_sugar', name: 'Moonsugar', kind: 'herb', blurb: 'A pale crystal from sun-baked fields.', inspiredBy: 'moon sugar' }, provinces: ['elsweyr', 'hammerfell'] },
+  { loot: { id: 'moon_sugar', name: 'Moonsugar', kind: 'herb', blurb: 'A pale crystal from sun-baked fields.', inspiredBy: 'moon sugar' }, provinces: ['elsweyr', 'hammerfell', 'hlaalu', 'redoran'] },
   { loot: { id: 'sand_lily', name: 'Dune Lily', kind: 'herb', blurb: 'A flower that opens only at dusk.' }, provinces: ['hammerfell', 'elsweyr'] },
-  { loot: { id: 'glow_cap', name: 'Glowcap', kind: 'herb', blurb: 'A mushroom that gives off a soft light.', inspiredBy: 'glowing mushroom' }, provinces: ['valenwood', 'shivering', 'morrowind'] },
+  { loot: { id: 'glow_cap', name: 'Glowcap', kind: 'herb', blurb: 'A mushroom that gives off a soft light.', inspiredBy: 'glowing mushroom' }, provinces: ['valenwood', 'shivering', 'morrowind', 'telvanni'] },
   { loot: { id: 'tusk_thistle', name: 'Tuskthistle', kind: 'herb', blurb: 'A tough thistle, prized by the stronghold smiths.' }, provinces: ['orsinium'] },
   { loot: { id: 'dream_blossom', name: 'Fevernettle', kind: 'herb', blurb: 'A flower no two people describe the same way.' }, provinces: ['shivering'] },
 ];
@@ -49,6 +49,6 @@ export function lootFor(province: ProvinceId): Loot[] {
   const local = REGIONAL_HERBS.filter((h) => h.provinces.includes(province)).map((h) => h.loot);
   const cold = province === 'skyrim' || province === 'solstheim' || province === 'atmora';
   // the three plain herbs are only common where they grow: frostdown in the cold, blisterbloom in the damp, houndroot in the woods and hills
-  const plain = herbs.filter((h) => (h.id === 'tundra_cotton' ? cold : h.id === 'blisterwort' ? ['morrowind', 'blackmarsh', 'valenwood', 'shivering'].includes(province) : !['hammerfell', 'elsweyr'].includes(province)));
+  const plain = herbs.filter((h) => (h.id === 'tundra_cotton' ? cold : h.id === 'blisterwort' ? ['morrowind', 'telvanni', 'hlaalu', 'blackmarsh', 'valenwood', 'shivering'].includes(province) : !['hammerfell', 'elsweyr'].includes(province)));
   return [...LOOT.filter((l) => l.kind !== 'herb'), ...plain, ...local];
 }

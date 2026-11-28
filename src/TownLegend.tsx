@@ -95,7 +95,7 @@ export default function TownLegend({ onPlaces, metro, province, world, signedIn,
     for (const tier of ['town', 'village'] as const) {
       for (const [name, lat, lng, pop, , iso2] of world.cities[tier]) {
         if (!near(lat, lng) || Math.hypot((lat - metro.lat) * 111.32, (lng - metro.lng) * 111.32) < 1) continue;
-        const prov = world.provinceOfCountry(iso2);
+        const prov = world.provinceOfSpot(`c:${name}:${lat}`, lat, lng, iso2);
         put({ id: `c:${name}:${lat}`, kind: tier, real: name, name: loreName(name, prov), province: prov, lat, lng, fame: pop, pic: settlementPic(tier, name, pop, prov), iso2, note: 'A settlement about the city' }, false);
       }
     }
