@@ -12,7 +12,7 @@ import { callerId, corsHeaders, reply, serviceClient } from '../_shared/common.t
 import { findPhotoFor, type PhotoHit } from '../_shared/photoSources.ts';
 import { bestStreetView } from '../_shared/streetViews.ts';
 import { keepsBuilding } from '../_shared/verifyRender.ts';
-import { glimpsePrompt, KIT_OF_PROVINCE, kitFor } from '../_shared/glimpsePrompt.ts';
+import { glimpsePrompt, KIT_OF_PROVINCE, kitFor, kitForStyle, STYLE_IDS } from '../_shared/glimpsePrompt.ts';
 import { pickWaterFlavour, waterNear } from '../_shared/waterSetting.ts';
 
 const SITE = 'https://eldermaps.com';
@@ -124,7 +124,9 @@ Deno.serve(async (req) => {
     const { count } = await db.from('renders').select('place_id', { count: 'exact', head: true }).gte('created_at', since.toISOString());
     if ((count ?? 0) >= cap) { await giveBack(); return reply(req, { error: 'busy' }, 429); }
 
-    const kit = kitFor(kind, province);
+    // the building style: the one the app worked out from where the place lies on the map (checked here), else the realm's own
+    const style = typeof b.style === 'string' && STYLE_IDS.has(b.style) ? b.style : null;
+    const kit = style ? kitForStyle(kind, style) : kitFor(kind, province);
     const metro = await metroOf(lat, lng);
     await db.from('renders').upsert({ place_id: placeId, place_name: name, kit, kind, metro_id: metro, status: 'generating', started_at: new Date().toISOString(), lat, lng, discovered_by: user, created_at: new Date().toISOString() }, { onConflict: 'place_id' });
 

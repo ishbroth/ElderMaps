@@ -33,6 +33,7 @@ import { nordify, setVoiceEnabled, speak, spokenDistance, stopSpeaking, voiceAva
 import { loadWorld, type Metro, type World } from './lib/world';
 import TornFrame from './TornFrame';
 import TintLayer from './TintLayer';
+import { loadStyleMap, styleOfSpot, type StyleMap } from './lib/styleMap';
 
 /** One thing on the map that can be picked. */
 export interface Spot {
@@ -111,6 +112,9 @@ export default function App() {
   const mapBox = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const [world, setWorld] = useState<World | null>(null);
+  // which building style each part of the world is in (the washes on the map and what a glimpse is rendered in)
+  const [styleMap, setStyleMap] = useState<StyleMap | null>(null);
+  useEffect(() => { void loadStyleMap().then(setStyleMap); }, []);
   const [problem, setProblem] = useState('');
   const [ready, setReady] = useState(false);
   const [look, setLook] = useState<LookId>(() => { const l = localStorage.getItem('eldermaps:look'); return l === 'oblivion' || l === 'vivid' ? l : 'vivid'; }); // the northern look is retired from the picker (see _archive/NORTHERN-LOOK.md)
@@ -808,7 +812,7 @@ export default function App() {
         {local && fogMetro.current && (
           <div className="em-fog-note"><span>YOUR NEIGHBOURHOOD, AND WHAT YOU HAVE HAD PICTURED. THE REST OF {fogMetro.current.name.toUpperCase()} LIES IN FOG.</span><button type="button" className="em-btn" onClick={() => { const m = fogMetro.current; if (m) setLegend(m); }}>THE TOWN LEGEND</button></div>
         )}
-        {ready && world && !trip && look !== 'vivid' && <TintLayer map={mapRef.current} world={world} look={look} />}
+        {ready && world && !trip && look !== 'vivid' && <TintLayer map={mapRef.current} world={world} look={look} styleMap={styleMap} />}
         <div className="em-vignette" aria-hidden="true" />
         {look === 'oblivion' && !trip && <TornFrame />}
 
@@ -856,7 +860,7 @@ export default function App() {
         )}
 
         {viewing && !trip && (
-          <SceneView key={viewing.id + (purgeNow ? ':p' : '')} gateCleared={cleared.has(viewing.id)} purged={cleared.has(viewing.id)} autoPurge={purgeNow} onGlimpsed={(id) => setGlimpsed((prev) => new Set(prev).add(id))} onHearth={account.session ? async () => { const r = await setHearth(viewing!.id); if (r) say(r); else { say('THIS IS NOW YOUR HEARTH'); void account.refresh(); } } : undefined} level={levelInfo(account.points).level} homeCity={!!viewing && !!world && !!account.home?.metro && (account.home.changes ?? 0) <= 3 && (viewing.kind === 'crest' || viewing.kind === 'town') && metroForSpot(world, viewing)?.id === account.home.metro} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
+          <SceneView style={styleOfSpot(styleMap, viewing)} key={viewing.id + (purgeNow ? ':p' : '')} gateCleared={cleared.has(viewing.id)} purged={cleared.has(viewing.id)} autoPurge={purgeNow} onGlimpsed={(id) => setGlimpsed((prev) => new Set(prev).add(id))} onHearth={account.session ? async () => { const r = await setHearth(viewing!.id); if (r) say(r); else { say('THIS IS NOW YOUR HEARTH'); void account.refresh(); } } : undefined} level={levelInfo(account.points).level} homeCity={!!viewing && !!world && !!account.home?.metro && (account.home.changes ?? 0) <= 3 && (viewing.kind === 'crest' || viewing.kind === 'town') && metroForSpot(world, viewing)?.id === account.home.metro} spot={viewing} province={PROVINCES[viewing.province]} icon={viewing.kind === 'crest' ? crestSvg(viewing.real, viewing.iso2) : glyph(viewing.pic ?? (viewing.kind === 'landmark' ? glyphForCategory(viewing.note) : viewing.kind))}
             signedIn={!!account.session} onSpent={() => void account.refresh()} onCleared={(id) => setCleared((prev) => new Set(prev).add(id))}
             onTownLegend={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) { say('THIS PLACE HAS NO CITY MAP'); return; } setViewing(null); setSelected(null); setLegend(m); }}
             onFoggedCity={() => { const m = world ? metroForSpot(world, viewing) : null; if (!m) return; setViewing(null); setSelected(null); void openFogged(m, { lat: m.lat, lng: m.lng }, 'card'); }}

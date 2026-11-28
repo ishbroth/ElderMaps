@@ -19,8 +19,8 @@ export type GlimpseOutcome =
   | { kind: 'working' }
   | { kind: 'error'; reason: 'sign_in' | 'no_credits' | 'no_photo' | 'busy' | 'failed' | 'bad_place'; cost?: number };
 
-export async function requestGlimpse(spot: { id: string; name: string; kind: string; lat: number; lng: number; province: string }): Promise<GlimpseOutcome> {
-  const { data, error } = await db().functions.invoke('glimpse', { body: { placeId: spot.id, name: spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: spot.province } });
+export async function requestGlimpse(spot: { id: string; name: string; kind: string; lat: number; lng: number; province: string; style?: string | null }): Promise<GlimpseOutcome> {
+  const { data, error } = await db().functions.invoke('glimpse', { body: { placeId: spot.id, name: spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: spot.province, style: spot.style ?? undefined } });
   if (error) {
     let reason = 'failed'; let cost: number | undefined;
     const response = (error as { context?: Response }).context;

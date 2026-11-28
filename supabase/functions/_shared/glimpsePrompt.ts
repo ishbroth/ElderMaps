@@ -37,6 +37,13 @@ export const RUIN_KIT_OF_PROVINCE: Record<string, string> = {
 /** The kit for a place: caves and ruins get their land's ancient-ruin kit, everything else its land's building kit. */
 export const kitFor = (kind: string, province: string): string => (kind === 'cave' || kind === 'ruin' || NATURAL.has(kind) ? RUIN_KIT_OF_PROVINCE[province] : KIT_OF_PROVINCE[province]) ?? 'imperial';
 
+/** The building styles a place can be given by where it lies on the map (the style names are the same as the kit names above). */
+export const STYLE_IDS = new Set(['nordic', 'breton', 'imperial', 'argonian', 'redguard', 'khajiit', 'hlaalu', 'telvanni', 'redoran', 'velothi', 'bosmer', 'altmer', 'ayleid', 'orcish']);
+/** The ruin style of a caves, ruins and natural places in each style's area. */
+const RUIN_KIT_OF_STYLE: Record<string, string> = { nordic: 'barrow', breton: 'ayleid', imperial: 'ayleid', argonian: 'argonian', redguard: 'khajiit', khajiit: 'khajiit', hlaalu: 'dwemer', telvanni: 'dwemer', redoran: 'dwemer', velothi: 'dwemer', bosmer: 'bosmer', altmer: 'ayleid', ayleid: 'ayleid', orcish: 'dwemer' };
+/** The kit for a place in a given style's area: caves, ruins and natural places get that area's ancient-ruin kit, everything else the style itself. */
+export const kitForStyle = (kind: string, style: string): string => (kind === 'cave' || kind === 'ruin' || NATURAL.has(kind) ? RUIN_KIT_OF_STYLE[style] : style) ?? 'imperial';
+
 /** Natural places: the landform stays the star. */
 const NATURAL = new Set(['waterfall', 'peak', 'volcano', 'glacier', 'grove', 'spring', 'pass']);
 
@@ -83,6 +90,10 @@ const CITY_SWAPS: Record<string, string[]> = {
   imperial: ['a slender white-gold tower like a smaller White-Gold Tower, with a tiered spire', 'a domed Imperial temple with columns and red tile roofs', 'a pale, fluted Ayleid ruin tower with a faint blue glow, overgrown with ivy', 'a stone Imperial watchtower with a red-tiled cap and a banner', 'a round Roman-style amphitheatre or arena wall in weathered stone'],
   redguard: ['a sandstone palace with a great onion dome and slender minarets like the ones in Sentinel', 'a tall sun-bleached minaret with a gilded crown', 'a layered white dome with a spire and striped awnings'],
   khajiit: ['an eroded, stepped sandstone ziggurat temple with moon motifs', 'an ancient layered ruin with a newer pointed-roof house built on top of it', 'a tall slender tower with a crescent-moon finial and silk awnings'],
+  hlaalu: ['a rounded, many-storeyed building of pale plaster over stone with curved wooden beam fronts and a stepped roofline, like the great trading houses of Balmora', 'a broad low trade hall of cream plaster with plank walkways, lanterns and a curved door', 'a stepped plaster tower of balconies, awnings and rounded wooden beams'],
+  telvanni: ['a huge living mushroom tower like the Telvanni towers of Sadrith Mora: a bulbous organic stalk and cap with spiral stairs and glowing fungus lights', 'a tall organic spire grown from a giant fungus with glowing windows and hanging spores', 'a leaning, bulbous wizard tower with a cap like a toadstool'],
+  redoran: ['a great domed building of dark chitin-like shell and mudbrick, curved and banded, like the halls of Ald-ruhn', 'a round fortified hall with a shell-like dome, few windows and a round door', 'a ring of curved shell-walled towers around a central dome'],
+  velothi: ['a massive stepped temple of dark carved stone with a domed courtyard on top, like a canton of Vivec', 'a great arched stone gate-hall with carved relief and incense smoke', 'a heavy stepped ziggurat of dark basalt with channels of water at its foot'],
   ashland: ['a huge living mushroom tower like the Telvanni towers of Sadrith Mora: a bulbous, organic stalk and cap with spiral stairs and glowing fungus lights', 'a great domed Redoran-style building of dark chitin-like shell, curved and banded', 'a massive stepped Velothi temple of dark carved stone with a domed courtyard on top', 'a giant hollow shell or bone arch, with a red glow in its mouth'],
   altmer: ['a golden-white spired tower with flowing curved walls and crystal crowns', 'a tall crystalline spire with a golden lattice crown', 'a graceful domed pavilion on slender columns'],
   bosmer: ['a living tree as tall as the real building it replaces, with homes, platforms and rope bridges grown into its trunk and crown', 'a great tree-trunk tower wound with a spiral stair and lanterns', 'a leaf-roofed tower grown from woven branches'],

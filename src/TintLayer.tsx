@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react';
 import { PROVINCES } from './lib/lore';
 import type { LookId } from './lib/styles';
 import type { World } from './lib/world';
+import type { StyleMap } from './lib/styleMap';
 
 /**
  * The tint of each province over the land, drawn soft: the outlines of the countries filled in their province's colour and then blurred, so one kind of
  * land fades into the next across a border (snow into High Rock's heath, steppe into forest) instead of stopping at a line. It is drawn by hand on a canvas
  * from the map's centre and zoom, which keeps it in step with the map as it moves, and it fades away as you come in toward the cities.
  */
-export default function TintLayer({ map, world, look }: { map: google.maps.Map | null; world: World; look: LookId }) {
+export default function TintLayer({ map, world, look, styleMap }: { map: google.maps.Map | null; world: World; look: LookId; styleMap: StyleMap | null }) {
   const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -34,6 +35,13 @@ export default function TintLayer({ map, world, look }: { map: google.maps.Map |
       const mercY = (lat: number) => { const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
       const cx = ((center.lng() + 180) / 360) * world256, cy = mercY(center.lat()) * world256;
       for (const copy of [-1, 0, 1]) {
+        if (styleMap) {
+          // the washes of the building styles, from the picture of the world (one pixel of it is a slice of the Mercator square, so it is laid straight onto the map)
+          const S = styleMap.tint.width, k = world256 / S, dx = copy * world256 - cx + w / 2, dy = -cy + h / 2;
+          const sx = Math.max(0, -dx / k), sy = Math.max(0, -dy / k), ex = Math.min(S, (w - dx) / k), ey = Math.min(S, (h - dy) / k);
+          if (ex > sx && ey > sy) ctx.drawImage(styleMap.tint, sx, sy, ex - sx, ey - sy, dx + sx * k, dy + sy * k, (ex - sx) * k, (ey - sy) * k);
+          continue;
+        }
         for (const ring of world.provinceRings) {
           const tint = PROVINCES[ring.province].tint;
           ctx.fillStyle = tint;
@@ -55,7 +63,7 @@ export default function TintLayer({ map, world, look }: { map: google.maps.Map |
     watch.observe(el);
     schedule();
     return () => { handles.forEach((hnd) => hnd.remove()); watch.disconnect(); cancelAnimationFrame(frame); };
-  }, [map, world]);
+  }, [map, world, styleMap]);
 
   return <canvas ref={canvas} className={`em-tint em-tint-${look}`} aria-hidden="true" />;
 }

@@ -28,6 +28,8 @@ interface Props {
   onCleared: (placeId: string) => void;
   /** Opens the Town Legend of the city this place belongs to. */
   onTownLegend: () => void;
+  /** The building style the place is rendered in (from where it lies on the map); null for the older layout. */
+  style?: string | null;
   /** This city's gates are cleared (the fogged city may be entered). */
   gateCleared?: boolean;
   /** This place was purged already. */
@@ -44,7 +46,7 @@ interface Props {
 }
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
-export default function SceneView({ gateCleared = false, purged = false, autoPurge = false, onGlimpsed, level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onHearth, onClose }: Props) {
+export default function SceneView({ style = null, gateCleared = false, purged = false, autoPurge = false, onGlimpsed, level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onHearth, onClose }: Props) {
   const lines = sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
@@ -70,7 +72,7 @@ export default function SceneView({ gateCleared = false, purged = false, autoPur
     setProblem(''); setState('working');
     // it can take a minute the first time anyone looks at a place: asking again is free
     for (let attempt = 0; attempt < 40 && alive.current; attempt++) {
-      const r = await requestGlimpse({ id: spot.id, name: spot.real || spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: province.id });
+      const r = await requestGlimpse({ id: spot.id, name: spot.real || spot.name, kind: spot.kind, lat: spot.lat, lng: spot.lng, province: province.id, style });
       if (!alive.current) return;
       if (r.kind === 'ready') { setGlimpse(r.glimpse); setState('ready'); setOwned(true); onGlimpsed?.(spot.id); if (r.glimpse.charged) onSpent(); return; }
       if (r.kind === 'error') { setProblem(GLIMPSE_MESSAGES[r.reason] ?? GLIMPSE_MESSAGES.failed); setState('idle'); return; }
