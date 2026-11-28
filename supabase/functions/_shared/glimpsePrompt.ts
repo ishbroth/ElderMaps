@@ -44,6 +44,15 @@ const RUIN_KIT_OF_STYLE: Record<string, string> = { nordic: 'barrow', breton: 'a
 /** The kit for a place in a given style's area: caves, ruins and natural places get that area's ancient-ruin kit, everything else the style itself. */
 export const kitForStyle = (kind: string, style: string): string => (kind === 'cave' || kind === 'ruin' || NATURAL.has(kind) ? RUIN_KIT_OF_STYLE[style] : style) ?? 'imperial';
 
+/** A sprinkling of two styles worldwide, whatever the region: the brass-machine ruins (the old-engineers' style) among about one ruin or cave in eight, and a very few natural places in the ash-land style (about one in thirty, and more of the volcanoes). The same place always gets the same answer. */
+export function sprinkleKit(kind: string, kit: string, placeId: string): string {
+  const roll = flavorHash(placeId + ':sprinkle') % 1000;
+  if ((kind === 'ruin' || kind === 'cave') && roll < 125) return 'dwemer';
+  if (kind === 'volcano' && roll < 180) return 'ashland';
+  if (NATURAL.has(kind) && kind !== 'volcano' && roll < 30) return 'ashland';
+  return kit;
+}
+
 /** Natural places: the landform stays the star. */
 const NATURAL = new Set(['waterfall', 'peak', 'volcano', 'glacier', 'grove', 'spring', 'pass']);
 

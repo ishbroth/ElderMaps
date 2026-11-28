@@ -105,19 +105,23 @@ if (mode !== 'cities') {
   for (const it of items) it.style = STYLE_NAMES[(at(it.lat, it.lng) || 3) - 1] ?? 'imperial';
 }
 
-const BATCH = 4;
-let done = 0;
-for (let i = 0; i < items.length; i += BATCH) {
-  const group = items.slice(i, i + BATCH);
-  await Promise.all(group.map(async (it) => { it.intro = await wikiIntro(it.name, it.country || it.what || ''); }));
-  const result = await write(group);
-  for (const r of result) {
-    const it = group.find((g) => g.id === r.id) ?? group[result.indexOf(r)];
-    const lines = (r.lines ?? []).filter((l) => typeof l === 'string' && l.length > 20 && l.length <= 260).slice(0, 5);
-    if (!it || lines.length < 3 || lines.some((l) => BAD.test(l)) || !lines.some((l) => l.includes('{n}'))) { console.log('  skipped', r.id ?? '?'); continue; }
-    lore[it.id] = lines; done++;
+const BATCH = 4, WORKERS = 5;
+let done = 0, next = 0;
+const worker = async () => {
+  for (;;) {
+    const i = next; next += BATCH; if (i >= items.length) return;
+    const group = items.slice(i, i + BATCH);
+    await Promise.all(group.map(async (it) => { it.intro = await wikiIntro(it.name, it.country || it.what || ''); }));
+    const result = await write(group);
+    for (const r of result) {
+      const it = group.find((g) => g.id === r.id) ?? group[result.indexOf(r)];
+      const lines = (r.lines ?? []).filter((l) => typeof l === 'string' && l.length > 20 && l.length <= 260).slice(0, 5);
+      if (!it || lines.length < 3 || lines.some((l) => BAD.test(l)) || !lines.some((l) => l.includes('{n}'))) { console.log('  skipped', r.id ?? '?'); continue; }
+      lore[it.id] = lines; done++;
+    }
+    save();
+    console.log(`${Math.min(i + BATCH, items.length)}/${items.length}`, group.map((g) => g.name).join(', ').slice(0, 80));
   }
-  save();
-  console.log(`${Math.min(i + BATCH, items.length)}/${items.length}`, group.map((g) => g.name).join(', ').slice(0, 80));
-}
+};
+await Promise.all(Array.from({ length: WORKERS }, worker));
 console.log('wrote', done, 'lore entries; total', Object.keys(lore).length);
