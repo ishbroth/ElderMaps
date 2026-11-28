@@ -3,6 +3,7 @@ import Coin from './Coin';
 import Padlock from './Padlock';
 import { useEffect, useRef, useState } from 'react';
 import { glimpseCost, hasTownLegend, sceneFor } from './lib/scenes';
+import { loreFor } from './lib/loreText';
 import { kindTitle, readableInk, type Province } from './lib/lore';
 import { db } from './lib/account';
 import { GLIMPSE_MESSAGES, requestGlimpse, type Glimpse } from './lib/glimpse';
@@ -47,7 +48,10 @@ interface Props {
 
 /** The scene of a place: its story, the glimpse (the paid picture of it, arriving on a wave out of the real photograph) and, for a city, the Town Legend. */
 export default function SceneView({ style = null, gateCleared = false, purged = false, autoPurge = false, onGlimpsed, level = 0, homeCity = false, spot, province, icon, signedIn, onNeedsAccount, onSpent, onCleared, onTownLegend, onFoggedCity, onHearth, onClose }: Props) {
-  const lines = sceneFor(spot.name, spot.kind, province.id);
+  // the written lore of the place if it has some (the larger cities and the best-known sites), otherwise the general lines for its kind
+  const [written, setWritten] = useState<string[] | null>(null);
+  useEffect(() => { let live = true; void loreFor(spot.id, spot.name).then((l) => { if (live) setWritten(l); }); return () => { live = false; }; }, [spot.id, spot.name]);
+  const lines = written ?? sceneFor(spot.name, spot.kind, province.id);
   const cost = glimpseCost(spot.kind);
   const [state, setState] = useState<'idle' | 'working' | 'ready'>('idle');
   const [glimpse, setGlimpse] = useState<Glimpse | null>(null);
@@ -129,17 +133,17 @@ export default function SceneView({ style = null, gateCleared = false, purged = 
         <div className="em-card-buttons em-scene-buttons">
           {state !== 'ready' && (
             <button type="button" className="em-btn em-glimpse-btn" disabled={state === 'working'} onClick={() => void look()} title="See this place as it might stand in the realm">
-              {state === 'working' ? 'GLIMPSING…' : owned ? <>GLIMPSE <Padlock open size={14} /></> : <>GLIMPSE · <Coin size={13} /> {cost} <Padlock size={14} /></>}
+              {state === 'working' ? <>GLIMPS-<br />ING…</> : owned ? <>GLIMPSE<br /><Padlock open size={14} /></> : <>GLIMPSE<br /><Coin size={13} /> {cost} <Padlock size={14} /></>}
             </button>
           )}
           {hasTownLegend(spot.kind) && state !== 'ready' && (
             <>
-              {onFoggedCity && <button type="button" className={'em-btn em-btn-ghost' + (gateCleared ? '' : ' em-subdued')} onClick={() => { if (gateCleared) onFoggedCity(); else setProblem('CLEAR THE ENEMIES GUARDING THE CITY GATES FIRST: GLIMPSE THE CITY, THEN PURGE IT'); }} title="The fogged city: what you have had pictured, once the city's gate is cleared">ENTER THE FOG</button>}
-              <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN LEGEND</button>
+              {onFoggedCity && <button type="button" className={'em-btn em-btn-ghost' + (gateCleared ? '' : ' em-subdued')} onClick={() => { if (gateCleared) onFoggedCity(); else setProblem('CLEAR THE ENEMIES GUARDING THE CITY GATES FIRST: GLIMPSE THE CITY, THEN PURGE IT'); }} title="The fogged city: what you have had pictured, once the city's gate is cleared">ENTER<br />THE FOG</button>}
+              <button type="button" className="em-btn em-btn-ghost" onClick={onTownLegend} title="The whole city map, with every place travellers have glimpsed">TOWN<br />LEGEND</button>
             </>
           )}
           {state === 'ready' && !purged && <button type="button" className="em-btn" onClick={() => void clearOut()}>PURGE</button>}
-          {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>CHRONICLE</button>}
+          {state === 'ready' && <button type="button" className="em-btn em-btn-ghost" onClick={() => setState('idle')}>LEGEND</button>}
           {state === 'ready' && spot.kind === 'house' && onHearth && <button type="button" className="em-btn em-btn-ghost" onClick={onHearth} title="Make this address your home hearth">MAKE THIS MY HEARTH</button>}
         </div>
       </article>

@@ -854,7 +854,7 @@ export default function App() {
             <div className="em-card-buttons">
               <button type="button" className="em-btn" onClick={() => void startTravel(selected)}>FAST TRAVEL</button>
               {glimpsed.has(selected.id) && !cleared.has(selected.id) && <button type="button" className="em-btn" onClick={() => { setPurgeNow(true); setViewing(selected); }}>PURGE</button>}
-              <button type="button" className="em-btn em-btn-ghost" onClick={() => { setPurgeNow(false); setViewing(selected); }}>CHRONICLE</button>
+              <button type="button" className="em-btn em-btn-ghost" onClick={() => { setPurgeNow(false); setViewing(selected); }}>LEGEND</button>
             </div>
           </aside>
         )}
