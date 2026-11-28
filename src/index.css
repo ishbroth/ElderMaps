@@ -447,3 +447,4 @@ button { font: inherit; }
 .em-progress-wrap { margin: 10px 0 4px; text-align: center; }
 .em-progress { position: relative; height: 12px; background: rgba(0, 0, 0, 0.45); border: 1px solid var(--sky-line, rgba(201, 194, 176, 0.45)); overflow: hidden; }
 .em-progress i { display: block; height: 100%; background: linear-gradient(90deg, #7a1a06, #e5560e 55%, #ffd36a); box-shadow: 0 0 10px rgba(255, 140, 30, 0.7); transition: width 0.3s linear; }
+.em-tint-vivid { mix-blend-mode: overlay; }

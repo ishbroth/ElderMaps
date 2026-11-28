@@ -30,7 +30,7 @@ export default function TintLayer({ map, world, look, styleMap }: { map: google.
       el.style.opacity = String(Math.max(0, fade));
       if (fade <= 0) return;
       // the blur is a fixed number of pixels, which is more kilometres the further out you are
-      el.style.filter = `blur(${Math.round(Math.max(10, 38 - (zoom - 3) * 5))}px)`;
+      el.style.filter = `blur(${Math.round(Math.max(10, 38 - (zoom - 3) * 5) * (look === 'vivid' ? 0.55 : 1))}px)`;
       const world256 = 256 * 2 ** zoom;
       const mercY = (lat: number) => { const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
       const cx = ((center.lng() + 180) / 360) * world256, cy = mercY(center.lat()) * world256;
@@ -63,7 +63,7 @@ export default function TintLayer({ map, world, look, styleMap }: { map: google.
     watch.observe(el);
     schedule();
     return () => { handles.forEach((hnd) => hnd.remove()); watch.disconnect(); cancelAnimationFrame(frame); };
-  }, [map, world, styleMap]);
+  }, [map, world, styleMap, look]);
 
   return <canvas ref={canvas} className={`em-tint em-tint-${look}`} aria-hidden="true" />;
 }

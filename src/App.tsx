@@ -812,7 +812,7 @@ export default function App() {
         {local && fogMetro.current && (
           <div className="em-fog-note"><span>YOUR NEIGHBOURHOOD, AND WHAT YOU HAVE HAD PICTURED. THE REST OF {fogMetro.current.name.toUpperCase()} LIES IN FOG.</span><button type="button" className="em-btn" onClick={() => { const m = fogMetro.current; if (m) setLegend(m); }}>THE TOWN LEGEND</button></div>
         )}
-        {ready && world && !trip && look !== 'vivid' && <TintLayer map={mapRef.current} world={world} look={look} styleMap={styleMap} />}
+        {ready && world && !trip && <TintLayer map={mapRef.current} world={world} look={look} styleMap={styleMap} />}
         <div className="em-vignette" aria-hidden="true" />
         {look === 'oblivion' && !trip && <TornFrame />}
 
