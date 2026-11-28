@@ -161,7 +161,8 @@ Deno.serve(async (req) => {
     }
 
     // 4. the picture, checked against the photograph (one more try if it is not the same structure)
-    const prompt = glimpsePrompt(name, kind, kit, waterText);
+    const streetLevel = credit?.author === 'Google' || credit?.photo === 'Street-level photograph';
+    const prompt = glimpsePrompt(name, kind, kit, waterText, streetLevel);
     const skyline = kind === 'crest' || kind === 'town';
     let png = await generate(photo, prompt);
     // a city is checked against the photograph's skyline, and made again (up to twice) if its towers have wandered

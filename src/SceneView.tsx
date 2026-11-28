@@ -112,7 +112,7 @@ export default function SceneView({ style = null, gateCleared = false, purged = 
             <div className="em-scene-lore">{lines.map((l, i) => <p key={i}>{l}</p>)}</div>
           </>
         )}
-        {state === 'working' && <p className="em-fine em-wave-note">THE RIFT OPENS… A MOMENT</p>}
+        {state === 'working' && <GlimpseProgress long={spot.kind === 'crest' || spot.kind === 'town'} />}
         {paidLine && <p className="em-fine">{paidLine}</p>}
         {xpLine && <p className="em-fine">{xpLine}</p>}
         {run && glimpse && (
@@ -150,8 +150,9 @@ export default function SceneView({ style = null, gateCleared = false, purged = 
 /** The picture arriving: a wave of light rolls out from the middle, and the real photograph of the place dissolves into the realm's version of it. */
 /** The photograph holds a moment, then a rift tears open in it like the gate of Oblivion: cracks of white fire fan out from the middle, the picture rips open along a jagged edge, a red-gold vortex
  *  of fire turns inside, throws embers, and fades to show the realm's own picture beneath. */
-const HOLD_MS = 1900, CRACK_MS = 1100, OPEN_MS = 2900;
+const HOLD_MS = 1100, CRACK_MS = 1500, OPEN_MS = 2300, STAND_MS = 800, REVEAL_MS = 1500;
 const ease = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x));
+const lerp = (p: number, q: number, t: number): number => p + (q - p) * t;
 export function Reveal({ glimpse, name }: { glimpse: Glimpse; name: string }) {
   const [loaded, setLoaded] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
@@ -160,93 +161,138 @@ export function Reveal({ glimpse, name }: { glimpse: Glimpse; name: string }) {
   const by = glimpse.discovered?.by;
   const [big, setBig] = useState(false);
 
+  // The gate of Oblivion: a thin line of light cracks the photograph open, widens into a tall churning portal of fire with tendrils of flame curling off its sides, holds, and then the
+  // portal grows to fill the picture and the realm's own version is what is left.
   useEffect(() => {
     const box = frame.current, img = after.current, cv = canvas.current;
     if (!loaded || !box || !img || !cv) return;
     const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (still || !glimpse.before) { img.style.opacity = '1'; img.style.clipPath = 'none'; if (!still) { /* no photograph to tear: the realm simply appears */ } return; }
+    if (still || !glimpse.before) { img.style.opacity = '1'; img.style.clipPath = 'none'; return; }
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = box.clientWidth, H = box.clientHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     const g = cv.getContext('2d') as CanvasRenderingContext2D;
     g.scale(dpr, dpr);
-    const cx = W * 0.5, cy = H * 0.55;
-    const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) * 1.25;
-    // the jaggedness of the tear is fixed for this opening
-    const N = 96;
-    const jag = Array.from({ length: N }, (_, i) => 0.82 + 0.3 * Math.random() + (i % 7 === 0 ? 0.22 * Math.random() : 0));
-    const cracks = Array.from({ length: 9 }, (_, k) => {
-      const ang = (k / 9) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-      const pts: [number, number][] = [[0, 0]];
-      let r = 0, a2 = ang;
-      for (let i = 0; i < 12; i++) { r += 0.09 + Math.random() * 0.06; a2 += (Math.random() - 0.5) * 0.7; pts.push([Math.cos(a2) * r, Math.sin(a2) * r * 0.85]); }
-      return pts;
-    });
+    const cx = W * 0.5, cy = H * 0.52;
+    const halfH = H * 0.4, halfW = Math.min(W * 0.17, H * 0.26);
+    const N = 90;
+    const jag = Array.from({ length: N }, () => 0.94 + 0.12 * Math.random());
+    // the crack: a jagged vertical line with small fissures off it
+    const crack: [number, number][] = [];
+    for (let i = 0; i <= 28; i++) crack.push([(Math.random() - 0.5) * 14, (i / 28 - 0.5) * 2]);
+    const fissures = Array.from({ length: 9 }, () => { const at = Math.floor(3 + Math.random() * 22), dir = Math.random() < 0.5 ? -1 : 1; const pts: [number, number][] = []; let x = crack[at][0], y = crack[at][1]; for (let k = 0; k < 4; k++) { x += dir * (6 + Math.random() * 14); y += (Math.random() - 0.5) * 0.06; pts.push([x, y]); } return { at, pts }; });
     const embers: { x: number; y: number; vx: number; vy: number; life: number; size: number }[] = [];
+    const tendrils = Array.from({ length: 12 }, (_, i) => ({ side: i % 2 ? 1 : -1, y: (Math.random() - 0.5) * 0.7, len: 0.12 + Math.random() * 0.2, seed: Math.random() * 10, w: 1.2 + Math.random() * 1.6 }));
     let raf = 0;
     const t0 = performance.now();
-    const edge = (r: number, t: number): [number, number][] => Array.from({ length: N }, (_, i) => {
+
+    const outline = (A: number, B: number, t: number): [number, number][] => Array.from({ length: N }, (_, i) => {
       const ang = (i / N) * Math.PI * 2;
-      const wob = 1 + 0.07 * Math.sin(ang * 5 + t * 0.003) + 0.05 * Math.sin(ang * 11 - t * 0.004);
-      const rr = r * jag[i] * wob;
-      return [cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr * 0.92];
+      const wob = 1 + 0.04 * Math.sin(ang * 6 + t * 0.004) + 0.03 * Math.sin(ang * 13 - t * 0.006);
+      return [cx + Math.cos(ang) * A * wob * jag[i], cy + Math.sin(ang) * B * wob * jag[i]];
     });
+    const trace = (pts: [number, number][]) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
+
+    /** A tendril of flame leaving the edge of the portal at height `yy`, curling out and up, flickering. */
+    const tendril = (A: number, B: number, tn: (typeof tendrils)[number], t: number, alpha: number) => {
+      const yy = cy + tn.y * B, k = Math.sqrt(Math.max(0, 1 - ((yy - cy) / B) ** 2));
+      let x = cx + tn.side * A * k, y = yy;
+      const len = tn.len * W * (0.75 + 0.25 * Math.sin(t * 0.012 + tn.seed));
+      g.beginPath(); g.moveTo(x, y);
+      const segs = 9;
+      for (let i = 1; i <= segs; i++) {
+        const f = i / segs;
+        x += tn.side * (len / segs) * (0.8 + 0.5 * Math.sin(tn.seed + i * 1.7 + t * 0.01));
+        y += Math.sin(tn.seed * 2 + i * 1.1 + t * 0.013) * len * 0.07 - f * len * 0.045;
+        g.lineTo(x, y);
+      }
+      g.shadowColor = '#ff7a10'; g.shadowBlur = 14;
+      g.strokeStyle = `rgba(255,226,150,${0.8 * alpha})`; g.lineWidth = tn.w; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke();
+      g.shadowBlur = 0;
+      g.strokeStyle = `rgba(255,120,30,${0.45 * alpha})`; g.lineWidth = tn.w * 3; g.stroke();
+    };
+
+    const portal = (A: number, B: number, t: number, o: number, fade: number) => {
+      const pts = outline(A, B, t);
+      // the glow it throws on the air
+      const halo = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(A, B) * 2.1);
+      halo.addColorStop(0, `rgba(255,150,40,${0.55 * o * fade})`); halo.addColorStop(1, 'rgba(120,10,0,0)');
+      g.fillStyle = halo; g.fillRect(0, 0, W, H);
+      // the fire inside: bright at the heart, red at the rim, with ribbons of flame running up it and a slow turn
+      g.save(); trace(pts); g.clip();
+      g.globalAlpha = fade;
+      const fill = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(A, B * 0.9));
+      fill.addColorStop(0, '#fff2b8'); fill.addColorStop(0.3, '#ffb53a'); fill.addColorStop(0.65, '#e5560e'); fill.addColorStop(1, '#8a1604');
+      g.fillStyle = fill; g.fillRect(cx - A * 1.3, cy - B * 1.3, A * 2.6, B * 2.6);
+      g.globalCompositeOperation = 'lighter';
+      for (let r = 0; r < 8; r++) {
+        g.beginPath();
+        for (let yy = -B; yy <= B; yy += 7) {
+          const x = cx + (r - 3.5) * A * 0.26 + Math.sin(yy * 0.021 + t * 0.0045 * (1 + r * 0.17) + r * 1.9) * A * 0.2;
+          if (yy === -B) g.moveTo(x, cy + yy); else g.lineTo(x, cy + yy - ((t * 0.05 * (1 + r * 0.1)) % 12));
+        }
+        g.strokeStyle = `rgba(255,${190 + (r % 3) * 20},90,0.2)`; g.lineWidth = Math.max(1.5, A * 0.13); g.stroke();
+      }
+      const core = g.createRadialGradient(cx, cy, 0, cx, cy, A * 0.7);
+      core.addColorStop(0, 'rgba(255,250,215,0.75)'); core.addColorStop(1, 'rgba(255,200,80,0)');
+      g.fillStyle = core; g.fillRect(cx - A, cy - B, A * 2, B * 2);
+      g.restore();
+      // the rim burns
+      trace(pts); g.shadowColor = '#ff5a00'; g.shadowBlur = 24; g.strokeStyle = `rgba(255,226,150,${0.95 * fade})`; g.lineWidth = 3.2; g.stroke(); g.shadowBlur = 0;
+      g.strokeStyle = `rgba(120,30,5,${0.8 * fade})`; g.lineWidth = 7; g.globalCompositeOperation = 'destination-over'; trace(pts); g.stroke(); g.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < 3; i++) { const [x, y] = pts[Math.floor(Math.random() * N)]; embers.push({ x, y, vx: (x - cx) / A * (0.4 + Math.random() * 0.8), vy: -0.4 - Math.random() * 1.2, life: 1, size: 1 + Math.random() * 2.4 }); }
+      return pts;
+    };
+
     const draw = (now: number) => {
       const t = now - t0;
       g.clearRect(0, 0, W, H);
       const tc = t - HOLD_MS;
       if (tc < 0) { raf = requestAnimationFrame(draw); return; }
-      const shake = tc < CRACK_MS + OPEN_MS * 0.5 ? Math.min(1, tc / 400) * 2.2 : 0;
+      const open = ease((tc - CRACK_MS) / OPEN_MS);                 // 0 to 1 while the line widens into the gate
+      const reveal = ease((tc - CRACK_MS - OPEN_MS - STAND_MS) / REVEAL_MS);
+      const shake = tc < CRACK_MS + OPEN_MS * 0.6 ? Math.min(1, tc / 500) * 2.4 : 0;
       box.style.transform = shake ? `translate(${(Math.random() - 0.5) * shake}px, ${(Math.random() - 0.5) * shake}px)` : '';
+
       if (tc < CRACK_MS) {
-        // the cracks: fissures of white fire fan out from the middle, and the air goes red
-        const p = ease(tc / CRACK_MS);
-        const glow = g.createRadialGradient(cx, cy, 0, cx, cy, W * 0.5 * p);
-        glow.addColorStop(0, `rgba(255,120,30,${0.55 * p})`); glow.addColorStop(1, 'rgba(120,10,0,0)');
-        g.fillStyle = glow; g.fillRect(0, 0, W, H);
-        for (const c of cracks) {
-          const upto = Math.floor(c.length * p) + 1;
-          g.beginPath();
-          c.slice(0, upto).forEach(([x, y], i) => { const px = cx + x * W * 0.6, py = cy + y * W * 0.6; if (i === 0) g.moveTo(px, py); else g.lineTo(px, py); });
-          g.shadowColor = '#ff5a00'; g.shadowBlur = 14; g.strokeStyle = '#ffe9b8'; g.lineWidth = 1.6; g.stroke();
-          g.shadowBlur = 0;
+        // the crack: a thin line of white-gold light tearing the picture, longer and brighter as it goes, with fissures off it
+        const p = ease(tc / CRACK_MS), len = lerp(0.04, 0.5, p) * halfH * 2, n = Math.max(2, Math.floor(crack.length * Math.min(1, p * 1.15)));
+        const halo = g.createRadialGradient(cx, cy, 0, cx, cy, len);
+        halo.addColorStop(0, `rgba(255,120,30,${0.4 * p})`); halo.addColorStop(1, 'rgba(120,10,0,0)');
+        g.fillStyle = halo; g.fillRect(0, 0, W, H);
+        const at = (k: [number, number]): [number, number] => [cx + k[0] * (0.4 + p), cy + k[1] * len * 0.5];
+        for (const fz of fissures) {
+          if (fz.at >= n) continue;
+          const [x0, y0] = at(crack[fz.at]); g.beginPath(); g.moveTo(x0, y0);
+          for (const [dx, dy] of fz.pts) g.lineTo(x0 + dx * p, y0 + dy * len);
+          g.shadowColor = '#ff5a00'; g.shadowBlur = 10; g.strokeStyle = `rgba(255,235,190,${0.85 * p})`; g.lineWidth = 1.1; g.stroke(); g.shadowBlur = 0;
         }
+        g.beginPath(); crack.slice(0, n).forEach((k, i) => { const [x, y] = at(k); if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+        g.shadowColor = '#ff7a10'; g.shadowBlur = 18; g.strokeStyle = 'rgba(255,255,235,0.95)'; g.lineWidth = 1.2 + 1.8 * p; g.stroke(); g.shadowBlur = 0;
         raf = requestAnimationFrame(draw); return;
       }
-      const p = Math.min(1, (tc - CRACK_MS) / OPEN_MS);
-      const r = ease(p) * maxR + 6;
-      const pts = edge(r, t);
-      const poly = 'polygon(' + pts.map(([x, y]) => `${x}px ${y}px`).join(',') + ')';
-      img.style.opacity = '1';
-      img.style.clipPath = p >= 1 ? 'none' : poly;
-      // the vortex inside the tear: a dark core, red and gold arms turning, fading out as the realm shows through
-      const vortex = 1 - ease((p - 0.4) / 0.6);
-      if (vortex > 0.01 && p < 1) {
-        g.save();
-        g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.clip();
-        const fill = g.createRadialGradient(cx, cy, 0, cx, cy, r);
-        fill.addColorStop(0, `rgba(8,0,0,${0.98 * vortex})`); fill.addColorStop(0.3, `rgba(110,4,0,${0.96 * vortex})`); fill.addColorStop(0.65, `rgba(220,50,0,${0.92 * vortex})`); fill.addColorStop(1, `rgba(255,150,30,${0.88 * vortex})`);
-        g.fillStyle = fill; g.fillRect(0, 0, W, H);
-        for (let k = 0; k < 7; k++) {
-          g.beginPath();
-          const base = (k / 7) * Math.PI * 2 + t * 0.0021;
-          for (let i = 0; i <= 40; i++) { const f = i / 40, ang = base + f * 3.2, rr = f * r; const x = cx + Math.cos(ang) * rr, y = cy + Math.sin(ang) * rr * 0.92; if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); }
-          g.strokeStyle = `rgba(255,${150 + k * 12},60,${0.45 * vortex})`; g.lineWidth = 3 + (k % 3); g.stroke();
-        }
-        g.restore();
+
+      // the gate: as wide as `open` allows, and (once the standing moment has passed) growing until it is the whole picture
+      const grow = 1 + reveal * 7;
+      const A = lerp(1.5, halfW, open) * grow, B = lerp(halfH * 0.18, halfH, Math.min(1, open * 1.5)) * grow;
+      const fade = 1 - ease(reveal * 1.6 - 0.1);
+      let pts: [number, number][];
+      if (reveal > 0) {
+        img.style.opacity = '1';
+        const edgeNow = outline(A, B, t);
+        img.style.clipPath = reveal >= 1 ? 'none' : 'polygon(' + edgeNow.map(([x, y]) => `${x}px ${y}px`).join(',') + ')';
       }
-      // the torn edge burns
-      if (p < 1) {
-        g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath();
-        g.shadowColor = '#ff4a00'; g.shadowBlur = 26; g.strokeStyle = `rgba(255,226,150,${0.95 * (1 - ease((p - 0.8) / 0.2))})`; g.lineWidth = 3.2; g.stroke();
-        g.shadowBlur = 0;
-        // embers thrown off the edge
-        for (let i = 0; i < 4; i++) { const [x, y] = pts[Math.floor(Math.random() * N)]; embers.push({ x, y, vx: (x - cx) / r * (0.6 + Math.random()), vy: (y - cy) / r * (0.6 + Math.random()) - 0.5, life: 1, size: 1 + Math.random() * 2.2 }); }
+      if (reveal < 1) {
+        pts = portal(A, B, t, Math.max(open, 0.05), reveal > 0 ? Math.max(0, fade) * 0.9 + 0.1 * (1 - reveal) : 1);
+        void pts;
+        // the tendrils of flame curling off the sides, near the middle, appearing as the gate opens and drawn in as the picture takes over
+        const ta = ease((open - 0.3) / 0.5) * (1 - ease(reveal * 2));
+        if (ta > 0.02) for (const tn of tendrils) tendril(A, B, tn, t, ta);
       }
-      for (const e of embers) { e.x += e.vx; e.y += e.vy; e.vy += 0.015; e.life -= 0.018; }
+      for (const e of embers) { e.x += e.vx; e.y += e.vy; e.vy += 0.012; e.life -= 0.016; }
       for (let i = embers.length - 1; i >= 0; i--) if (embers[i].life <= 0) embers.splice(i, 1);
       for (const e of embers) { g.fillStyle = `rgba(255,${120 + Math.floor(e.life * 100)},40,${Math.max(0, e.life)})`; g.beginPath(); g.arc(e.x, e.y, e.size, 0, Math.PI * 2); g.fill(); }
-      if (p >= 1 && embers.length === 0) { box.style.transform = ''; g.clearRect(0, 0, W, H); return; }
+      if (reveal >= 1 && embers.length === 0) { box.style.transform = ''; g.clearRect(0, 0, W, H); return; }
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -276,5 +322,21 @@ export function Reveal({ glimpse, name }: { glimpse: Glimpse; name: string }) {
         {glimpse.credit?.author === 'Google' && <small>Made from Google Street View imagery. The original is not kept.</small>}
       </figcaption>
     </figure>
+  );
+}
+
+/** A bar that fills while the picture is being made. The server does not report its progress, so it fills toward the end the way a typical wait goes (a big city takes longer), and waits at the end until the picture arrives. */
+function GlimpseProgress({ long }: { long: boolean }) {
+  const [p, setP] = useState(0.02);
+  useEffect(() => {
+    const t0 = performance.now(), tau = long ? 38 : 20;
+    const timer = window.setInterval(() => setP(Math.min(0.96, 1 - Math.exp(-((performance.now() - t0) / 1000) / tau))), 250);
+    return () => window.clearInterval(timer);
+  }, [long]);
+  return (
+    <div className="em-progress-wrap">
+      <div className="em-progress" role="progressbar" aria-label="The picture is being made" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}><i style={{ width: `${Math.round(p * 100)}%` }} /></div>
+      <p className="em-fine em-wave-note">THE RIFT OPENS… {Math.round(p * 100)}%</p>
+    </div>
   );
 }

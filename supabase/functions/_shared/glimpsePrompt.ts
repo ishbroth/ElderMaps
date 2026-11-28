@@ -110,7 +110,25 @@ function citySeasoning(name: string, kit: string): string {
   return `FANTASY TOUCHES, kept in proportion: the real skyline is still the main thing and most buildings are simply restyled as above. But, so that it reads as a place in the realm and not only a re-skinned city, you MAY replace a few of the real buildings (never more than one in five, and only one or two in a small skyline) with buildings of this land standing exactly where the real building stood and at about the SAME HEIGHT, width and footprint, so they sit in the skyline as if they had always been there, matching its light, scale and perspective. Choose from: ${picks.join('; or ')}. Never replace the most famous, tallest landmark of the skyline: it stays recognisable. Also add a few ornate, ancient or ruined touches in the style of this land (weathered statues and carved crowns on rooftops, broken arches, ivy-grown ruined towers, banners, braziers, old stone ornament) without crowding the picture, and without changing the camera angle, the horizon or the overall silhouette.`;
 }
 
-export function glimpsePrompt(name: string, kind: string, kit: string, water?: string): string {
+/** The one thing of the ancient world added to a street picture with nothing in it (no insertion of buildings: an object that belongs in the landscape), by style. */
+const EMPTY_VIEW_OBJECT: Record<string, string> = {
+  nordic: 'a ruined stone watchtower, a ring of standing stones, a carved rune-stone altar or the mouth of a barrow',
+  breton: 'a ruined keep tower overgrown with ivy, a weathered stone cross, a half-fallen arch or a hollow in the rock like a cave entrance',
+  imperial: 'a half-ruined Ayleid pillar and arch with a faint blue glow, a roadside stone shrine, or a weathered stone watchtower',
+  redguard: 'a sun-bleached ruined minaret, a sandstone altar or a half-buried arch',
+  khajiit: 'an eroded stepped sandstone shrine with a moon carving, or an ancient broken arch',
+  hlaalu: 'a weathered stone shrine or a ruined gate of pale plaster and stone',
+  telvanni: 'a single great glowing mushroom with a doorway, or a bone and chitin ruin',
+  redoran: 'a ruined dome of dark shell and mudbrick, or a lone shell-like watchtower',
+  velothi: 'a ruined arch of dark carved stone, or a weathered altar with incense smoke',
+  argonian: 'a moss-covered ancient totem, sunken ziggurat steps or the mouth of a flooded ruin',
+  bosmer: 'a great hollow tree with a carved door and a rope bridge, or a ring of carved wooden totems',
+  altmer: 'a slender golden crystal pillar shrine, or a ruined white arch with gold inlay',
+  ayleid: 'a twisted ruined Ayleid spire or a leaning glowing arch',
+  orcish: 'a ruined iron-bound stone gate, a tusk-topped stone altar or a cave mouth with a forge glow',
+};
+
+export function glimpsePrompt(name: string, kind: string, kit: string, water?: string, streetLevel?: boolean): string {
   const style = KITS[kit] ?? KITS.imperial;
   const hint = KIND_HINT[kind] ?? KIND_HINT.landmark;
   return [
@@ -119,6 +137,7 @@ export function glimpsePrompt(name: string, kind: string, kit: string, water?: s
     kind === 'crest' || kind === 'town' ? citySeasoning(name, kit) : '',
     NATURAL.has(kind) ? `This is a natural place, and the landform itself stays the star: keep its exact shape and most of the frame natural. Give it just ONE touch of the ancient, in the style above and sized to the feature (small against a mountain, larger beside a stream): ${NATURAL_FLAVORS[kind][flavorHash(name) % NATURAL_FLAVORS[kind].length]}. Never hide or replace the natural feature; do not add a town or modern buildings.` : '',
     'IMPORTANT: keep the exact composition, camera angle and framing of the photograph, and keep the overall shape, size, proportions and layout of the main building or landscape, so anyone who knows the place would still recognise it; only its materials, roofs, details and surroundings are rebuilt in the fantasy style. Do NOT replace it with a generic building.',
+    streetLevel && !NATURAL.has(kind) ? `If this street-level photograph shows no good, clearly visible building (only a road, trees, grass, a fence, a parking lot or an empty view), then do NOT invent or insert buildings: keep the real landscape and its composition exactly, and add just ONE touch of the ancient world that belongs in that environment and fits its scale and perspective, such as ${EMPTY_VIEW_OBJECT[kit] ?? 'a ruined tower, an old altar or the mouth of a cave'}. If there IS a clear building in the photograph, rebuild that building as described instead and add nothing extra.` : '',
     water ? `${water} Keep it in the same style as the rest, and keep it modest so it sits naturally with the building.` : '',
     'Remove anything modern: cars, wires, road signs, glass-and-steel, modern clothing, text and logos. No people in the foreground.',
     'Painterly, realistic fantasy-game art with rich textures and soft atmospheric light, and a few faint floating motes of light in the air. The image must fill the whole frame to its edges: no glowing border, no vignette, no frame, no edge effect. No text, no letters, no watermark.',
