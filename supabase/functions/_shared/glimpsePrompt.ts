@@ -44,10 +44,11 @@ const RUIN_KIT_OF_STYLE: Record<string, string> = { nordic: 'barrow', breton: 'a
 /** The kit for a place in a given style's area: caves, ruins and natural places get that area's ancient-ruin kit, everything else the style itself. */
 export const kitForStyle = (kind: string, style: string): string => (kind === 'cave' || kind === 'ruin' || NATURAL.has(kind) ? RUIN_KIT_OF_STYLE[style] : style) ?? 'imperial';
 
-/** A sprinkling of two styles worldwide, whatever the region: the brass-machine ruins (the old-engineers' style) among about one ruin or cave in eight, and a few natural places and old sites too (about one in sixteen), with a very few natural places in the ash-land style (about one in thirty, and more of the volcanoes). The same place always gets the same answer. */
+/** A sprinkling of two styles worldwide, whatever the region: the brass-machine ruins (the old-engineers' style) among about one ruin in eleven and one cave in twenty, and a few natural places and old sites too (about one in sixteen), with a very few natural places in the ash-land style (about one in thirty, and more of the volcanoes). The same place always gets the same answer. */
 export function sprinkleKit(kind: string, kit: string, placeId: string): string {
   const roll = flavorHash(placeId + ':sprinkle') % 1000;
-  if (kind === 'ruin' || kind === 'cave') return roll < 125 ? 'dwemer' : kit;                       // about one in eight
+  if (kind === 'cave') return roll < 50 ? 'dwemer' : kit;                                          // about one in twenty
+  if (kind === 'ruin') return roll < 90 ? 'dwemer' : kit;                                          // about one in eleven
   if (kind === 'volcano') return roll < 180 ? 'ashland' : roll < 260 ? 'dwemer' : kit;              // a few ash-land, a few brass ruins
   if (NATURAL.has(kind)) return roll < 30 ? 'ashland' : roll < 90 ? 'dwemer' : kit;                // very few ash-land, a few brass ruins
   if (kind === 'fort' || kind === 'shrine' || kind === 'tower' || kind === 'stones') return roll < 80 ? 'dwemer' : kit; // the odd old site
